@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Ivy.EFCore.BigQuery.Storage.Internal
 {
-    internal class BigQuerySqlGenerationHelper : RelationalSqlGenerationHelper
+    public class BigQuerySqlGenerationHelper : RelationalSqlGenerationHelper
     {
         //private string _escapeIdentifier(string identifier) => identifier.Replace("`", "``");
 
@@ -11,8 +11,12 @@ namespace Ivy.EFCore.BigQuery.Storage.Internal
         {
         }
 
+        public override string DelimitIdentifier(string name, string? schema)
+            => schema == null
+                ? DelimitIdentifier(name)
+                : $"{DelimitIdentifier(schema)}.{DelimitIdentifier(name)}";
+
         // https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical
-        ///
         public override string DelimitIdentifier(string name) => $"`{name.Replace("`", "``")}`";
 
         public override void DelimitIdentifier(StringBuilder builder, string identifier)
@@ -22,19 +26,13 @@ namespace Ivy.EFCore.BigQuery.Storage.Internal
             builder.Append('`');
         }
         
-        //public override string DelimitIdentifier(string? name, string? schema)
-        //    => schema == null
-        //        ? DelimitIdentifier(name)
-        //        : $"{DelimitIdentifier(schema)}.{DelimitIdentifier(name)}";
-
 
         public override void GenerateParameterName(StringBuilder builder, string name)
             => builder.Append('@').Append(name);
 
-        public override string BatchTerminator => ""; //todo test
+        public override string BatchTerminator => "";
 
         public override string StartTransactionStatement
             => "BEGIN TRANSACTION" + StatementTerminator;
-
     }
 }
