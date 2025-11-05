@@ -369,3 +369,4 @@ FodyWeavers.xsd
 .idea/
 
 src/Ivy.EFCore.BigQuery.Sample/
+doc/

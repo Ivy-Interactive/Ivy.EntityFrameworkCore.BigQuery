@@ -38,16 +38,13 @@ namespace Ivy.EFCore.BigQuery.Extensions
 
         public static IServiceCollection AddEntityFrameworkBigQuery(this IServiceCollection serviceCollection)
         {
-
             var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
-
               .TryAdd<LoggingDefinitions, BigQueryLoggingDefinitions>()
               .TryAdd<IDatabaseProvider, DatabaseProvider<BigQueryOptionsExtension>>()
               .TryAdd<IRelationalTypeMappingSource, BigQueryTypeMappingSource>()
               .TryAdd<ISqlGenerationHelper, BigQuerySqlGenerationHelper>()
               .TryAdd<IRelationalAnnotationProvider, RelationalAnnotationProvider>()
               .TryAdd<IProviderConventionSetBuilder, BigQueryConventionSetBuilder>()
-              //.TryAdd<IModelValidator, BigQueryModelValidator>()
               .TryAdd<IModificationCommandBatchFactory, BigQueryModificationCommandBatchFactory>()
               .TryAdd<IRelationalDatabaseCreator, BigQueryDatabaseCreator>()
               .TryAdd<IHistoryRepository, BigQueryHistoryRepository>()
@@ -57,8 +54,7 @@ namespace Ivy.EFCore.BigQuery.Extensions
               .TryAdd<IUpdateSqlGenerator, BigQueryUpdateSqlGenerator>()
               .TryAdd<ISqlExpressionFactory, BigQuerySqlExpressionFactory>()
               .TryAdd<IMethodCallTranslatorProvider, BigQueryMethodCallTranslatorProvider>()
-              //https://learn.microsoft.com/en-us/dotnet/framework/data/adonet/ef/language-reference/method-based-query-syntax-examples-aggregate-operators
-              //.TryAdd<IAggregateMethodCallTranslatorProvider, BigQueryAggregateMethodCallTranslatorProvider>() //todo
+              .TryAdd<IAggregateMethodCallTranslatorProvider, BigQueryAggregateMethodCallTranslatorProvider>()
               .TryAdd<IQuerySqlGeneratorFactory, BigQueryQuerySqlGeneratorFactory>()
               .TryAdd<IExecutionStrategyFactory, BigQueryExecutionStrategyFactory>()
               .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, BigQueryQueryableMethodTranslatingExpressionVisitorFactory>()              
