@@ -256,9 +256,6 @@ namespace Ivy.Data.BigQuery
                 apiValue = null;
             }
 
-            // Handle BigQueryNumeric for BigNumeric parameters - keep as-is
-            // The Google Cloud BigQuery library expects BigQueryNumeric for BigNumeric parameters
-
             else if (apiValue is Stream streamValue)
             {
                 byte[] streamBytes;
@@ -303,6 +300,11 @@ namespace Ivy.Data.BigQuery
             else if (apiValue is DateOnly dateOnlyValue)
             {
                 apiValue = dateOnlyValue.ToDateTime(TimeOnly.MinValue);
+            }
+
+            else if (apiValue is Guid guidValue)
+            {
+                apiValue = guidValue.ToString();
             }
 
             return new Google.Cloud.BigQuery.V2.BigQueryParameter(name, type.Value, apiValue);
