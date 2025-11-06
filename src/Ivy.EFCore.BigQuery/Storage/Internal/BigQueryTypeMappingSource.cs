@@ -1,9 +1,9 @@
 ﻿using Google.Cloud.BigQuery.V2;
-using Ivy.EFCore.BigQuery.Storage.Internal.Mapping;
+using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Collections.Concurrent;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
     public class BigQueryTypeMappingSource : RelationalTypeMappingSource
     {

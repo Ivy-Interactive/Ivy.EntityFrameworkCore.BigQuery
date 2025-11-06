@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities
 {
     public class BigQueryNorthwindTestStoreFactory : BigQueryTestStoreFactory
     {

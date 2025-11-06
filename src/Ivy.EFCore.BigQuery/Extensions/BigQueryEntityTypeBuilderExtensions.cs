@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Ivy.EFCore.BigQuery.Metadata.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 
-namespace Ivy.EFCore.BigQuery.Extensions
+namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
 {
     /// <summary>
     /// BigQuery-specific extension methods for <see cref="EntityTypeBuilder{TEntity}"/>.

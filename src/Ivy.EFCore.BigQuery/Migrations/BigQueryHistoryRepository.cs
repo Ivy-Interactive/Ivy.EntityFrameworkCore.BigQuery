@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 
 
-namespace Ivy.EFCore.BigQuery.Migrations
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class BigQueryHistoryRepository : HistoryRepository
     {

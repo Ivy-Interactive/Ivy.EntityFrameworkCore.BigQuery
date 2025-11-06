@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal.Mapping
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     public class BigQueryStringTypeMapping : StringTypeMapping
     {

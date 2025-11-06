@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Reflection;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 /// <summary>
 ///     Provides translation services for string member access to BigQuery SQL functions.

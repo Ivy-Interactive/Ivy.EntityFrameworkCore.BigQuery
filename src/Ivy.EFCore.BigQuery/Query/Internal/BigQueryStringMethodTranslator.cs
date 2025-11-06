@@ -6,7 +6,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 /// <summary>
 ///     Provides translation services for string instance methods to BigQuery SQL functions.

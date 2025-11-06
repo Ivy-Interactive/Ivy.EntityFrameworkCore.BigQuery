@@ -1,8 +1,8 @@
-﻿using Ivy.EFCore.BigQuery.Infrastructure.Internal;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace Ivy.EFCore.BigQuery.Infrastructure;
+namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 
 public class BigQueryModelCacheKeyFactory : IModelCacheKeyFactory
 {

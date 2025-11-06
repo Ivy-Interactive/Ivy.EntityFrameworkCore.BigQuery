@@ -1,9 +1,9 @@
-using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Query
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query
 {
     public class NorthwindQueryBigQueryFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
         where TModelCustomizer : ITestModelCustomizer, new()

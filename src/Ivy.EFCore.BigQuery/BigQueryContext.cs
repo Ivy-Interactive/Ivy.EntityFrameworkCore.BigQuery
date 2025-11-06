@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 
-namespace Ivy.EFCore.BigQuery
+namespace Ivy.EntityFrameworkCore.BigQuery
 {
     public class BigQueryContext : DbContext
     {

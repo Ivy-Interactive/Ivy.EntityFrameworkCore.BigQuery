@@ -1,9 +1,9 @@
-﻿using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
+﻿using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests;
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests;
 
 public class BuiltInDataTypesBigQueryTest : BuiltInDataTypesTestBase<BuiltInDataTypesBigQueryTest.BuiltInDataTypesBigQueryFixture>
 {

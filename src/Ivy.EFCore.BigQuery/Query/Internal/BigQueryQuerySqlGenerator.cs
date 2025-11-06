@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Linq.Expressions;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 {
     public class BigQueryQuerySqlGenerator : QuerySqlGenerator
     {

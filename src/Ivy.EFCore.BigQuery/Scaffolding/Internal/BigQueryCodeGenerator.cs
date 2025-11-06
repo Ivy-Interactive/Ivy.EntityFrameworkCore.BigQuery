@@ -1,8 +1,8 @@
-﻿using Ivy.EFCore.BigQuery.Extensions;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 
-namespace Ivy.EFCore.BigQuery.Scaffolding.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
 {
     public class BigQueryCodeGenerator : ProviderCodeGenerator
     {

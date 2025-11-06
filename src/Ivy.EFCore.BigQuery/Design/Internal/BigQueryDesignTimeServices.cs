@@ -1,5 +1,5 @@
-﻿using Ivy.EFCore.BigQuery.Extensions;
-using Ivy.EFCore.BigQuery.Scaffolding.Internal;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 [assembly: DesignTimeProviderServices("Ivy.EFCore.BigQuery.Design.Internal.BigQueryDesignTimeServices")]
 
-namespace Ivy.EFCore.BigQuery.Design.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Design.Internal
 {
     public class BigQueryDesignTimeServices : IDesignTimeServices
     {

@@ -1,4 +1,4 @@
-﻿using Ivy.EFCore.BigQuery.Infrastructure.Internal;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.Infrastructure
+namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure
 {
     public class BigQueryDbContextOptionsBuilder : RelationalDbContextOptionsBuilder<BigQueryDbContextOptionsBuilder, BigQueryOptionsExtension>
     {

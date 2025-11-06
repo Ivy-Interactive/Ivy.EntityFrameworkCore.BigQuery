@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Reflection;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 /// <summary>
 /// Translates LINQ aggregate methods (Count, Sum, Average, Min, Max) to BigQuery-specific SQL.

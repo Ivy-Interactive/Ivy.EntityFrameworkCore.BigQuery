@@ -2,10 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Buffers.Text;
-using Ivy.EFCore.BigQuery.Infrastructure;
-using Ivy.EFCore.BigQuery.Infrastructure.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 
-namespace Ivy.EFCore.BigQuery.Extensions
+namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
 {
     public static class BigQueryDbContextOptionsBuilderExtensions
     {

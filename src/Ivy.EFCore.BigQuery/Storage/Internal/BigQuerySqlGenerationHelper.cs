@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
 using System.Text;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
     public class BigQuerySqlGenerationHelper : RelationalSqlGenerationHelper
     {

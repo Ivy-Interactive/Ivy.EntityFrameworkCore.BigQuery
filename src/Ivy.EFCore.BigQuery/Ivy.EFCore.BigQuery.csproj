@@ -4,6 +4,14 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>Ivy.EFCore.BigQuery</Title>
+    <Description>BigQuery database provider for Entity Framework Core. </Description>
+    <RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EFCore.BigQuery</RepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageTags>BigQuery database</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +21,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
+    <None Include="..\..\Readme.MD" pack="true" PackagePath="." />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>none</IncludeAssets>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="IncludeReferencedProjectInPackage" DependsOnTargets="ResolveProjectReferences" BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <None Include="@(ReferenceCopyLocalPaths)" Pack="true" PackagePath="lib/$(TargetFramework)" Visible="false" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+    </ItemGroup>
+  </Target>
 
 </Project>

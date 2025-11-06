@@ -1,12 +1,12 @@
 ﻿using Ivy.Data.BigQuery;
-using Ivy.EFCore.BigQuery.Infrastructure.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
 using System.Data.Common;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
     public class BigQueryRelationalConnection : RelationalConnection, IBigQueryRelationalConnection
     {

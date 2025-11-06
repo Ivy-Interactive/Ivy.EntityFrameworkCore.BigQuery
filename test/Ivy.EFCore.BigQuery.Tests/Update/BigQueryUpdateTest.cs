@@ -1,9 +1,9 @@
-using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
-namespace Ivy.EFCore.BigQuery.Tests.Update;
+namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Update;
 
 public class BigQueryUpdateTest : IClassFixture<BigQueryUpdateTest.BigQueryUpdateTestFixture>
 {

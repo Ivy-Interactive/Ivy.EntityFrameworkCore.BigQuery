@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestModels.Northwind
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestModels.Northwind
 {
     public class NorthwindBigQueryContext(DbContextOptions options) : NorthwindRelationalContext(options)
     {

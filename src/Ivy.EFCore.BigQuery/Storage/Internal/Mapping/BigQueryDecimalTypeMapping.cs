@@ -1,5 +1,5 @@
 ﻿using Ivy.Data.BigQuery;
-using Ivy.EFCore.BigQuery.Storage.ValueConversion.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Storage.ValueConversion.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal.Mapping
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     public class BigQueryDecimalTypeMapping : RelationalTypeMapping
     {

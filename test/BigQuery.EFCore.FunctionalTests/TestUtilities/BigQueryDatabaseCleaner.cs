@@ -1,13 +1,13 @@
-using Ivy.EFCore.BigQuery.Design.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Design.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
 
 public class BigQueryDatabaseCleaner : RelationalDatabaseCleaner
 {

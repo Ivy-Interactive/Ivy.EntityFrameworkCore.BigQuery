@@ -7,7 +7,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 
 public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQueryableMethodTranslatingExpressionVisitor

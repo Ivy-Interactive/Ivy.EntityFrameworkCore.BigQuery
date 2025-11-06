@@ -8,7 +8,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal.Mapping
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     /// <summary>
     /// Type mapping for BigQuery arrays.

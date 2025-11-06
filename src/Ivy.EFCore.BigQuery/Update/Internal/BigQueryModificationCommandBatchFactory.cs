@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore.Update;
 
-namespace Ivy.EFCore.BigQuery.Update.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 {
     public class BigQueryModificationCommandBatchFactory : IModificationCommandBatchFactory
     {

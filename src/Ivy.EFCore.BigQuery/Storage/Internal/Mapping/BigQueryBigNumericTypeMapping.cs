@@ -2,7 +2,7 @@ using Google.Cloud.BigQuery.V2;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data.Common;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal.Mapping
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     public class BigQueryBigNumericTypeMapping : RelationalTypeMapping
     {

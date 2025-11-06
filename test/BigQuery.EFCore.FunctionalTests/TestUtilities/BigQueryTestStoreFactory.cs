@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities
 {
     public class BigQueryTestStoreFactory : RelationalTestStoreFactory
     {

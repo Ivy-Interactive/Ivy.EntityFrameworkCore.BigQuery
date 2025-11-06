@@ -1,13 +1,13 @@
 
-using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
-using Ivy.EFCore.BigQuery.Infrastructure;
+using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
-using Ivy.EFCore.BigQuery.Diagnostics;
+using Ivy.EntityFrameworkCore.BigQuery.Diagnostics;
 
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests
 {
     public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixture<BatchingTest.BatchingTestFixture>
     {

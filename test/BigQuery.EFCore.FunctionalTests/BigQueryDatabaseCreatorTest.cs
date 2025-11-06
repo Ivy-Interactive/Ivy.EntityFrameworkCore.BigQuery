@@ -1,13 +1,13 @@
-﻿using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
-using Ivy.EFCore.BigQuery.Storage.Internal;
+﻿using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace Ivy.EFCore.BigQuery;
+namespace Ivy.EntityFrameworkCore.BigQuery;
 
 public class BigQueryDatabaseCreatorTest
 {

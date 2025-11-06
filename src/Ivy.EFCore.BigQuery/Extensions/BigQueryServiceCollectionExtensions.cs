@@ -1,11 +1,11 @@
-﻿using Ivy.EFCore.BigQuery.Diagnostics;
-using Ivy.EFCore.BigQuery.Infrastructure;
-using Ivy.EFCore.BigQuery.Infrastructure.Internal;
-using Ivy.EFCore.BigQuery.Metadata.Conventions;
-using Ivy.EFCore.BigQuery.Migrations;
-using Ivy.EFCore.BigQuery.Query.Internal;
-using Ivy.EFCore.BigQuery.Storage.Internal;
-using Ivy.EFCore.BigQuery.Update.Internal;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Diagnostics;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Metadata.Conventions;
+using Ivy.EntityFrameworkCore.BigQuery.Migrations;
+using Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Update.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -17,7 +17,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Ivy.EFCore.BigQuery.Extensions
+namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
 {
     public static class BigQueryServiceCollectionExtensions
     {

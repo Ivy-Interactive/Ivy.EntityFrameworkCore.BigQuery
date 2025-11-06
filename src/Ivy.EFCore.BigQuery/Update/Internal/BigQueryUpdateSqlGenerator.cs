@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Update;
 using System.Text;
 
-namespace Ivy.EFCore.BigQuery.Update.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 {
     public class BigQueryUpdateSqlGenerator : UpdateSqlGenerator, IBigQueryUpdateSqlGenerator
     {

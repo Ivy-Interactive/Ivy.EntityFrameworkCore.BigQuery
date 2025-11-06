@@ -2,9 +2,9 @@ using Google;
 using Ivy.Data.BigQuery;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data.Common;
-using Ivy.EFCore.BigQuery.Migrations.Operations;
+using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
     public class BigQueryDatabaseCreator : RelationalDatabaseCreator
     {

@@ -1,10 +1,10 @@
-﻿using Ivy.EFCore.BigQuery.Migrations.Operations;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Ivy.EFCore.BigQuery.Metadata.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 
-namespace Ivy.EFCore.BigQuery.Migrations
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class BigQueryMigrationsSqlGenerator : MigrationsSqlGenerator
     {

@@ -1,9 +1,9 @@
 ﻿using Ivy.Data.BigQuery;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Ivy.EFCore.BigQuery.Infrastructure.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal
 {
     public class BigQueryOptionsExtension : RelationalOptionsExtension
     {

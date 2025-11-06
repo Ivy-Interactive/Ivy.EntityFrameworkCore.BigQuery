@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.Storage.ValueConversion.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.ValueConversion.Internal
 {
     public class IntToLongValueConverter : ValueConverter<int, long>
     {

@@ -1,4 +1,4 @@
-namespace Ivy.EFCore.BigQuery.Metadata.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal
 {
 	/// <summary>
 	/// BigQuery provider-specific annotation names.

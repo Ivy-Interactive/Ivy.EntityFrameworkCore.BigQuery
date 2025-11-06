@@ -2,10 +2,10 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Xunit;
-using Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
-namespace Ivy.EFCore.BigQuery.Migrations;
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations;
 
 public class BigQueryHistoryRepositoryTest
 {

@@ -1,5 +1,5 @@
 using Ivy.Data.BigQuery;
-using Ivy.EFCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -9,7 +9,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text.RegularExpressions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities
 {
     public class BigQueryTestStore : RelationalTestStore
     {

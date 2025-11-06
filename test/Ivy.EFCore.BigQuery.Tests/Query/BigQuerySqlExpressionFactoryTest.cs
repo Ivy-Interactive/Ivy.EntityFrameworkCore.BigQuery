@@ -1,6 +1,6 @@
 
-using Ivy.EFCore.BigQuery.Query.Internal;
-using Ivy.EFCore.BigQuery.Storage.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Xunit;
 
-namespace Ivy.EFCore.BigQuery.Tests.Query
+namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Query
 {
     public class BigQuerySqlExpressionFactoryTest
     {

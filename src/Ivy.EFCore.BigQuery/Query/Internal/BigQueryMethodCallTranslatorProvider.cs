@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Collections.Generic;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 public class BigQueryMethodCallTranslatorProvider : RelationalMethodCallTranslatorProvider
 {

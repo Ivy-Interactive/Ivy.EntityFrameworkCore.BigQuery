@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Design;
 
-namespace Ivy.EFCore.BigQuery.Design.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Design.Internal
 {
     internal class BigQueryAnnotationCodeGenerator : AnnotationCodeGenerator
     {

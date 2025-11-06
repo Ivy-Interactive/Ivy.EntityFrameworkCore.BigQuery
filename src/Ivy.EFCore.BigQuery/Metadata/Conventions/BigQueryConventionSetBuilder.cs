@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace Ivy.EFCore.BigQuery.Metadata.Conventions;
+namespace Ivy.EntityFrameworkCore.BigQuery.Metadata.Conventions;
 
 public class BigQueryConventionSetBuilder : RelationalConventionSetBuilder
 {

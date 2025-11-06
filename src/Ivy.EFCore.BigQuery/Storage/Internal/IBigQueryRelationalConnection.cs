@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
 
-namespace Ivy.EFCore.BigQuery.Storage.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal;
 
 public interface IBigQueryRelationalConnection : IRelationalConnection
 {

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 {
     public class BigQueryQuerySqlGeneratorFactory : IQuerySqlGeneratorFactory
     {

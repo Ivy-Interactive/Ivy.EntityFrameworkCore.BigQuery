@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.ModelBuilding;
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.ModelBuilding;
 
 public class BigQueryModelBuilderGenericTest : BigQueryModelBuilderTestBase
 {

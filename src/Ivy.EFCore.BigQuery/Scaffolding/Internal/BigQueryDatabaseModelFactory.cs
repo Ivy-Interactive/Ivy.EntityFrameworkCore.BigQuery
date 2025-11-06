@@ -9,7 +9,7 @@ using System.Data;
 using System.Data.Common;
 using System.Text.RegularExpressions;
 
-namespace Ivy.EFCore.BigQuery.Scaffolding.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
 {
     public class BigQueryDatabaseModelFactory : DatabaseModelFactory
     {

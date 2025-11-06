@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using Ivy.EFCore.BigQuery.Extensions;
-using Ivy.EFCore.BigQuery.Metadata.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 using Xunit;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Migrations
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Migrations
 {
     public class BigQueryFluentApiExtensionsTest
     {

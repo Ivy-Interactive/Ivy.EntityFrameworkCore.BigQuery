@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Ivy.EFCore.BigQuery.Migrations.Operations
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations
 {
     /// <summary>
     /// Represents an operation to drop a BigQuery dataset during a migration process.

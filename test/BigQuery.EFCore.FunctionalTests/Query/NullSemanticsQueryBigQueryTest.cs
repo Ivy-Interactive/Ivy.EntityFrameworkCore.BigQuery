@@ -1,4 +1,4 @@
-﻿using Ivy.EFCore.BigQuery.Infrastructure;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.NullSemanticsModel;
@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Query
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query
 {
     public class NullSemanticsQueryBigQueryTest : NullSemanticsQueryTestBase<NullSemanticsQueryBigQueryFixture>
     {

@@ -1,7 +1,7 @@
-﻿using Ivy.EFCore.BigQuery.Infrastructure;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestUtilities;
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
 
 public static class BigQueryDbContextOptionsBuilderExtensions
 {

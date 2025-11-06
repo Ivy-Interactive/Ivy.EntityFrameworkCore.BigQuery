@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query;
 
 public class NorthwindSqlQueryBigQueryTest : NorthwindSqlQueryTestBase<NorthwindQueryBigQueryFixture<NoopModelCustomizer>>
 {

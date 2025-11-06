@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 {
     public class BigQueryQueryCompilationContextFactory : IQueryCompilationContextFactory
     {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using System.Reflection;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
-namespace Ivy.EFCore.BigQuery.Query.Internal;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 /// <summary>
 ///     Provides translation services for static <see cref="Math" /> and <see cref="MathF" /> methods to BigQuery SQL functions.
