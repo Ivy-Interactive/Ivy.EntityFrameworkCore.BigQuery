@@ -72,11 +72,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                 .Append(" ")
                 .Append(columnType);
 
-            if (operation.IsNullable == false)
-            {
-                builder.Append(" NOT NULL");
-            }
-
+            // BigQuery requires DEFAULT to come before NOT NULL
             if (operation.DefaultValueSql != null)
             {
                 builder
@@ -95,6 +91,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                 builder
                     .Append(" DEFAULT ")
                     .Append(mapping.GenerateSqlLiteral(operation.DefaultValue));
+            }
+
+            if (operation.IsNullable == false)
+            {
+                builder.Append(" NOT NULL");
             }
         }
 
