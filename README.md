@@ -1,4 +1,4 @@
-# Ivy.EFCore.BigQuery
+# Ivy.EntityFrameworkCore.BigQuery
 
 Entity Framework Core and ADO.NET providers for Google BigQuery.
 
@@ -41,7 +41,7 @@ var client = connection.GetBigQueryClient();
 
 ## Entity Framework Core Provider
 
-An Entity Framework Core provider (`Ivy.EFCore.BigQuery`) that supports LINQ queries, migrations, and scaffolding.
+An Entity Framework Core provider (`Ivy.EntityFrameworkCore.BigQuery`) that supports LINQ queries, migrations, and scaffolding.
 
 ### Getting Started
 
@@ -87,7 +87,7 @@ dotnet ef database update
 **Scaffold from existing BigQuery dataset:**
 
 ```bash
-dotnet ef dbcontext scaffold "AuthMethod=ApplicationDefaultCredentials;ProjectId=my-project;DefaultDatasetId=my_dataset" Ivy.EFCore.BigQuery --output-dir Models
+dotnet ef dbcontext scaffold "AuthMethod=ApplicationDefaultCredentials;ProjectId=my-project;DefaultDatasetId=my_dataset" Ivy.EntityFrameworkCore.BigQuery --output-dir Models
 ```
 
 ### Accessing BigQueryClient
