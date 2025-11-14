@@ -60,13 +60,13 @@ namespace Ivy.Data.BigQuery
         }
 
         [DisplayName(AuthMethodKey)]
-        [Description("The authentication method ('ApplicationDefaultCredentials' or 'JsonCredentials').")]
+        [Description("The authentication method ('ApplicationDefaultCredentials' or 'JsonCredentials'). Defaults to 'ApplicationDefaultCredentials' if not specified.")]
         public BigQueryAuthMethod AuthMethod
         {
             get
             {
                 if (!base.TryGetValue(AuthMethodKey, out object value) || value is not string strValue)
-                    throw new ArgumentNullException(nameof(AuthMethod), "AuthMethod cannot be null or empty.");
+                    return DefaultAuthMethod;
                 if (Enum.TryParse<BigQueryAuthMethod>(strValue, true, out var result))
                 {
                     return result;

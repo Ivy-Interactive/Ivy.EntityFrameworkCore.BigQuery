@@ -179,9 +179,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 
             commandStringBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
 
-            return readOperations.Count > 0
-                ? ResultSetMapping.HasResultRow
-                : ResultSetMapping.NoResults;
+            //No RETURNING
+            return ResultSetMapping.NoResults;
         }
 
     }

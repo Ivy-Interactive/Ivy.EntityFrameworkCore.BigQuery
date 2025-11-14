@@ -38,11 +38,12 @@ namespace Ivy.Data.BigQuery
         /// Format: "ProjectId=your-project;DefaultDatasetId=your_dataset;AuthMethod=JsonCredentials;CredentialsFile=/path/to/key.json;Timeout=30"
         /// Or: "ProjectId=your-project;AuthMethod=ApplicationDefaultCredentials;"
         /// Or: "ProjectId=your-project;AuthMethod=JsonCredentials;JsonCredentials={...json...}"
+        /// Or: "ProjectId=your-project;" (defaults to ApplicationDefaultCredentials)
         /// Supported Keys:
         /// - ProjectId (Required)
         /// - DefaultDatasetId (Optional)
         /// - Location (Optional): Hint for job location.
-        /// - AuthMethod (Required): 'JsonCredentials' or 'ApplicationDefaultCredentials'.
+        /// - AuthMethod (Optional): 'JsonCredentials' or 'ApplicationDefaultCredentials'. Defaults to 'ApplicationDefaultCredentials' if not specified.
         /// - CredentialsFile (Required if AuthMethod=JsonCredentials and JsonCredentials not provided): Path to the JSON service account key file.
         /// - JsonCredentials (Required if AuthMethod=JsonCredentials and CredentialsFile not provided): JSON service account credentials as a string.
         /// - Timeout (Optional): Seconds to wait for connection/authentication (default 15).
@@ -146,13 +147,16 @@ namespace Ivy.Data.BigQuery
                         throw new InvalidOperationException("Either CredentialsFile or JsonCredentials must be specified when AuthMethod is JsonCredentials.");
                     }
                 }
-                else if (string.Equals(authMethod, "ApplicationDefaultCredentials", StringComparison.OrdinalIgnoreCase) || _useAdc)
+                else if (string.Equals(authMethod, "ApplicationDefaultCredentials", StringComparison.OrdinalIgnoreCase)
+                    || _useAdc
+                    || string.IsNullOrWhiteSpace(authMethod))
                 {
+                    // Default to ApplicationDefaultCredentials if AuthMethod is not specified or explicitly set
                     credential = await GoogleCredential.GetApplicationDefaultAsync(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    throw new InvalidOperationException("AuthMethod must be specified in the connection string (either 'JsonCredentials' or 'ApplicationDefaultCredentials').");
+                    throw new InvalidOperationException($"Invalid AuthMethod '{authMethod}'. Must be either 'JsonCredentials' or 'ApplicationDefaultCredentials'.");
                 }
 
                 var clientBuilder = new BigQueryClientBuilder
@@ -579,7 +583,8 @@ namespace Ivy.Data.BigQuery
             _credentialJson = _parsedConnectionString.GetValueOrDefault("JsonCredentials");
 
             string authMethod = _parsedConnectionString.GetValueOrDefault("AuthMethod");
-            _useAdc = string.Equals(authMethod, "ApplicationDefaultCredentials", StringComparison.OrdinalIgnoreCase);
+            _useAdc = string.Equals(authMethod, "ApplicationDefaultCredentials", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(authMethod); // Default to ADC if not specified
 
             var dataSource = _parsedConnectionString.GetValueOrDefault("DataSource");
             if (!string.IsNullOrWhiteSpace(dataSource))
