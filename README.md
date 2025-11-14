@@ -109,13 +109,13 @@ var client = connection.GetBigQueryClient();
 AuthMethod=ApplicationDefaultCredentials;ProjectId=your-project-id;DefaultDatasetId=your_dataset
 ```
 
-
-
 **Parameters:**
 - `AuthMethod`: `ApplicationDefaultCredentials` (required)
 - `ProjectId`: Google Cloud project ID (required)
 - `DefaultDatasetId`: Default BigQuery dataset (optional)
 - `Timeout`: Connection timeout in seconds (optional, default: 15)
+- `CredentialsFile` (Required if AuthMethod=JsonCredentials and JsonCredentials not provided): Path to the JSON service account key file.
+- `JsonCredentials` (Required if AuthMethod=JsonCredentials and CredentialsFile not provided): JSON service account credentials as a string.
 
 ---
 
