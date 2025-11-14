@@ -1,0 +1,55 @@
+name: Publish NuGet Packages
+
+on:
+  release:
+    types: [published]
+
+env:
+  NUGET_SOURCE: ${{ vars.NUGET_SOURCE || 'https://api.nuget.org/v3/index.json' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Validate required secrets
+        run: |
+          if [ -z "${{ secrets.NUGET_TOKEN }}" ]; then
+            echo "::error::NUGET_TOKEN secret is not set. Please configure it in repository secrets."
+            exit 1
+          fi
+          echo "✓ NuGet token is configured"
+          echo "✓ Publishing to: ${{ env.NUGET_SOURCE }}"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Set version from release tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build ADO.NET Project
+        run: dotnet build src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION
+
+      - name: Build EF Core Project
+        run: dotnet build src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION        
+
+      - name: Pack ADO.NET Project
+        run: dotnet pack src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+
+      - name: Pack EF Core Project
+        run: dotnet pack src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+
+      - name: Publish to NuGet
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_TOKEN }} --source ${{ env.NUGET_SOURCE }} --skip-duplicate
+
