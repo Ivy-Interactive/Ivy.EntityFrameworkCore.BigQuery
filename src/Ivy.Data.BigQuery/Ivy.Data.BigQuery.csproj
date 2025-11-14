@@ -1,22 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
-  </ItemGroup>
+	<PropertyGroup>
+		<Title>Ivy.Data.BigQuery</Title>
+		<Description>ADO.NET provider for Google BigQuery</Description>
+		<Authors>Ivy Interactive AB</Authors>
+		<Company>Ivy Interactive AB</Company>
+		<PackageTags>BigQuery ADO.NET database</PackageTags>
+		<RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EFCore.BigQuery</RepositoryUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Compile Update="BigQueryCommand.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Update="BigQueryConnection.cs">
-      <SubType>Component</SubType>
-    </Compile>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="." />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="BigQueryCommand.cs">
+			<SubType>Component</SubType>
+		</Compile>
+		<Compile Update="BigQueryConnection.cs">
+			<SubType>Component</SubType>
+		</Compile>
+	</ItemGroup>
 
 </Project>

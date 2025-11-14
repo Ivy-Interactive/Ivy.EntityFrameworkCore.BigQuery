@@ -42,7 +42,6 @@ namespace Ivy.Data.BigQuery
         /// Supported Keys:
         /// - ProjectId (Required)
         /// - DefaultDatasetId (Optional)
-        /// - Location (Optional): Hint for job location.
         /// - AuthMethod (Optional): 'JsonCredentials' or 'ApplicationDefaultCredentials'. Defaults to 'ApplicationDefaultCredentials' if not specified.
         /// - CredentialsFile (Required if AuthMethod=JsonCredentials and JsonCredentials not provided): Path to the JSON service account key file.
         /// - JsonCredentials (Required if AuthMethod=JsonCredentials and CredentialsFile not provided): JSON service account credentials as a string.

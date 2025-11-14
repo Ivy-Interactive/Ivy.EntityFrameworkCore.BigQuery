@@ -1,43 +1,46 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-	<AssemblyName>Ivy.EntityFrameworkCore.BigQuery</AssemblyName>
-	<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>Ivy.EntityFrameworkCore.BigQuery</Title>
-    <Description>BigQuery database provider for Entity Framework Core. </Description>
-    <RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EntityFrameworkCore.BigQuery</RepositoryUrl>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageTags>BigQuery;database;Entity Framework Core;entity-framework-core;ef;efcore;orm;</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-  </PropertyGroup>
+	<PropertyGroup>
+		<AssemblyName>Ivy.EntityFrameworkCore.BigQuery</AssemblyName>
+		<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<Title>Ivy.EntityFrameworkCore.BigQuery</Title>
+		<Authors>Ivy Interactive AB</Authors>
+		<Company>Ivy Interactive AB</Company>
+		<Description>BigQuery database provider for Entity Framework Core. </Description>
+		<RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EntityFrameworkCore.BigQuery</RepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageTags>BigQuery;database;Entity Framework Core;entity-framework-core;ef;efcore;orm;</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.2" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.2" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\Readme.MD" pack="true" PackagePath="." />
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="." />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>none</IncludeAssets>
-      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-    </ProjectReference>
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>none</IncludeAssets>
+			<ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+		</ProjectReference>
+	</ItemGroup>
 
-  <Target Name="IncludeReferencedProjectInPackage" DependsOnTargets="ResolveProjectReferences" BeforeTargets="_GetPackageFiles">
-    <ItemGroup>
-      <None Include="@(ReferenceCopyLocalPaths)" Pack="true" PackagePath="lib/$(TargetFramework)" Visible="false" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
-    </ItemGroup>
-  </Target>
+	<Target Name="IncludeReferencedProjectInPackage" DependsOnTargets="ResolveProjectReferences" BeforeTargets="_GetPackageFiles">
+		<ItemGroup>
+			<None Include="@(ReferenceCopyLocalPaths)" Pack="true" PackagePath="lib/$(TargetFramework)" Visible="false" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+		</ItemGroup>
+	</Target>
 
 </Project>
