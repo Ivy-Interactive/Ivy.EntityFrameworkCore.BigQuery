@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Xunit;
-using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Migrations;

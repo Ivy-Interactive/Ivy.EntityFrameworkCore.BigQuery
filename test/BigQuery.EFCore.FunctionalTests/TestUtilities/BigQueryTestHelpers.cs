@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 
 public class BigQueryTestHelpers : RelationalTestHelpers
 {

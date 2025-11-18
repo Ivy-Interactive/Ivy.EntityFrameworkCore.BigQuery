@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities
+namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities
 {
     public class BigQueryUpdateTestStoreFactory : BigQueryTestStoreFactory
     {

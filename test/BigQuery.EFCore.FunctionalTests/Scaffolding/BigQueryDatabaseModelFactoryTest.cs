@@ -1,6 +1,6 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Design.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Diagnostics;
-using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Scaffolding
+namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding
 {
     public class BigQueryDatabaseModelFactoryTest : IClassFixture<BigQueryDatabaseModelFactoryTest.BigQueryDatabaseModelFixture>
     {

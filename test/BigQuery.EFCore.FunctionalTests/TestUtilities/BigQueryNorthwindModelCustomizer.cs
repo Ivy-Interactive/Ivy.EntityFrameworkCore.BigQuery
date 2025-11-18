@@ -1,11 +1,7 @@
-using System.Diagnostics;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.TestModels.Northwind;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities
+namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities
 {
     public class BigQueryNorthwindModelCustomizer : ITestModelCustomizer
     {

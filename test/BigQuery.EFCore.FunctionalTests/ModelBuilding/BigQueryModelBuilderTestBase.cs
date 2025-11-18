@@ -1,8 +1,8 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore.ModelBuilding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.ModelBuilding;
+namespace Ivy.EntityFrameworkCore.BigQuery.ModelBuilding;
 
 public class BigQueryModelBuilderTestBase : RelationalModelBuilderTest
 {
@@ -36,4 +36,3 @@ public class BigQueryModelBuilderTestBase : RelationalModelBuilderTest
             => BigQueryTestHelpers.Instance;
     }
 }
-

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Data.Common;
 using Xunit.Abstractions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 public class SqlQueryBigQueryTest : SqlQueryTestBase<NorthwindQueryBigQueryFixture<NoopModelCustomizer>>
 {

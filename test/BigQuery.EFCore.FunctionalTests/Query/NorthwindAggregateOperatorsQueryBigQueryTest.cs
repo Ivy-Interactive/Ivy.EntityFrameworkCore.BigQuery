@@ -1,14 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using NetTopologySuite.Features;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit.Abstractions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOperatorsQueryRelationalTestBase<
     NorthwindQueryBigQueryFixture<NoopModelCustomizer>>

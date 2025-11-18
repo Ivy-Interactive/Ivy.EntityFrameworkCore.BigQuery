@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 
 public static class BigQueryDatabaseFacadeTestExtensions
 {

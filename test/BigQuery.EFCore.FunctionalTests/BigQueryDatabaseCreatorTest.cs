@@ -1,4 +1,4 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -13,7 +13,6 @@ public class BigQueryDatabaseCreatorTest
 {
 
 }
-
 
 public abstract class SqlServerDatabaseCreatorTestBase
 {

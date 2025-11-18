@@ -1,5 +1,4 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.Extensions;
-using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -8,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Migrations
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class BigQueryMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(
        BigQueryTestHelpers.Instance,

@@ -1,17 +1,10 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureFixtureBase;
 using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Migrations
+namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class MigrationsInfrastructureBigQueryTest(MigrationsInfrastructureBigQueryTest.MigrationsInfrastructureBigQueryFixture fixture) : MigrationsInfrastructureTestBase<MigrationsInfrastructureBigQueryTest.MigrationsInfrastructureBigQueryFixture>(fixture)
     {

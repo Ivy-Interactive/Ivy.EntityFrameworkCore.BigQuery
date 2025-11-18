@@ -5,7 +5,7 @@ using NetTopologySuite.Features;
 using System.Data.Common;
 using Xunit.Abstractions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQueryFixture<SqlExecutorModelCustomizer>>
 {

@@ -1,4 +1,4 @@
-using Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestUtilities;
+using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;

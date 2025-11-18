@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBase<NorthwindQueryBigQueryFixture<NoopModelCustomizer>>
 {
     // ReSharper disable once UnusedParameter.Local

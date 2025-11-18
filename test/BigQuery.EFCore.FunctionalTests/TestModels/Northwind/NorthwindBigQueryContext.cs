@@ -1,12 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Ivy.EntityFrameworkCore.BigQuery.FunctionalTests.TestModels.Northwind
+namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Northwind
 {
     public class NorthwindBigQueryContext(DbContextOptions options) : NorthwindRelationalContext(options)
     {
