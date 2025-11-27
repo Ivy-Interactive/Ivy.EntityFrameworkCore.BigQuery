@@ -34,7 +34,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             => new BigQueryByteTypeMapping(parameters);
 
         protected override string GenerateNonNullSqlLiteral(object value)
-            => ((byte)value).ToString(CultureInfo.InvariantCulture);
+            => Convert.ToByte(value).ToString(CultureInfo.InvariantCulture);
 
         protected override void ConfigureParameter(DbParameter parameter)
         {

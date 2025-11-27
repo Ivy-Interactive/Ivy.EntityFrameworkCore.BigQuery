@@ -38,7 +38,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             => new BigQueryInt64TypeMapping(parameters);
 
         protected override string GenerateNonNullSqlLiteral(object value)
-            => ((long)value).ToString(CultureInfo.InvariantCulture);
+            => Convert.ToInt64(value).ToString(CultureInfo.InvariantCulture);
 
         protected override void ConfigureParameter(DbParameter parameter)
         {

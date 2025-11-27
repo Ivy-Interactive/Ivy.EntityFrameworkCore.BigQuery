@@ -23,7 +23,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            var doubleValue = (double)value;
+            var doubleValue = Convert.ToDouble(value);
 
             if (double.IsNaN(doubleValue))
                 return "CAST('NaN' AS FLOAT64)";
