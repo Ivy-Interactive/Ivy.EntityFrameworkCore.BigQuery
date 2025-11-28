@@ -386,5 +386,35 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         protected override void GeneratePseudoFromClause()
         {
         }
+
+        protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
+        {
+            // BigQuery doesn't allow parameterized types in CAST expressions
+            // CAST(x AS BIGNUMERIC(57,28)) -> CAST(x AS BIGNUMERIC)
+            if (sqlUnaryExpression.OperatorType == ExpressionType.Convert)
+            {
+                Sql.Append("CAST(");
+                Visit(sqlUnaryExpression.Operand);
+                Sql.Append(" AS ");
+
+                var storeType = sqlUnaryExpression.TypeMapping?.StoreType;
+                if (storeType != null)
+                {
+                    // Strip precision/scale from numeric types for CAST expressions
+                    var openParen = storeType.IndexOf('(');
+                    if (openParen > 0 && (storeType.StartsWith("NUMERIC", StringComparison.OrdinalIgnoreCase)
+                                        || storeType.StartsWith("BIGNUMERIC", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        storeType = storeType.Substring(0, openParen);
+                    }
+                    Sql.Append(storeType);
+                }
+
+                Sql.Append(")");
+                return sqlUnaryExpression;
+            }
+
+            return base.VisitSqlUnary(sqlUnaryExpression);
+        }
     }
 }
