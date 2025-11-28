@@ -1,6 +1,7 @@
 using Ivy.EntityFrameworkCore.BigQuery.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Scaffolding;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,13 @@ public class BigQueryDatabaseCleaner : RelationalDatabaseCleaner
 
     public override void Clean(DatabaseFacade facade)
     {
-       
+        var creator = facade.GetService<IRelationalDatabaseCreator>();
+
+        if (!creator.Exists())
+        {
+            creator.Create();
+        }
+
+        facade.EnsureCreated();
     }
 }

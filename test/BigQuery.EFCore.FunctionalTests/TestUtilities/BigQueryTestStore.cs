@@ -90,12 +90,20 @@ public class BigQueryTestStore : RelationalTestStore
                 return false;
             }
 
-            clean?.Invoke(seedContext);
+            if (clean != null)
+            {
+                await clean(seedContext);
+            }
             await CleanAsync(seedContext);
             return true;
         }
 
         await databaseCreator.CreateAsync();
+        
+        if (_scriptPath == null)
+        {
+            await seedContext.Database.EnsureCreatedAsync();
+        }
 
         return true;
     }
