@@ -256,6 +256,16 @@ public class BigQueryTestStore : RelationalTestStore
         return command;
     }
 
+    public override string NormalizeDelimitersInRawString(string sql)
+       => sql.Replace("[", OpenDelimiter).Replace("]", CloseDelimiter);
+
+
+    protected override string OpenDelimiter
+        => "`";
+
+    protected override string CloseDelimiter
+        => "`";
+
     public override void Dispose()
     {
         using var controlConnection = new BigQueryConnection(TestEnvironment.DefaultConnection);
