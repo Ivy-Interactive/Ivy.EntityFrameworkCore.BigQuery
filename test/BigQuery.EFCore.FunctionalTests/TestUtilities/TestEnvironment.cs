@@ -15,7 +15,7 @@ public static class TestEnvironment
     private const string DefaultConnectionString = "DataSource=http://localhost:9050;AuthMethod=ApplicationDefaultCredentials;ProjectId=test;";
 
     public static string DefaultConnection { get; } =
-            Environment.GetEnvironmentVariable("BQ_EFCORE_TEST_CONN_STRING", EnvironmentVariableTarget.User)
+            Environment.GetEnvironmentVariable("BQ_EFCORE_TEST_CONN_STRING")
             ?? Config["DefaultConnection"]
             ?? DefaultConnectionString;
 }
