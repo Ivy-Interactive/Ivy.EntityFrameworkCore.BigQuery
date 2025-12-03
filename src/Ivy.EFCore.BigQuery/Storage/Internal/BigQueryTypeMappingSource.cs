@@ -158,18 +158,21 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
             if (openParen > 0)
             {
                 var closeParen = storeTypeName.LastIndexOf(')');
-                var facets = storeTypeName.Substring(openParen + 1, closeParen - openParen - 1).Split(',');
-
-                if (baseName.Equals("BIGNUMERIC", StringComparison.OrdinalIgnoreCase) ||
-                    baseName.Equals("NUMERIC", StringComparison.OrdinalIgnoreCase))
+                if (closeParen > openParen)
                 {
-                    if (facets.Length > 0 && int.TryParse(facets[0], out var p))
+                    var facets = storeTypeName.Substring(openParen + 1, closeParen - openParen - 1).Split(',');
+
+                    if (baseName.Equals("BIGNUMERIC", StringComparison.OrdinalIgnoreCase) ||
+                        baseName.Equals("NUMERIC", StringComparison.OrdinalIgnoreCase))
                     {
-                        precision = p;
-                    }
-                    if (facets.Length > 1 && int.TryParse(facets[1], out var s))
-                    {
-                        scale = s;
+                        if (facets.Length > 0 && int.TryParse(facets[0], out var p))
+                        {
+                            precision = p;
+                        }
+                        if (facets.Length > 1 && int.TryParse(facets[1], out var s))
+                        {
+                            scale = s;
+                        }
                     }
                 }
             }
