@@ -1,3 +1,4 @@
+using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -122,7 +123,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             if (modificationCommand is { EntityState: EntityState.Added, StoreStoredProcedure: null })
             {
                 _pendingBulkInsertCommands.Add(modificationCommand);
-                AddParameters(modificationCommand);
+
+                // Only add parameters if there are no STRUCT columns
+                // (SQL generator will use literals for all columns when STRUCTs are present)
+                var hasStructColumn = modificationCommand.ColumnModifications
+                    .Any(c => c.TypeMapping is BigQueryStructTypeMapping);
+
+                if (!hasStructColumn)
+                {
+                    AddParameters(modificationCommand);
+                }
             }
             else
             {

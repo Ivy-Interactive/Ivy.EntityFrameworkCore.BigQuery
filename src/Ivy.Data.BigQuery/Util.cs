@@ -43,6 +43,7 @@ public static class Util
         { "TIMESTAMP", BigQueryDbType.Timestamp },
         { "ARRAY", BigQueryDbType.Array },
         { "STRUCT", BigQueryDbType.Struct },
+        { "RECORD", BigQueryDbType.Struct },
         { "NUMERIC", BigQueryDbType.Numeric },
         { "DECIMAL", BigQueryDbType.Numeric },
         { "GEOGRAPHY", BigQueryDbType.Geography },

@@ -21,6 +21,8 @@ public class BigQueryConventionSetBuilder : RelationalConventionSetBuilder
     public override ConventionSet CreateConventionSet()
     {
         var conventionSet = base.CreateConventionSet();
+     
+        conventionSet.EntityTypeAddedConventions.Add(new BigQueryStructEntityConvention());
 
         return conventionSet;
     }
