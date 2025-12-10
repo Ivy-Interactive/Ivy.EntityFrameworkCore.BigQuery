@@ -61,14 +61,14 @@ public class BigQueryTestStore : RelationalTestStore
             {
                 ExecuteScript(_scriptPath);
             }
-            else 
+            else
             {
                 await using var seedContext = createContext();
                 seedContext.Database.SetConnectionString(CreateConnectionString(_testDatasetName));
                 if (seed != null)
                 {
                     await seed(seedContext);
-                }                        
+                }
             }
         }
 
@@ -99,7 +99,7 @@ public class BigQueryTestStore : RelationalTestStore
         }
 
         await databaseCreator.CreateAsync();
-        
+
         if (_scriptPath == null)
         {
             await seedContext.Database.EnsureCreatedAsync();
@@ -140,6 +140,14 @@ public class BigQueryTestStore : RelationalTestStore
         string sql,
         IReadOnlyList<object>? parameters = null)
         => ExecuteCommandAsync(connection, executeAsync, sql, parameters);
+
+    private static Task<T> ExecuteAsync<T>(
+        DbConnection connection,
+        Func<DbCommand, Task<T>> executeAsync,
+        string sql,
+        bool useTransaction = false,
+        IReadOnlyList<object>? parameters = null)
+        => ExecuteCommandAsync(connection, executeAsync, sql, useTransaction, parameters);
 
     private static T ExecuteCommand<T>(
         DbConnection connection,
@@ -205,6 +213,52 @@ public class BigQueryTestStore : RelationalTestStore
             }
         }
     }
+
+    private static async Task<T> ExecuteCommandAsync<T>(
+        DbConnection connection,
+        Func<DbCommand, Task<T>> executeAsync,
+        string sql,
+        bool useTransaction,
+        IReadOnlyList<object>? parameters)
+    {
+        if (connection.State != ConnectionState.Closed)
+        {
+            await connection.CloseAsync();
+        }
+
+        await connection.OpenAsync();
+        try
+        {
+            await using var transaction = useTransaction ? await connection.BeginTransactionAsync() : null;
+
+            T result;
+            await using (var command = CreateCommand(connection, sql, parameters))
+            {
+                result = await executeAsync(command);
+            }
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (connection.State == ConnectionState.Closed
+                && connection.State != ConnectionState.Closed)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
+    public Task<int> ExecuteNonQueryAsync(string sql, params object[] parameters)
+        => ExecuteNonQueryAsync(Connection, sql, parameters);
+
+    private static Task<int> ExecuteNonQueryAsync(DbConnection connection, string sql, object[]? parameters = null)
+    => ExecuteAsync(connection, command => command.ExecuteNonQueryAsync(), sql, false, parameters);
 
     private static DbCommand CreateCommand(
         DbConnection connection,

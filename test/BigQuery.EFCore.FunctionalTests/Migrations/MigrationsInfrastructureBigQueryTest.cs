@@ -28,17 +28,18 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             throw new NotImplementedException();
         }
 
+        [ConditionalFact(Skip = "BigQuery doesn't support locking")]
+        public override void Can_apply_second_migration_in_parallel() => base.Can_apply_second_migration_in_parallel();
+
         public override void Can_get_active_provider()
         {
             base.Can_get_active_provider();
 
-            Assert.Equal("Ivy.EFCore.BigQuery", ActiveProvider);
+            Assert.Equal("Ivy.EntityFrameworkCore.BigQuery", ActiveProvider);
         }
 
         protected override Task ExecuteSqlAsync(string value)
-        {
-            throw new NotImplementedException();
-        }
+        => ((BigQueryTestStore)Fixture.TestStore).ExecuteNonQueryAsync(value);
 
         public class MigrationsInfrastructureBigQueryFixture : MigrationsInfrastructureFixtureBase
         {

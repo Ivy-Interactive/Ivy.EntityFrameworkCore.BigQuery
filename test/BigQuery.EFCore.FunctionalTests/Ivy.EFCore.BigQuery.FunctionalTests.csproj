@@ -2,9 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-
+    <ImplicitUsings>enable</ImplicitUsings>    
+	<AssemblyName>Ivy.EntityFrameworkCore.BigQuery.FunctionalTests</AssemblyName>
+	<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
+	<Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
