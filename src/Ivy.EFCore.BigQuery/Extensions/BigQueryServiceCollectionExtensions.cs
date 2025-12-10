@@ -49,7 +49,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
               .TryAdd<IRelationalDatabaseCreator, BigQueryDatabaseCreator>()
               .TryAdd<IHistoryRepository, BigQueryHistoryRepository>()
               .TryAdd<IRelationalConnection>(p => p.GetRequiredService<IBigQueryRelationalConnection>())
-              .TryAdd<IMigrationsSqlGenerator, BigQueryMigrationsSqlGenerator>()
+              .TryAdd<IMigrationsSqlGenerator>(p =>
+                  new BigQueryMigrationsSqlGenerator(
+                      p.GetRequiredService<MigrationsSqlGeneratorDependencies>(),
+                      p.GetService<IDbContextOptions>()))
               .TryAdd<IMemberTranslatorProvider, BigQueryMemberTranslatorProvider>()
               .TryAdd<IUpdateSqlGenerator, BigQueryUpdateSqlGenerator>()
               .TryAdd<ISqlExpressionFactory, BigQuerySqlExpressionFactory>()

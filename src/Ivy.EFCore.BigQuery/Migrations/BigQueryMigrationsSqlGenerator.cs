@@ -8,13 +8,19 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class BigQueryMigrationsSqlGenerator : MigrationsSqlGenerator
     {
+        private readonly IDbContextOptions? _contextOptions;
 
         /// <summary>
         ///     Creates a new <see cref="BigQueryMigrationsSqlGenerator" /> instance.
         /// </summary>
         /// <param name="dependencies">Parameter object containing dependencies for this service.</param>
-        public BigQueryMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies) : base(dependencies)
+        /// <param name="contextOptions">Optional context options for accessing BigQuery-specific settings.</param>
+        public BigQueryMigrationsSqlGenerator(
+            MigrationsSqlGeneratorDependencies dependencies,
+            IDbContextOptions? contextOptions = null)
+            : base(dependencies)
         {
+            _contextOptions = contextOptions;
         }
 
         /// <inheritdoc/>
@@ -103,7 +109,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             AddUniqueConstraintOperation operation,
             IModel? model,
             MigrationCommandListBuilder builder)
-            => throw new NotSupportedException("UNIQUE constraints are not supported by BigQuery.");
+        {
+            var extension = _contextOptions?.FindExtension<BigQueryOptionsExtension>();
+
+            if (extension?.IgnoreUniqueConstraints == true)
+            {
+                return;
+            }
+
+            throw new NotSupportedException("UNIQUE constraints are not supported by BigQuery.");
+        }
 
 
         protected override void ForeignKeyConstraint(

@@ -12,6 +12,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal
 
         private DbContextOptionsExtensionInfo? _info;
         public string? DefaultDataset;
+        public bool IgnoreUniqueConstraints { get; private set; }
 
         public BigQueryOptionsExtension()
         {
@@ -28,17 +29,29 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal
             : base(copyFrom)
         {
             DefaultDataset = copyFrom.DefaultDataset;
+            IgnoreUniqueConstraints = copyFrom.IgnoreUniqueConstraints;
+        }
+
+        public virtual BigQueryOptionsExtension WithIgnoreUniqueConstraints(bool ignoreUniqueConstraints)
+        {
+            var clone = (BigQueryOptionsExtension)Clone();
+            clone.IgnoreUniqueConstraints = ignoreUniqueConstraints;
+            return clone;
         }
 
         public override bool Equals(object? obj)
         {
             return obj is BigQueryOptionsExtension other
-                && base.Equals(other);
+                && base.Equals(other)
+                && IgnoreUniqueConstraints == other.IgnoreUniqueConstraints;
         }
 
         public override int GetHashCode()
         {
-            return base.GetHashCode();
+            var hashCode = new HashCode();
+            hashCode.Add(base.GetHashCode());
+            hashCode.Add(IgnoreUniqueConstraints);
+            return hashCode.ToHashCode();
         }
 
         public override RelationalOptionsExtension WithConnectionString(string? connectionString)
@@ -99,6 +112,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal
                 var hashCode = new HashCode();
                 hashCode.Add(base.GetServiceProviderHashCode());
                 hashCode.Add(extension.ConnectionString);
+                hashCode.Add(extension.IgnoreUniqueConstraints);
                 return hashCode.ToHashCode();
             }
 
