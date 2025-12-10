@@ -22,7 +22,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
         {
             throw new NotImplementedException();
         }
-
+        
         public override void Can_diff_against_3_0_ASP_NET_Identity_model()
         {
             throw new NotImplementedException();

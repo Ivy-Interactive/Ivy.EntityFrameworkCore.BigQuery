@@ -78,6 +78,43 @@ CREATE TABLE `People` (
     }
 
     [ConditionalFact]
+    public void CreateTable_with_self_referential_fk_skips_constraint()
+    {
+        Generate(
+            new CreateTableOperation
+            {
+                Name = "Weapons",
+                Columns =
+                {
+                    new AddColumnOperation { Name = "Id", ClrType = typeof(int), ColumnType = "INT64" },
+                    new AddColumnOperation { Name = "Name", ClrType = typeof(string), ColumnType = "STRING" },
+                    new AddColumnOperation { Name = "SynergyWithId", ClrType = typeof(int?), ColumnType = "INT64", IsNullable = true }
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] },
+                ForeignKeys =
+                {
+                    new AddForeignKeyOperation
+                    {
+                        Table = "Weapons",
+                        Columns = ["SynergyWithId"],
+                        PrincipalTable = "Weapons",
+                        PrincipalColumns = ["Id"]
+                    }
+                }
+            });
+
+        AssertSql(
+            """
+CREATE TABLE `Weapons` (
+    `Id` INT64 NOT NULL,
+    `Name` STRING NOT NULL,
+    `SynergyWithId` INT64,
+    PRIMARY KEY (`Id`) NOT ENFORCED
+);
+""");
+    }
+
+    [ConditionalFact]
     public void AddColumn_with_datetime_default_generates_literal()
     {
         Generate(
@@ -559,4 +596,210 @@ ALTER TABLE `People` RENAME TO `Person`;
     [InlineData(null)]
     [InlineData(1L)]
     public override void Sequence_restart_operation(long? startsAt) => base.Sequence_restart_operation(startsAt);
+
+    #region STRUCT Type Tests
+
+    [ConditionalFact]
+    public void CreateTable_with_struct_column_generates_correct_ddl()
+    {
+        Generate(
+            new CreateTableOperation
+            {
+                Name = "Employees",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "Employees",
+                        ClrType = typeof(long),
+                        ColumnType = "INT64",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "contact_info",
+                        Table = "Employees",
+                        ClrType = typeof(string),
+                        ColumnType = "STRUCT<email STRING, phone STRING>",
+                        IsNullable = true
+                    }
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] }
+            });
+
+        AssertSql(
+            """
+CREATE TABLE `Employees` (
+    `Id` INT64 NOT NULL,
+    `contact_info` STRUCT<email STRING, phone STRING>,
+    PRIMARY KEY (`Id`) NOT ENFORCED
+);
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateTable_with_nested_struct_generates_correct_ddl()
+    {
+        Generate(
+            new CreateTableOperation
+            {
+                Name = "Customers",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "Customers",
+                        ClrType = typeof(long),
+                        ColumnType = "INT64",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "profile",
+                        Table = "Customers",
+                        ClrType = typeof(string),
+                        ColumnType = "STRUCT<name STRING, address STRUCT<street STRING, city STRING>>",
+                        IsNullable = true
+                    }
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] }
+            });
+
+        AssertSql(
+            """
+CREATE TABLE `Customers` (
+    `Id` INT64 NOT NULL,
+    `profile` STRUCT<name STRING, address STRUCT<street STRING, city STRING>>,
+    PRIMARY KEY (`Id`) NOT ENFORCED
+);
+""");
+    }
+
+    [ConditionalFact]
+    public void AddColumn_with_struct_type_generates_correct_ddl()
+    {
+        Generate(
+            new AddColumnOperation
+            {
+                Table = "Employees",
+                Name = "contact_info",
+                ClrType = typeof(string),
+                ColumnType = "STRUCT<email STRING, phone STRING>",
+                IsNullable = true
+            });
+
+        AssertSql(
+            """
+ALTER TABLE `Employees` ADD COLUMN `contact_info` STRUCT<email STRING, phone STRING>;
+""");
+    }
+
+    [ConditionalFact]
+    public void AlterColumn_struct_type_generates_correct_ddl()
+    {
+        Generate(
+            new AlterColumnOperation
+            {
+                Table = "Employees",
+                Name = "contact_info",
+                ClrType = typeof(string),
+                ColumnType = "STRUCT<email STRING, phone STRING, office STRING>",
+                IsNullable = true,
+                OldColumn = new AddColumnOperation
+                {
+                    Table = "Employees",
+                    Name = "contact_info",
+                    ClrType = typeof(string),
+                    ColumnType = "STRUCT<email STRING, phone STRING>",
+                    IsNullable = true
+                }
+            });
+
+        AssertSql(
+            """
+ALTER TABLE `Employees` ALTER COLUMN `contact_info` SET DATA TYPE STRUCT<email STRING, phone STRING, office STRING>;
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateTable_with_array_of_struct_generates_correct_ddl()
+    {
+        Generate(
+            new CreateTableOperation
+            {
+                Name = "Orders",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "Orders",
+                        ClrType = typeof(long),
+                        ColumnType = "INT64",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "items",
+                        Table = "Orders",
+                        ClrType = typeof(string),
+                        ColumnType = "ARRAY<STRUCT<name STRING, quantity INT64>>",
+                        IsNullable = true
+                    }
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] }
+            });
+
+        AssertSql(
+            """
+CREATE TABLE `Orders` (
+    `Id` INT64 NOT NULL,
+    `items` ARRAY<STRUCT<name STRING, quantity INT64>>,
+    PRIMARY KEY (`Id`) NOT ENFORCED
+);
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateTable_with_struct_not_null_generates_correct_ddl()
+    {
+        Generate(
+            new CreateTableOperation
+            {
+                Name = "Employees",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "Employees",
+                        ClrType = typeof(long),
+                        ColumnType = "INT64",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "contact_info",
+                        Table = "Employees",
+                        ClrType = typeof(string),
+                        ColumnType = "STRUCT<email STRING, phone STRING>",
+                        IsNullable = false
+                    }
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] }
+            });
+
+        AssertSql(
+            """
+CREATE TABLE `Employees` (
+    `Id` INT64 NOT NULL,
+    `contact_info` STRUCT<email STRING, phone STRING> NOT NULL,
+    PRIMARY KEY (`Id`) NOT ENFORCED
+);
+""");
+    }
+
+    #endregion
 }
