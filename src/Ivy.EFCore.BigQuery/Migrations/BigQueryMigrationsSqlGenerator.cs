@@ -1,3 +1,4 @@
+﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -207,6 +208,20 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             MigrationCommandListBuilder builder,
             bool terminate = true)
         {
+            // BigQuery doesn't support self-referential foreign keys
+            var originalForeignKeys = operation.ForeignKeys.ToList();
+            var nonSelfReferencingForeignKeys = originalForeignKeys
+                .Where(fk => fk.Table != fk.PrincipalTable || fk.Schema != fk.PrincipalSchema)
+                .ToList();
+
+            operation.ForeignKeys.Clear();
+            foreach (var fk in nonSelfReferencingForeignKeys)
+            {
+                operation.ForeignKeys.Add(fk);
+            }
+
+            try
+            {
             // Check for BigQuery table annotations
             var createOrReplace = operation[BigQueryAnnotationNames.CreateOrReplace] as bool? == true;
             var ifNotExists = operation[BigQueryAnnotationNames.IfNotExists] as bool? == true;
@@ -256,6 +271,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                 builder
                     .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                     .EndCommand();
+            }
+        }
+            finally
+            {
+                // Restore original foreign keys
+                operation.ForeignKeys.Clear();
+                foreach (var fk in originalForeignKeys)
+                {
+                    operation.ForeignKeys.Add(fk);
+                }
             }
         }
 
