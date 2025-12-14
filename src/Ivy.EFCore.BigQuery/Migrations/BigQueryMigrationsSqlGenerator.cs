@@ -1,5 +1,6 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
-﻿using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
+using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -222,57 +223,57 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 
             try
             {
-            // Check for BigQuery table annotations
-            var createOrReplace = operation[BigQueryAnnotationNames.CreateOrReplace] as bool? == true;
-            var ifNotExists = operation[BigQueryAnnotationNames.IfNotExists] as bool? == true;
-            var isTempTable = operation[BigQueryAnnotationNames.TempTable] as bool? == true;
+                // Check for BigQuery table annotations
+                var createOrReplace = operation[BigQueryAnnotationNames.CreateOrReplace] as bool? == true;
+                var ifNotExists = operation[BigQueryAnnotationNames.IfNotExists] as bool? == true;
+                var isTempTable = operation[BigQueryAnnotationNames.TempTable] as bool? == true;
 
-            // Validate that OR REPLACE and IF NOT EXISTS are not used together
-            if (createOrReplace && ifNotExists)
-            {
-                throw new InvalidOperationException("CREATE OR REPLACE and IF NOT EXISTS cannot be used together in BigQuery.");
-            }
+                // Validate that OR REPLACE and IF NOT EXISTS are not used together
+                if (createOrReplace && ifNotExists)
+                {
+                    throw new InvalidOperationException("CREATE OR REPLACE and IF NOT EXISTS cannot be used together in BigQuery.");
+                }
 
-            builder.Append("CREATE");
+                builder.Append("CREATE");
 
-            if (createOrReplace)
-            {
-                builder.Append(" OR REPLACE");
-            }
+                if (createOrReplace)
+                {
+                    builder.Append(" OR REPLACE");
+                }
 
-            if (isTempTable)
-            {
-                builder.Append(" TEMP");
-            }
+                if (isTempTable)
+                {
+                    builder.Append(" TEMP");
+                }
 
-            builder.Append(" TABLE");
+                builder.Append(" TABLE");
 
-            if (ifNotExists)
-            {
-                builder.Append(" IF NOT EXISTS");
-            }
+                if (ifNotExists)
+                {
+                    builder.Append(" IF NOT EXISTS");
+                }
 
-            builder
-                .Append(" ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name, operation.Schema))
-                .AppendLine(" (");
-
-            using (builder.Indent())
-            {
-                CreateTableColumns(operation, model, builder);
-                CreateTableConstraints(operation, model, builder);
-                builder.AppendLine();
-            }
-
-            builder.Append(")");
-
-            if (terminate)
-            {
                 builder
-                    .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
-                    .EndCommand();
+                    .Append(" ")
+                    .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name, operation.Schema))
+                    .AppendLine(" (");
+
+                using (builder.Indent())
+                {
+                    CreateTableColumns(operation, model, builder);
+                    CreateTableConstraints(operation, model, builder);
+                    builder.AppendLine();
+                }
+
+                builder.Append(")");
+
+                if (terminate)
+                {
+                    builder
+                        .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
+                        .EndCommand();
+                }
             }
-        }
             finally
             {
                 // Restore original foreign keys

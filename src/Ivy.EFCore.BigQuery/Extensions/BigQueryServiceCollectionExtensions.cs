@@ -60,7 +60,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
               .TryAdd<IAggregateMethodCallTranslatorProvider, BigQueryAggregateMethodCallTranslatorProvider>()
               .TryAdd<IQuerySqlGeneratorFactory, BigQueryQuerySqlGeneratorFactory>()
               .TryAdd<IExecutionStrategyFactory, BigQueryExecutionStrategyFactory>()
-              .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, BigQueryQueryableMethodTranslatingExpressionVisitorFactory>()              
+              .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, BigQueryQueryableMethodTranslatingExpressionVisitorFactory>()
+              .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, BigQuerySqlTranslatingExpressionVisitorFactory>()
+              .TryAdd<IRelationalParameterBasedSqlProcessorFactory, BigQueryRelationalParameterBasedSqlProcessorFactory>()
               .TryAdd<IQueryCompilationContextFactory, BigQueryQueryCompilationContextFactory>()
               
               .TryAddProviderSpecificServices(

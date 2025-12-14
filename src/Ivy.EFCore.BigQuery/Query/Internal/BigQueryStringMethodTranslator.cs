@@ -2,18 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using System.Linq.Expressions;
 using System.Reflection;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
-/// <summary>
-///     Provides translation services for string instance methods to BigQuery SQL functions.
-/// </summary>
-/// <remarks>
-///     See: https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions
-/// </remarks>
+//https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions
 public class BigQueryStringMethodTranslator : IMethodCallTranslator
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
@@ -131,13 +125,12 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        // Handle instance methods
         if (instance != null)
         {
             return TranslateInstanceMethod(instance, method, arguments);
         }
 
-        // Handle static methods
+
         return TranslateStaticMethod(method, arguments);
     }
 
@@ -146,7 +139,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments)
     {
-        // ToLower / ToUpper
         if (method == ToLower || method == ToUpper)
         {
             return _sqlExpressionFactory.Function(
@@ -158,7 +150,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 instance.TypeMapping);
         }
 
-        // Replace
         if (method == Replace)
         {
             var oldValue = arguments[0];
@@ -178,11 +169,8 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 stringTypeMapping);
         }
 
-        // Substring
         if (method == Substring || method == SubstringWithLength)
         {
-            // BigQuery SUBSTR is 1-indexed, .NET is 0-indexed
-            // SUBSTR(str, pos, [length])
             var startIndex = arguments[0];
             var oneBasedIndex = startIndex is SqlConstantExpression { Value: int constantValue }
                 ? _sqlExpressionFactory.Constant(constantValue + 1)
@@ -201,7 +189,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 instance.TypeMapping);
         }
 
-        // IndexOf
         if (method == IndexOfString || method == IndexOfChar)
         {
             return TranslateIndexOf(instance, arguments[0], startIndex: null);
@@ -212,7 +199,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             return TranslateIndexOf(instance, arguments[0], arguments[1]);
         }
 
-        // StartsWith
         if (method == StartsWith)
         {
             var pattern = arguments[0];
@@ -221,7 +207,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
             pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
 
-            // For constants, use LIKE with pattern
             if (pattern is SqlConstantExpression { Value: string patternValue })
             {
                 return patternValue switch
@@ -232,7 +217,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constants, use STARTS_WITH function
             return _sqlExpressionFactory.Function(
                 "STARTS_WITH",
                 [instance, pattern],
@@ -241,7 +225,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 typeof(bool));
         }
 
-        // EndsWith
         if (method == EndsWith)
         {
             var pattern = arguments[0];
@@ -250,7 +233,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
             pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
 
-            // For constants, use LIKE with pattern
             if (pattern is SqlConstantExpression { Value: string patternValue })
             {
                 return patternValue switch
@@ -261,7 +243,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constants, use ENDS_WITH function
             return _sqlExpressionFactory.Function(
                 "ENDS_WITH",
                 [instance, pattern],
@@ -270,7 +251,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 typeof(bool));
         }
 
-        // Contains
         if (method == Contains)
         {
             var pattern = arguments[0];
@@ -279,7 +259,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             instance = _sqlExpressionFactory.ApplyTypeMapping(instance, stringTypeMapping);
             pattern = _sqlExpressionFactory.ApplyTypeMapping(pattern, stringTypeMapping);
 
-            // For constants, use LIKE with pattern
             if (pattern is SqlConstantExpression { Value: string patternValue })
             {
                 return patternValue switch
@@ -290,7 +269,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constants, use STRPOS > 0
             return _sqlExpressionFactory.GreaterThan(
                 _sqlExpressionFactory.Function(
                     "STRPOS",
@@ -301,7 +279,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 _sqlExpressionFactory.Constant(0));
         }
 
-        // Trim methods
         if (method == TrimBothWithNoParam || method == TrimBothWithChars || method == TrimBothWithSingleChar
             || method == TrimStartWithNoParam || method == TrimStartWithChars || method == TrimStartWithSingleChar
             || method == TrimEndWithNoParam || method == TrimEndWithChars || method == TrimEndWithSingleChar)
@@ -309,13 +286,11 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             return TranslateTrim(instance, method, arguments);
         }
 
-        // PadLeft / PadRight
         if (method == PadLeft || method == PadLeftWithChar || method == PadRight || method == PadRightWithChar)
         {
             var functionName = method == PadLeft || method == PadLeftWithChar ? "LPAD" : "RPAD";
             var length = arguments[0];
 
-            // Check if we have a padding character
             SqlExpression? padChar = null;
             if (method == PadLeftWithChar || method == PadRightWithChar)
             {
@@ -325,8 +300,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 }
                 else
                 {
-                    // If the pad character is not a constant, we need to convert it to string
-                    // BigQuery LPAD/RPAD expect a string, not a char
                     padChar = _sqlExpressionFactory.Function(
                         "CAST",
                         [arguments[1]],
@@ -355,7 +328,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
 
     private SqlExpression? TranslateStaticMethod(MethodInfo method, IReadOnlyList<SqlExpression> arguments)
     {
-        // IsNullOrEmpty
         if (method == IsNullOrEmpty)
         {
             var argument = arguments[0];
@@ -366,7 +338,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                     _sqlExpressionFactory.Constant(string.Empty, argument.TypeMapping)));
         }
 
-        // IsNullOrWhiteSpace
         if (method == IsNullOrWhiteSpace)
         {
             var argument = arguments[0];
@@ -383,7 +354,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                     _sqlExpressionFactory.Constant(string.Empty, argument.TypeMapping)));
         }
 
-        // FirstOrDefault (LINQ)
         if (method == FirstOrDefaultWithoutArgs)
         {
             var argument = arguments[0];
@@ -395,7 +365,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 typeof(string));
         }
 
-        // LastOrDefault (LINQ)
         if (method == LastOrDefaultWithoutArgs)
         {
             var argument = arguments[0];
@@ -416,16 +385,8 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 typeof(string));
         }
 
-        // String.Join
-        // Note: String.Join translation is complex because by the time expressions reach this translator,
-        // LINQ expressions have already been converted to SQL expressions. To properly support String.Join,
-        // we would need custom SQL expression types (like Npgsql's PgNewArrayExpression) or handle it
-        // at an earlier stage in the query pipeline. For now, we return null to let EF Core handle it
-        // client-side or through other means.
         if (method == StringJoinWithObjectArray || method == StringJoinWithStringArray || method == StringJoinWithEnumerable)
         {
-            // Cannot translate String.Join for now - would require custom expression types
-            // or preprocessing at an earlier stage
             return null;
         }
 
@@ -442,12 +403,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
 
         if (startIndex != null)
         {
-            // For IndexOf with start index, we need to:
-            // 1. Extract substring from startIndex onwards (convert to 1-based)
-            // 2. Find position in that substring
-            // 3. Add startIndex back to get final position
-            // 4. Subtract 1 to convert from 1-based to 0-based
-
             var oneBasedStartIndex = startIndex is SqlConstantExpression { Value: int constantValue }
                 ? _sqlExpressionFactory.Constant(constantValue + 1)
                 : _sqlExpressionFactory.Add(startIndex, _sqlExpressionFactory.Constant(1));
@@ -467,8 +422,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 argumentsPropagateNullability: [true, true],
                 typeof(int));
 
-            // If STRPOS returns 0 (not found), we want -1
-            // If STRPOS returns > 0, we want position - 1 + startIndex
             strposExpression = _sqlExpressionFactory.Case(
                 [
                     new CaseWhenClause(
@@ -481,8 +434,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
         }
         else
         {
-            // Simple case: STRPOS returns 1-based index, subtract 1 for 0-based
-            // If not found, STRPOS returns 0, we want -1
             var position = _sqlExpressionFactory.Function(
                 "STRPOS",
                 [instance, searchExpression],
@@ -504,7 +455,6 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
 
         var functionName = isTrimStart ? "LTRIM" : isTrimEnd ? "RTRIM" : "TRIM";
 
-        // Check if we have characters to trim
         SqlExpression? trimCharsExpression = null;
         if (arguments.Count > 0 && arguments[0] is SqlConstantExpression constantTrimChars)
         {
@@ -516,10 +466,8 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 trimCharsExpression = _sqlExpressionFactory.Constant(new string(charArray), instance.TypeMapping);
             }
-            // If empty array, treat as default whitespace trim
         }
 
-        // BigQuery TRIM syntax: TRIM(value [, trim_characters])
         var trimArguments = trimCharsExpression != null
             ? new[] { instance, trimCharsExpression }
             : new[] { instance };
