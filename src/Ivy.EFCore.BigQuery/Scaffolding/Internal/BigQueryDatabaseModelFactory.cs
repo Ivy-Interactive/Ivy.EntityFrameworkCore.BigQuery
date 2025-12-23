@@ -1,6 +1,7 @@
 using Ivy.Data.BigQuery;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
@@ -15,12 +16,31 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
     {
         private const string _projectId = "";
         private readonly IRelationalTypeMappingSource _typeMappingSource;
+        private readonly Dictionary<string, StructTypeInfo> _structTypes = new();
 
         public BigQueryDatabaseModelFactory(
             IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
             IRelationalTypeMappingSource typeMappingSource)
         {
             _typeMappingSource = typeMappingSource;
+        }
+
+        /// <summary>
+        /// Information about a STRUCT type discovered during scaffolding
+        /// </summary>
+        private class StructTypeInfo
+        {
+            public string StoreType { get; set; } = string.Empty;
+            public string ClassName { get; set; } = string.Empty;
+            public List<StructFieldInfo> Fields { get; set; } = new();
+        }
+
+        private class StructFieldInfo
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Type { get; set; } = string.Empty;
+            public bool IsNullable { get; set; }
+            public string? ClrType { get; set; }
         }
 
 
@@ -56,6 +76,41 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 }
 
                 GetKeys(connection, tables);
+
+                // Add STRUCT types as fake tables so EF Core scaffolds them as separate classes
+                if (_structTypes.Any())
+                {
+                    var firstTable = tables.FirstOrDefault();
+                    var schema = firstTable?.Schema;
+
+                    foreach (var (structDefinition, structInfo) in _structTypes)
+                    {
+                        var structTable = new DatabaseTable
+                        {
+                            Schema = schema,
+                            Name = structInfo.ClassName,
+                            Database = databaseModel
+                        };
+
+                        structTable["BigQuery:IsStructType"] = true;
+                        structTable["BigQuery:StructDefinition"] = structDefinition;
+
+                        foreach (var field in structInfo.Fields)
+                        {
+                            var column = new DatabaseColumn
+                            {
+                                Table = structTable,
+                                Name = field.Name,
+                                StoreType = field.Type,
+                                IsNullable = field.IsNullable
+                            };
+
+                            structTable.Columns.Add(column);
+                        }
+
+                        databaseModel.Tables.Add(structTable);
+                    }
+                }
 
                 return databaseModel;
             }
@@ -94,6 +149,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 table.Schema = tableSchema;
                 table.Name = tableName;
                 table.Database = databaseModel;
+                
 
                 tables.Add(table);
             }
@@ -134,6 +190,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                         DefaultValueSql = defaultValue,
                         Table = table
                     };
+
+                    if (dataType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var structClassName = RegisterStructType(dataType, table.Name, columnName);
+                        dbColumn[RelationalAnnotationNames.Comment] = $"STRUCT_type: {structClassName}";
+                        dbColumn["BigQuery:IsStructColumn"] = true;
+                        dbColumn["BigQuery:StructDefinition"] = dataType;
+                        dbColumn["BigQuery:StructClassName"] = structClassName;
+                    }
 
                     table.Columns.Add(dbColumn);
                 }
@@ -259,6 +324,221 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Registers a STRUCT type for code generation and returns the generated class name
+        /// </summary>
+        private string RegisterStructType(string structDefinition, string tableName, string columnName)
+        {
+            if (_structTypes.TryGetValue(structDefinition, out var existing))
+            {
+                return existing.ClassName;
+            }
+
+            var className = GenerateStructClassName(tableName, columnName);
+
+            var fields = ParseStructDefinition(structDefinition);
+
+            var structInfo = new StructTypeInfo
+            {
+                StoreType = structDefinition,
+                ClassName = className,
+                Fields = fields
+            };
+
+            _structTypes[structDefinition] = structInfo;
+            return className;
+        }
+
+        /// <summary>
+        /// Generate a meaningful class name for a STRUCT type
+        /// </summary>
+        private string GenerateStructClassName(string tableName, string columnName)
+        {
+            var className = ToPascalCase(columnName);
+
+            var baseName = className;
+            var counter = 1;
+            while (_structTypes.Values.Any(s => s.ClassName == className))
+            {
+                className = $"{baseName}{counter++}";
+            }
+
+            return className;
+        }
+
+        /// <summary>
+        /// Parse STRUCT&lt;field1 TYPE1, field2 TYPE2&gt; definition
+        /// </summary>
+        private List<StructFieldInfo> ParseStructDefinition(string structDef)
+        {
+            var fields = new List<StructFieldInfo>();
+
+            if (!structDef.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+            {
+                return fields;
+            }
+
+            var startIndex = "STRUCT<".Length;
+            var endIndex = FindMatchingCloseBracket(structDef, startIndex - 1);
+
+            if (endIndex == -1)
+            {
+                return fields;
+            }
+
+            var fieldsContent = structDef.Substring(startIndex, endIndex - startIndex);
+            var fieldDefinitions = SplitStructFields(fieldsContent);
+
+            foreach (var fieldDef in fieldDefinitions)
+            {
+                var trimmed = fieldDef.Trim();
+                var parts = trimmed.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                var fieldName = parts[0];
+                var fieldType = parts[1];
+
+                var clrType = MapBigQueryTypeToClrType(fieldType);
+
+                fields.Add(new StructFieldInfo
+                {
+                    Name = fieldName,
+                    Type = fieldType,
+                    IsNullable = true,
+                    ClrType = clrType
+                });
+            }
+
+            return fields;
+        }
+
+        private static List<string> SplitStructFields(string fieldsContent)
+        {
+            var fields = new List<string>();
+            var currentField = new System.Text.StringBuilder();
+            var depth = 0;
+
+            for (var i = 0; i < fieldsContent.Length; i++)
+            {
+                var ch = fieldsContent[i];
+
+                if (ch == '<')
+                {
+                    depth++;
+                    currentField.Append(ch);
+                }
+                else if (ch == '>')
+                {
+                    depth--;
+                    currentField.Append(ch);
+                }
+                else if (ch == ',' && depth == 0)
+                {
+                    fields.Add(currentField.ToString());
+                    currentField.Clear();
+                }
+                else
+                {
+                    currentField.Append(ch);
+                }
+            }
+
+            if (currentField.Length > 0)
+            {
+                fields.Add(currentField.ToString());
+            }
+
+            return fields;
+        }
+
+        private static int FindMatchingCloseBracket(string str, int openIndex)
+        {
+            var depth = 1;
+            for (var i = openIndex + 1; i < str.Length; i++)
+            {
+                if (str[i] == '<')
+                {
+                    depth++;
+                }
+                else if (str[i] == '>')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private static string MapBigQueryTypeToClrType(string bigQueryType)
+        {
+            // Nested
+            if (bigQueryType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+            {
+                return "object"; 
+            }
+
+            if (bigQueryType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
+            {
+                return "System.Collections.Generic.List<object>";
+            }
+
+            return bigQueryType.ToUpperInvariant() switch
+            {
+                "STRING" => "string",
+                "INT64" or "INTEGER" => "long",
+                "FLOAT64" or "FLOAT" => "double",
+                "BOOL" or "BOOLEAN" => "bool",
+                "BYTES" => "byte[]",
+                "TIMESTAMP" => "System.DateTimeOffset",
+                "DATETIME" => "System.DateTime",
+                "DATE" => "System.DateOnly",
+                "TIME" => "System.TimeOnly",
+                "NUMERIC" => "decimal",
+                "BIGNUMERIC" => "decimal",
+                _ when bigQueryType.StartsWith("NUMERIC(", StringComparison.OrdinalIgnoreCase) => "decimal",
+                _ when bigQueryType.StartsWith("BIGNUMERIC(", StringComparison.OrdinalIgnoreCase) => "decimal",
+                _ => "object"
+            };
+        }
+
+        private static string ToPascalCase(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
+
+            var parts = input.Split('_', StringSplitOptions.RemoveEmptyEntries);
+            var result = new System.Text.StringBuilder();
+
+            foreach (var part in parts)
+            {
+                if (part.Length > 0)
+                {
+                    result.Append(char.ToUpperInvariant(part[0]));
+                    if (part.Length > 1)
+                    {
+                        result.Append(part.Substring(1));
+                    }
+                }
+            }
+
+            return result.ToString();
+        }
+
+        private string SerializeStructTypes()
+        {
+            // Use System.Text.Json for serialization
+            return System.Text.Json.JsonSerializer.Serialize(_structTypes);
         }
     }
 }
