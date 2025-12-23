@@ -44,18 +44,18 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
         }
 
-        //protected override Expression VisitExtension(Expression extensionExpression)
-        //{
-        //    return extensionExpression switch
-        //    {
-        //        BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
-        //        BigQueryArrayAccessExpression arrayAccessExpression => VisitBigQueryArrayAccess(arrayAccessExpression),
-        //        BigQueryStructAccessExpression structAccessExpression => VisitBigQueryStructAccess(structAccessExpression),
-        //        BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
-        //        BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
-        //        _ => base.VisitExtension(extensionExpression)
-        //    };
-        //}
+        protected override Expression VisitExtension(Expression extensionExpression)
+        {
+            return extensionExpression switch
+            {
+                //BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
+                //BigQueryArrayAccessExpression arrayAccessExpression => VisitBigQueryArrayAccess(arrayAccessExpression),
+                BigQueryStructAccessExpression structAccessExpression => VisitBigQueryStructAccess(structAccessExpression),
+                //BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
+                BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
+                _ => base.VisitExtension(extensionExpression)
+            };
+        }
 
             //protected virtual Expression VisitBigQueryUnnest(BigQueryUnnestExpression unnestExpression)
             //{
@@ -86,14 +86,14 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             //    return arrayAccessExpression;
             //}
 
-            //protected virtual Expression VisitBigQueryStructAccess(BigQueryStructAccessExpression structAccessExpression)
-            //{
-            //    Visit(structAccessExpression.Struct);
-            //    Sql.Append(".");
-            //    Sql.Append(_sqlGenerationHelper.DelimitIdentifier(structAccessExpression.FieldName));
+        protected virtual Expression VisitBigQueryStructAccess(BigQueryStructAccessExpression structAccessExpression)
+        {
+            Visit(structAccessExpression.Struct);
+            Sql.Append(".");
+            Sql.Append(_sqlGenerationHelper.DelimitIdentifier(structAccessExpression.FieldName));
 
-            //    return structAccessExpression;
-            //}
+            return structAccessExpression;
+        }
 
             //protected virtual Expression VisitBigQueryArrayConstructor(BigQueryArrayConstructorExpression arrayConstructorExpression)
             //{
@@ -122,39 +122,39 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             //    return arrayConstructorExpression;
             //}
 
-            //protected virtual Expression VisitBigQueryStructConstructor(BigQueryStructConstructorExpression structConstructorExpression)
-            //{
-            //    Sql.Append("STRUCT");
+        protected virtual Expression VisitBigQueryStructConstructor(BigQueryStructConstructorExpression structConstructorExpression)
+        {
+            Sql.Append("STRUCT");
 
-            //    if (!string.IsNullOrEmpty(structConstructorExpression.ExplicitType))
-            //    {
-            //        Sql.Append("<").Append(structConstructorExpression.ExplicitType).Append(">");
-            //    }
+            if (!string.IsNullOrEmpty(structConstructorExpression.ExplicitType))
+            {
+                Sql.Append("<").Append(structConstructorExpression.ExplicitType).Append(">");
+            }
 
-            //    Sql.Append("(");
+            Sql.Append("(");
 
-            //    for (var i = 0; i < structConstructorExpression.Arguments.Count; i++)
-            //    {
-            //        if (i > 0)
-            //        {
-            //            Sql.Append(", ");
-            //        }
+            for (var i = 0; i < structConstructorExpression.Arguments.Count; i++)
+            {
+                if (i > 0)
+                {
+                    Sql.Append(", ");
+                }
 
-            //        Visit(structConstructorExpression.Arguments[i]);
+                Visit(structConstructorExpression.Arguments[i]);
 
-            //        // Add field name alias if provided
-            //        if (structConstructorExpression.FieldNames != null 
-            //            && i < structConstructorExpression.FieldNames.Count 
-            //            && !string.IsNullOrEmpty(structConstructorExpression.FieldNames[i]))
-            //        {
-            //            Sql.Append(AliasSeparator).Append(_sqlGenerationHelper.DelimitIdentifier(structConstructorExpression.FieldNames[i]));
-            //        }
-            //    }
+                // Add field name alias if provided
+                if (structConstructorExpression.FieldNames != null
+                    && i < structConstructorExpression.FieldNames.Count
+                    && !string.IsNullOrEmpty(structConstructorExpression.FieldNames[i]))
+                {
+                    Sql.Append(AliasSeparator).Append(_sqlGenerationHelper.DelimitIdentifier(structConstructorExpression.FieldNames[i]));
+                }
+            }
 
-            //    Sql.Append(")");
+            Sql.Append(")");
 
-            //    return structConstructorExpression;
-            //}
+            return structConstructorExpression;
+        }
 
         protected override void GenerateTop(SelectExpression selectExpression)
         {
@@ -292,7 +292,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 },
 
                 //BigQueryArrayAccessExpression => (1600, false),
-                //BigQueryStructAccessExpression => (1600, false),
+                BigQueryStructAccessExpression => (1600, false),
 
                 _ => default
             };

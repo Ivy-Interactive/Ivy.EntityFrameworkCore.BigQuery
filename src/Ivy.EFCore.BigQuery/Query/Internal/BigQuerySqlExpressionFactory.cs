@@ -15,7 +15,37 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
         _typeMappingSource = dependencies.TypeMappingSource;
     }
 
+    /// <summary>
+    /// STRUCT field access expression: struct.field
+    /// </summary>
+    public virtual BigQueryStructAccessExpression StructAccess(
+        SqlExpression instance,
+        string fieldName,
+        Type type,
+        RelationalTypeMapping? typeMapping)
+    {
+        return new BigQueryStructAccessExpression(instance, fieldName, type, typeMapping);
+    }
 
+    /// <summary>
+    /// STRUCT constructor expression: STRUCT&lt;...&gt;(...) or STRUCT(... AS ...)
+    /// </summary>
+    public virtual BigQueryStructConstructorExpression StructConstructor(
+        IReadOnlyList<SqlExpression> arguments,
+        IReadOnlyList<string> fieldNames,
+        IReadOnlyList<RelationalTypeMapping?> fieldTypeMappings,
+        Type type,
+        RelationalTypeMapping? typeMapping,
+        string? explicitType = null)
+    {
+        return new BigQueryStructConstructorExpression(
+            arguments,
+            fieldNames,
+            fieldTypeMappings,
+            type,
+            typeMapping,
+            explicitType);
+    }
 
     public override SqlExpression Convert(SqlExpression operand, Type type, RelationalTypeMapping? typeMapping)
     {

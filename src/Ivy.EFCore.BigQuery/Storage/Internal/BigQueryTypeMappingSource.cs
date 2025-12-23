@@ -2,6 +2,7 @@
 using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Collections.Concurrent;
+using System.Text;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
@@ -99,7 +100,229 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 
         protected override RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
         {
+            var structMapping = FindStructMapping(mappingInfo);
+            if (structMapping != null)
+            {
+                return structMapping;
+            }
+
             return base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);
+        }
+
+        /// <summary>
+        /// Find mapping for STRUCT types (both from store type string and CLR types with [BigQueryStruct] attribute)
+        /// </summary>
+        protected virtual RelationalTypeMapping? FindStructMapping(in RelationalTypeMappingInfo mappingInfo)
+        {
+            var storeTypeName = mappingInfo.StoreTypeName;
+            var clrType = mappingInfo.ClrType;
+
+            if (storeTypeName != null && storeTypeName.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+            {
+                var fields = ParseStructType(storeTypeName);
+                if (fields.Count > 0)
+                {
+                    var type = clrType ?? typeof(IDictionary<string, object>);
+                    return new BigQueryStructTypeMapping(type, fields, storeTypeName);
+                }
+            }
+
+            if (clrType != null && IsOwnedEntityType(clrType))
+            {
+                var fields = ExtractFieldsFromClrType(clrType);
+                if (fields.Count > 0)
+                {
+                    return new BigQueryStructTypeMapping(clrType, fields);
+                }
+            }
+
+            if (mappingInfo.ElementTypeMapping != null && clrType != null)
+            {
+                var fields = ExtractFieldsFromClrType(clrType);
+                if (fields.Count > 0)
+                {
+                    return new BigQueryStructTypeMapping(clrType, fields);
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parse STRUCT&lt;field1 TYPE1, field2 TYPE2&gt; syntax
+        /// </summary>
+        protected virtual IReadOnlyList<BigQueryStructTypeMapping.StructFieldInfo> ParseStructType(string storeType)
+        {
+            if (!storeType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+            {
+                return Array.Empty<BigQueryStructTypeMapping.StructFieldInfo>();
+            }
+
+            var fields = new List<BigQueryStructTypeMapping.StructFieldInfo>();
+
+            var startIndex = "STRUCT<".Length;
+            var endIndex = FindMatchingCloseBracket(storeType, startIndex - 1);
+
+            if (endIndex == -1)
+            {
+                return Array.Empty<BigQueryStructTypeMapping.StructFieldInfo>();
+            }
+
+            var fieldsContent = storeType.Substring(startIndex, endIndex - startIndex);
+
+            var fieldDefinitions = SplitStructFields(fieldsContent);
+
+            foreach (var fieldDef in fieldDefinitions)
+            {
+                var parts = fieldDef.Trim().Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                var fieldName = parts[0];
+                var fieldType = parts[1];
+
+                var fieldTypeMapping = FindMapping(fieldType);
+                if (fieldTypeMapping == null)
+                {
+                    continue;
+                }
+
+                fields.Add(new BigQueryStructTypeMapping.StructFieldInfo(
+                    fieldName,
+                    fieldTypeMapping,
+                    fieldTypeMapping.ClrType));
+            }
+
+            return fields;
+        }
+
+        private static List<string> SplitStructFields(string fieldsContent)
+        {
+            var fields = new List<string>();
+            var currentField = new StringBuilder();
+            var depth = 0;
+
+            for (var i = 0; i < fieldsContent.Length; i++)
+            {
+                var ch = fieldsContent[i];
+
+                if (ch == '<')
+                {
+                    depth++;
+                    currentField.Append(ch);
+                }
+                else if (ch == '>')
+                {
+                    depth--;
+                    currentField.Append(ch);
+                }
+                else if (ch == ',' && depth == 0)
+                {
+                    // Field separator at top level
+                    fields.Add(currentField.ToString());
+                    currentField.Clear();
+                }
+                else
+                {
+                    currentField.Append(ch);
+                }
+            }
+
+            if (currentField.Length > 0)
+            {
+                fields.Add(currentField.ToString());
+            }
+
+            return fields;
+        }
+
+        /// <summary>
+        /// Find matching close bracket, handling nested &lt;&gt;
+        /// </summary>
+        private static int FindMatchingCloseBracket(string str, int openIndex)
+        {
+            var depth = 1;
+            for (var i = openIndex + 1; i < str.Length; i++)
+            {
+                if (str[i] == '<')
+                {
+                    depth++;
+                }
+                else if (str[i] == '>')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private static bool IsOwnedEntityType(Type type)
+        {
+            // Exclude primitive and common types
+            if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal) ||
+                type == typeof(DateTime) || type == typeof(DateTimeOffset) ||
+                type == typeof(Guid) || type == typeof(byte[]))
+            {
+                return false;
+            }
+
+            // Check if it has [Owned] attribute (for compatibility)
+            var ownedAttr = type.GetCustomAttributes(typeof(Microsoft.EntityFrameworkCore.OwnedAttribute), true);
+            if (ownedAttr.Length > 0)
+            {
+                return true;
+            }
+
+            var structAttr = type.GetCustomAttributes(typeof(Metadata.BigQueryStructAttribute), true);
+            return structAttr.Length > 0;
+        }
+
+        private IReadOnlyList<BigQueryStructTypeMapping.StructFieldInfo> ExtractFieldsFromClrType(Type clrType)
+        {
+            var fields = new List<BigQueryStructTypeMapping.StructFieldInfo>();
+
+            var properties = clrType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+            foreach (var property in properties)
+            {
+                // Navigation properties
+                if (!property.CanRead || !property.CanWrite)
+                {
+                    continue;
+                }
+
+                var propertyTypeMapping = FindMapping(property.PropertyType);
+                if (propertyTypeMapping == null)
+                {
+                    continue;
+                }
+
+                // [Column]
+                var fieldName = GetColumnName(property);
+
+                fields.Add(new BigQueryStructTypeMapping.StructFieldInfo(
+                    fieldName,
+                    propertyTypeMapping,
+                    property.PropertyType,
+                    property.Name));
+            }
+
+            return fields;
+        }
+
+        private static string GetColumnName(System.Reflection.PropertyInfo property)
+        {
+            // [Column("custom_name")]
+            var columnAttr = property.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.Schema.ColumnAttribute), true)
+                .FirstOrDefault() as System.ComponentModel.DataAnnotations.Schema.ColumnAttribute;
+
+            return columnAttr?.Name ?? property.Name;
         }
 
         protected virtual RelationalTypeMapping? FindBaseMapping(in RelationalTypeMappingInfo mappingInfo)

@@ -9,7 +9,8 @@ public class BigQueryMemberTranslatorProvider : RelationalMemberTranslatorProvid
     {
         AddTranslators(
         [
-            new BigQueryStringMemberTranslator(dependencies.SqlExpressionFactory)
+            new BigQueryStringMemberTranslator(dependencies.SqlExpressionFactory),
+            new BigQueryStructMemberTranslator(dependencies.SqlExpressionFactory)
         ]);
     }
 }

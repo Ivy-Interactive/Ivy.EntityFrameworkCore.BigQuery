@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Update;
+﻿using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
+using Microsoft.EntityFrameworkCore.Update;
 using System.Text;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
@@ -24,6 +25,61 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             commandStringBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
         }
 
+        protected override void AppendUpdateCommandHeader(
+            StringBuilder commandStringBuilder,
+            string name,
+            string? schema,
+            IReadOnlyList<IColumnModification> operations)
+        {
+            var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
+
+            commandStringBuilder.Append("UPDATE ");
+            SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, name, schema);
+            commandStringBuilder.AppendLine();
+            commandStringBuilder.Append("SET ");
+
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var modification = operations[i];
+                if (i > 0)
+                {
+                    commandStringBuilder.Append(", ");
+                }
+
+                SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, modification.ColumnName);
+                commandStringBuilder.Append(" = ");
+
+                // If ANY column is a STRUCT, use literals for ALL columns
+                if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping)
+                {
+                    if (modification.Value != null)
+                    {
+                        var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                        commandStringBuilder.Append(literal ?? "NULL");
+                    }
+                    else
+                    {
+                        commandStringBuilder.Append("NULL");
+                    }
+                }
+                else if (modification.UseCurrentValueParameter)
+                {
+                    SqlGenerationHelper.GenerateParameterNamePlaceholder(
+                        commandStringBuilder,
+                        modification.ParameterName!);
+                }
+                else if (modification.Value != null)
+                {
+                    var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                    commandStringBuilder.Append(literal ?? "NULL");
+                }
+                else
+                {
+                    commandStringBuilder.Append("DEFAULT");
+                }
+            }
+        }
+
         public override ResultSetMapping AppendInsertOperation(
             StringBuilder commandStringBuilder,
             IReadOnlyModificationCommand command,
@@ -43,6 +99,62 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             commandStringBuilder.AppendLine(SqlGenerationHelper.StatementTerminator);
 
             return ResultSetMapping.NoResults;
+        }
+
+        protected override void AppendValues(
+            StringBuilder commandStringBuilder,
+            string name,
+            string? schema,
+            IReadOnlyList<IColumnModification> operations)
+        {
+            if (operations.Count > 0)
+            {
+                var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
+
+                commandStringBuilder
+                    .AppendLine()
+                    .Append("VALUES (");
+
+                for (var i = 0; i < operations.Count; i++)
+                {
+                    var modification = operations[i];
+                    if (i > 0)
+                    {
+                        commandStringBuilder.Append(", ");
+                    }
+
+                    // If ANY column is a STRUCT, use literals for ALL columns
+                    if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping)
+                    {
+                        if (modification.Value != null)
+                        {
+                            var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                            commandStringBuilder.Append(literal ?? "NULL");
+                        }
+                        else
+                        {
+                            commandStringBuilder.Append("NULL");
+                        }
+                    }
+                    else if (modification.UseCurrentValueParameter)
+                    {
+                        SqlGenerationHelper.GenerateParameterNamePlaceholder(
+                            commandStringBuilder,
+                            modification.ParameterName!);
+                    }
+                    else if (modification.Value != null)
+                    {
+                        var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                        commandStringBuilder.Append(literal ?? "NULL");
+                    }
+                    else
+                    {
+                        commandStringBuilder.Append("DEFAULT");
+                    }
+                }
+
+                commandStringBuilder.Append(')');
+            }
         }
 
         public override ResultSetMapping AppendDeleteOperation(
@@ -137,6 +249,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 
             commandStringBuilder.Append("VALUES ");
 
+            var hasStructColumn = modificationCommands.Any(cmd =>
+                cmd.ColumnModifications.Any(o => o.IsWrite && o.TypeMapping is BigQueryStructTypeMapping));
+
             for (var commandIndex = 0; commandIndex < modificationCommands.Count; commandIndex++)
             {
                 if (commandIndex > 0)
@@ -157,7 +272,22 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     }
 
                     var columnModification = currentWriteOperations[i];
-                    if (columnModification.UseCurrentValueParameter)
+
+                    // If ANY command has a STRUCT, use literals for ALL values
+                    if (hasStructColumn || columnModification.TypeMapping is BigQueryStructTypeMapping)
+                    {
+                        if (columnModification.IsWrite && columnModification.Value != null)
+                        {
+                            var typeMapping = columnModification.TypeMapping;
+                            var value = typeMapping?.GenerateSqlLiteral(columnModification.Value);
+                            commandStringBuilder.Append(value ?? "NULL");
+                        }
+                        else
+                        {
+                            commandStringBuilder.Append("NULL");
+                        }
+                    }
+                    else if (columnModification.UseCurrentValueParameter)
                     {
                         SqlGenerationHelper.GenerateParameterNamePlaceholder(
                             commandStringBuilder,
