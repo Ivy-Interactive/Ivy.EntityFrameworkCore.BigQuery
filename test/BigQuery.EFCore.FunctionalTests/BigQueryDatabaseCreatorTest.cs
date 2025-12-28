@@ -14,7 +14,7 @@ public class BigQueryDatabaseCreatorTest
 
 }
 
-public abstract class SqlServerDatabaseCreatorTestBase
+public abstract class BigQueryDatabaseCreatorTestBase
 {
     protected static IDisposable CreateTransactionScope(bool useTransaction)
         => TestStore.CreateTransactionScope(useTransaction);
@@ -32,7 +32,7 @@ public abstract class SqlServerDatabaseCreatorTestBase
         => new BloggingContext(testStore).GetService<IExecutionStrategyFactory>().Create();
 
     // ReSharper disable once ClassNeverInstantiated.Local
-    private class TestSqlServerExecutionStrategyFactory(ExecutionStrategyDependencies dependencies)
+    private class TestBigQueryExecutionStrategyFactory(ExecutionStrategyDependencies dependencies)
         : BigQueryExecutionStrategyFactory(dependencies)
     {
         protected override IExecutionStrategy CreateDefaultStrategy(ExecutionStrategyDependencies dependencies)
@@ -42,7 +42,7 @@ public abstract class SqlServerDatabaseCreatorTestBase
     private static IServiceProvider CreateServiceProvider()
         => new ServiceCollection()
             .AddEntityFrameworkBigQuery()
-            .AddScoped<IExecutionStrategyFactory, TestSqlServerExecutionStrategyFactory>()
+            .AddScoped<IExecutionStrategyFactory, TestBigQueryExecutionStrategyFactory>()
             .AddScoped<IRelationalDatabaseCreator, TestDatabaseCreator>()
             .BuildServiceProvider(validateScopes: true);
 

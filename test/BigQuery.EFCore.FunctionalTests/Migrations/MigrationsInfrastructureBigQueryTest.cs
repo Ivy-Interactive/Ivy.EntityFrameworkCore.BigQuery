@@ -28,7 +28,13 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             throw new NotImplementedException();
         }
 
-        [ConditionalFact(Skip = "BigQuery doesn't support locking")]
+        [ConditionalFact(Skip = "BigQuery doesn't support table locking")]
+        public override void Can_apply_one_migration_in_parallel() => base.Can_apply_one_migration_in_parallel();
+
+        [ConditionalFact(Skip = "BigQuery doesn't support table locking")]
+        public override Task Can_apply_one_migration_in_parallel_async() => Task.CompletedTask;
+
+        [ConditionalFact(Skip = "BigQuery doesn't support table locking")]
         public override void Can_apply_second_migration_in_parallel() => base.Can_apply_second_migration_in_parallel();
 
         public override void Can_get_active_provider()

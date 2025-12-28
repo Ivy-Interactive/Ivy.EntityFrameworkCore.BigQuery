@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
-namespace Ivy.EntityFrameworkCore.BigQuery;
+namespace Ivy.EntityFrameworkCore.BigQuery.Update;
 
 public class ComplexTypeBulkUpdatesBigQueryTest(
 ComplexTypeBulkUpdatesBigQueryTest.ComplexTypeBulkUpdatesBigQueryFixture fixture,
