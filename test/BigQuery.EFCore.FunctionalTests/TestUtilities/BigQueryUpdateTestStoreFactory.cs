@@ -13,6 +13,6 @@ namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities
         }
 
         public override TestStore GetOrCreate(string storeName)
-            => BigQueryTestStore.GetOrCreate(Name);
+            => BigQueryTestStore.GetOrCreate(storeName);
     }
 }

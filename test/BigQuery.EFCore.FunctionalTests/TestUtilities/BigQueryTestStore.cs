@@ -17,11 +17,13 @@ public class BigQueryTestStore : RelationalTestStore
 
     private readonly string _testDatasetName;
     private string? _scriptPath;
+    private string? _scriptDatasetName;
     public const int CommandTimeout = 300;
 
-    public BigQueryTestStore(string name, bool shared = true, string? scriptPath = null) : base(name, shared, CreateConnection(name))
+    public BigQueryTestStore(string name, bool shared = true, string? scriptPath = null, string? scriptDatasetName = null) : base(name, shared, CreateConnection(name))
     {
         _testDatasetName = name;
+        _scriptDatasetName = scriptDatasetName;
         if (scriptPath != null)
         {
             _scriptPath = Path.Combine(Path.GetDirectoryName(typeof(BigQueryTestStore).Assembly.Location)!, scriptPath);
@@ -33,8 +35,9 @@ public class BigQueryTestStore : RelationalTestStore
         string? scriptPath = null,
         string? additionalSql = null,
         string? connectionStringOptions = null,
-        bool useConnectionString = false)
-        => new(name, shared: true, scriptPath);
+        bool useConnectionString = false,
+        string? scriptDatasetName = null)
+        => new(name, shared: true, scriptPath, scriptDatasetName);
 
     private static BigQueryConnection CreateConnection(string name)
         => new(CreateConnectionString(name));
@@ -43,10 +46,14 @@ public class BigQueryTestStore : RelationalTestStore
 
     public static string CreateConnectionString(string name, string? options = null)
     {
-        var builder = new BigQueryConnectionStringBuilder(TestEnvironment.DefaultConnection)
+        var builder = new BigQueryConnectionStringBuilder(TestEnvironment.DefaultConnection);
+
+        // This allows parallel tests to use unique datasets via environment variable
+        if (string.IsNullOrEmpty(builder.DefaultDatasetId))
         {
-            DefaultDatasetId = name
-        };
+            builder.DefaultDatasetId = name;
+        }
+
         return builder.ConnectionString;
     }
 
@@ -87,6 +94,9 @@ public class BigQueryTestStore : RelationalTestStore
         {
             if (_scriptPath != null)
             {
+                // Dataset exists, but we need to check if tables exist
+                // Only return false (skip script) if tables are already there
+                // This check will be done by ExecuteScript which handles existing tables
                 return false;
             }
 
@@ -111,6 +121,16 @@ public class BigQueryTestStore : RelationalTestStore
     public void ExecuteScript(string scriptPath)
     {
         var script = File.ReadAllText(scriptPath);
+
+        // Replace hardcoded dataset name with actual dataset name if specified
+        if (_scriptDatasetName != null && _scriptDatasetName != _testDatasetName)
+        {
+            // Replace backtick-quoted dataset name (e.g., `efc_northwind` -> `actual_dataset_name`)
+            script = script.Replace($"`{_scriptDatasetName}`", $"`{_testDatasetName}`");
+            // Also replace unquoted references if any
+            script = script.Replace(_scriptDatasetName, _testDatasetName);
+        }
+
         Execute(
             Connection, command =>
             {

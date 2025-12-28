@@ -14,5 +14,5 @@ public class BigQueryNorthwindTestStoreFactory : BigQueryTestStoreFactory
     }
 
     public override TestStore GetOrCreate(string storeName)
-        => BigQueryTestStore.GetOrCreate(Name, scriptPath: "Northwind.sql");
+        => BigQueryTestStore.GetOrCreate(storeName, scriptPath: "Northwind.sql", scriptDatasetName: Name);
 }

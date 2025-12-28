@@ -370,3 +370,7 @@ FodyWeavers.xsd
 
 src/Ivy.EFCore.BigQuery.Sample/
 doc/
+
+# Test dashboard and npm files
+dashboard.html
+package-lock.json

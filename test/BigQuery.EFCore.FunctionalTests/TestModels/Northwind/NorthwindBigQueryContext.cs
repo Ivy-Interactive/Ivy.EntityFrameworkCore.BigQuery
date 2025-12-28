@@ -7,7 +7,17 @@ namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Northwind
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Clear for parallel test
+            modelBuilder.HasDefaultSchema(null);
+
             base.OnModelCreating(modelBuilder);
+
+            // Clear for parallel test
+            var model = modelBuilder.Model;
+            foreach (var entityType in model.GetEntityTypes())
+            {
+                entityType.SetSchema(null);
+            }
 
             modelBuilder.Entity<Product>(b =>
             {
