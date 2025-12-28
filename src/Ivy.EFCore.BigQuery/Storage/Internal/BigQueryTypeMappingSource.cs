@@ -355,7 +355,18 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 
                 if (clrType.IsEnum)
                 {
-                    return FindMapping(clrType.GetEnumUnderlyingType());
+                    var underlyingType = clrType.GetEnumUnderlyingType();
+                    var underlyingTypeMapping = FindMapping(underlyingType);
+
+                    if (underlyingTypeMapping != null)
+                    {
+                        var converterType = typeof(Microsoft.EntityFrameworkCore.Storage.ValueConversion.EnumToNumberConverter<,>)
+                            .MakeGenericType(clrType, underlyingType);
+                        var converter = (Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter)
+                            Activator.CreateInstance(converterType)!;
+
+                        return (RelationalTypeMapping)underlyingTypeMapping.WithComposedConverter(converter);
+                    }
                 }
             }
 

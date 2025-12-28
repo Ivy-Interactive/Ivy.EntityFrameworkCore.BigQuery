@@ -43,6 +43,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             if (parameter is BigQueryParameter bigQueryParameter)
             {
                 bigQueryParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.Int64;
+
+                // Convert int to long for BigQuery
+                if (parameter.Value is int intValue)
+                {
+                    parameter.Value = (long)intValue;
+                }
             }
         }
     }

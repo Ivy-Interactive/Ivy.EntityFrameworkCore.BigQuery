@@ -54,6 +54,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             if (parameter is BigQueryParameter bigQueryParameter)
             {
                 bigQueryParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.Float64;
+
+                // Convert float to double for BigQuery
+                if (parameter.Value is float floatValue)
+                {
+                    parameter.Value = (double)floatValue;
+                }
             }
         }
     }
