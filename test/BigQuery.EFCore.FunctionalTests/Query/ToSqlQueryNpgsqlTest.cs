@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public class ToSqlQuerySqlServerTest : ToSqlQueryTestBase
+public class ToSqlQueryBigQueryTest : ToSqlQueryTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
