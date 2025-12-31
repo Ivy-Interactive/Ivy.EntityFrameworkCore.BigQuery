@@ -22,6 +22,28 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             _typeMappingSource = typeMappingSource;
         }
 
+        protected override Expression VisitColumn(ColumnExpression columnExpression)
+        {
+            // In BQ, UNNEST values and WITH OFFSET columns are accessed directly
+            // without table.column qualification
+
+            // 1. UNNEST value column: emit as table alias only
+            if (columnExpression.Name == "value")
+            {
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.TableAlias));
+                return columnExpression;
+            }
+
+            // 2. UNNEST WITH OFFSET column: emit as column name only
+            if (columnExpression.Name == "offset")
+            {
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.Name));
+                return columnExpression;
+            }
+
+            return base.VisitColumn(columnExpression);
+        }
+
         protected override Expression VisitSqlBinary(SqlBinaryExpression binary)
         {
             switch (binary.OperatorType)
@@ -48,8 +70,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
             return extensionExpression switch
             {
-                //BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
-                //BigQueryArrayAccessExpression arrayAccessExpression => VisitBigQueryArrayAccess(arrayAccessExpression),
+                BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
+                BigQueryArrayIndexExpression arrayIndexExpression => VisitBigQueryArrayIndex(arrayIndexExpression),
+                BigQueryArrayLiteralExpression arrayLiteralExpression => VisitBigQueryArrayLiteral(arrayLiteralExpression),
+                BigQueryInUnnestExpression inUnnestExpression => VisitBigQueryInUnnest(inUnnestExpression),
                 BigQueryStructAccessExpression structAccessExpression => VisitBigQueryStructAccess(structAccessExpression),
                 //BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
                 BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
@@ -57,34 +81,69 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             };
         }
 
-            //protected virtual Expression VisitBigQueryUnnest(BigQueryUnnestExpression unnestExpression)
-            //{
-            //    Sql.Append("UNNEST(");
-            //    Visit(unnestExpression.ArrayExpression);
-            //    Sql.Append(")").Append(AliasSeparator).Append(_sqlGenerationHelper.DelimitIdentifier(unnestExpression.Alias));
+        protected virtual Expression VisitBigQueryUnnest(BigQueryUnnestExpression unnestExpression)
+        {
+            Sql.Append("UNNEST(");
+            Visit(unnestExpression.Array);
+            Sql.Append(")");
 
-            //    if (unnestExpression.WithOffset)
-            //    {
-            //        Sql.Append(unnestExpression.UseOrdinal ? " WITH ORDINAL" : " WITH OFFSET");
-            //        if (!string.IsNullOrEmpty(unnestExpression.OffsetAlias))
-            //        {
-            //            Sql.Append(AliasSeparator).Append(_sqlGenerationHelper.DelimitIdentifier(unnestExpression.OffsetAlias));
-            //        }
-            //    }
+            if (!string.IsNullOrEmpty(unnestExpression.Alias))
+            {
+                Sql.Append(AliasSeparator);
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(unnestExpression.Alias));
+            }
 
-            //    return unnestExpression;
-            //}
+            if (unnestExpression.WithOffset)
+            {
+                Sql.Append(" WITH OFFSET");
+                if (!string.IsNullOrEmpty(unnestExpression.OffsetAlias))
+                {
+                    Sql.Append(AliasSeparator);
+                    Sql.Append(_sqlGenerationHelper.DelimitIdentifier(unnestExpression.OffsetAlias));
+                }
+            }
 
-            //protected virtual Expression VisitBigQueryArrayAccess(BigQueryArrayAccessExpression arrayAccessExpression)
-            //{
-            //    Visit(arrayAccessExpression.Array);
-            //    Sql.Append("[");
-            //    Sql.Append(arrayAccessExpression.UseOrdinal ? "ORDINAL(" : "OFFSET(");
-            //    Visit(arrayAccessExpression.Index);
-            //    Sql.Append(")]");
+            return unnestExpression;
+        }
 
-            //    return arrayAccessExpression;
-            //}
+        protected virtual Expression VisitBigQueryArrayIndex(BigQueryArrayIndexExpression arrayIndexExpression)
+        {
+            Visit(arrayIndexExpression.Array);
+            Sql.Append("[OFFSET(");
+            Visit(arrayIndexExpression.Index);
+            Sql.Append(")]");
+
+            return arrayIndexExpression;
+        }
+
+        protected virtual Expression VisitBigQueryInUnnest(BigQueryInUnnestExpression inUnnestExpression)
+        {
+            Visit(inUnnestExpression.Item);
+            Sql.Append(" IN UNNEST(");
+            Visit(inUnnestExpression.Array);
+            Sql.Append(")");
+
+            return inUnnestExpression;
+        }
+
+        protected virtual Expression VisitBigQueryArrayLiteral(BigQueryArrayLiteralExpression arrayLiteralExpression)
+        {
+            Sql.Append("ARRAY<");
+            Sql.Append(arrayLiteralExpression.ElementTypeMapping?.StoreType ?? "INT64");
+            Sql.Append(">[");
+
+            for (int i = 0; i < arrayLiteralExpression.Elements.Count; i++)
+            {
+                if (i > 0)
+                {
+                    Sql.Append(", ");
+                }
+                Visit(arrayLiteralExpression.Elements[i]);
+            }
+
+            Sql.Append("]");
+            return arrayLiteralExpression;
+        }
 
         protected virtual Expression VisitBigQueryStructAccess(BigQueryStructAccessExpression structAccessExpression)
         {
