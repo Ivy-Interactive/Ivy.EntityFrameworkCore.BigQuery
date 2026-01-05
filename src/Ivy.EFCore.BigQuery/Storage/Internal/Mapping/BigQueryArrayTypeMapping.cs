@@ -176,7 +176,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
                 throw new NotSupportedException("Multidimensional array literals aren't supported");
 
             var sb = new StringBuilder();
-            sb.Append('[');
+
+            sb.Append("ARRAY<");
+            sb.Append(ElementTypeMapping.StoreType);
+            sb.Append(">[");
 
             var isFirst = true;
             foreach (var element in enumerable)
@@ -196,7 +199,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         protected override void ConfigureParameter(DbParameter parameter)
         {
             base.ConfigureParameter(parameter);
-            // Let the BigQuery driver handle array parameter configuration
+
+            if (parameter is Data.BigQuery.BigQueryParameter bqParameter)
+            {
+                bqParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
+            }
         }
     }
 }

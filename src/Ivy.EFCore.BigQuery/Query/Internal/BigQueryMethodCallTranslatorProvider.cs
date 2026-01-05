@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
-using System.Collections.Generic;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
@@ -16,6 +14,7 @@ public class BigQueryMethodCallTranslatorProvider : RelationalMethodCallTranslat
         [
             new BigQueryStringMethodTranslator(dependencies.SqlExpressionFactory),
             new BigQueryMathMethodTranslator(dependencies.SqlExpressionFactory, typeMappingSource),
+            new BigQueryArrayMethodTranslator(sqlExpressionFactory),
         ]);
     }
 }

@@ -174,22 +174,53 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 if (!string.IsNullOrEmpty(structClassName))
                 {
                     var propertyName = property.Name;
+                    var storeType = property.GetColumnType();
 
-                    var replacements = new[]
-                    {
-                        ($"public IDictionary<string, object>? {propertyName} {{ get; set; }}",
-                         $"public {structClassName}? {propertyName} {{ get; set; }}"),
-                        ($"public IDictionary<string, object> {propertyName} {{ get; set; }}",
-                         $"public {structClassName} {propertyName} {{ get; set; }}"),
-                        ($"public IDictionary<string, object> {propertyName} {{ get; set; }} = null!;",
-                         $"public {structClassName} {propertyName} {{ get; set; }} = null!;")
-                    };
+                    bool isArray = storeType?.StartsWith("ARRAY<STRUCT<", StringComparison.OrdinalIgnoreCase) == true;
 
-                    foreach (var (oldPattern, newPattern) in replacements)
+                    if (isArray)
                     {
-                        if (modifiedCode.Contains(oldPattern))
+                        // ARRAY<STRUCT<...>> replacements
+                        var arrayReplacements = new[]
                         {
-                            modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
+                            ($"public IDictionary<string, object>[]? {propertyName} {{ get; set; }}",
+                             $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
+                            ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }}",
+                             $"public List<{structClassName}> {propertyName} {{ get; set; }}"),
+                            ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }} = null!;",
+                             $"public List<{structClassName}> {propertyName} {{ get; set; }} = null!;"),
+                            ($"public ICollection<IDictionary<string, object>>? {propertyName} {{ get; set; }}",
+                             $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
+                            ($"public ICollection<IDictionary<string, object>> {propertyName} {{ get; set; }}",
+                             $"public List<{structClassName}> {propertyName} {{ get; set; }}")
+                        };
+
+                        foreach (var (oldPattern, newPattern) in arrayReplacements)
+                        {
+                            if (modifiedCode.Contains(oldPattern))
+                            {
+                                modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var scalarReplacements = new[]
+                        {
+                            ($"public IDictionary<string, object>? {propertyName} {{ get; set; }}",
+                             $"public {structClassName}? {propertyName} {{ get; set; }}"),
+                            ($"public IDictionary<string, object> {propertyName} {{ get; set; }}",
+                             $"public {structClassName} {propertyName} {{ get; set; }}"),
+                            ($"public IDictionary<string, object> {propertyName} {{ get; set; }} = null!;",
+                             $"public {structClassName} {propertyName} {{ get; set; }} = null!;")
+                        };
+
+                        foreach (var (oldPattern, newPattern) in scalarReplacements)
+                        {
+                            if (modifiedCode.Contains(oldPattern))
+                            {
+                                modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
+                            }
                         }
                     }
                 }

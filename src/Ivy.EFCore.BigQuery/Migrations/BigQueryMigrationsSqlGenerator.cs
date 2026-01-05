@@ -101,7 +101,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                     .Append(mapping.GenerateSqlLiteral(operation.DefaultValue));
             }
 
-            if (operation.IsNullable == false)
+            // NOT NULL on ARRAY fields is not supported
+            // ARRAY fields are always nullable (NULL is stored as empty array)
+            var isArrayType = columnType?.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase) == true;
+
+            if (operation.IsNullable == false && !isArrayType)
             {
                 builder.Append(" NOT NULL");
             }

@@ -106,6 +106,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 return structMapping;
             }
 
+            var arrayMapping = FindArrayMapping(mappingInfo);
+            if (arrayMapping != null)
+            {
+                return arrayMapping;
+            }
+
             return base.FindMapping(mappingInfo) ?? FindBaseMapping(mappingInfo)?.Clone(mappingInfo);
         }
 
@@ -127,6 +133,13 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 }
             }
 
+            // Don't treat collection types (arrays, List<T>, etc.) as STRUCT
+            // They should be mapped as ARRAY types instead
+            if (clrType != null && IsCollectionType(clrType))
+            {
+                return null;
+            }
+
             if (clrType != null && IsOwnedEntityType(clrType))
             {
                 var fields = ExtractFieldsFromClrType(clrType);
@@ -146,6 +159,160 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Find mapping for ARRAY types (both from store type string and CLR array/collection types)
+        /// </summary>
+        protected virtual RelationalTypeMapping? FindArrayMapping(in RelationalTypeMappingInfo mappingInfo)
+        {
+            var storeTypeName = mappingInfo.StoreTypeName;
+            var clrType = mappingInfo.ClrType;
+
+            // Handle ARRAY<type> store type syntax
+            if (storeTypeName != null && storeTypeName.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
+            {
+                var elementStoreType = ParseArrayElementType(storeTypeName);
+                if (!string.IsNullOrEmpty(elementStoreType))
+                {
+                    var elementMapping = FindMapping(elementStoreType);
+                    if (elementMapping != null)
+                    {
+                        // Determine collection type
+                        var elementClrType = clrType != null ? TryGetElementType(clrType) : elementMapping.ClrType;
+                        if (elementClrType != null)
+                        {
+                            return CreateArrayTypeMapping(clrType, elementClrType, elementMapping, storeTypeName);
+                        }
+                    }
+                }
+            }
+
+            // CLR array/collection types
+            if (clrType != null &&
+                clrType != typeof(string) &&
+                clrType != typeof(byte[])) // byte[] is BYTES, not ARRAY<INT64>
+            {
+                var elementType = TryGetElementType(clrType);
+                if (elementType != null)
+                {
+                    var elementMapping = FindMapping(elementType);
+                    if (elementMapping != null)
+                    {
+                        var storeType = storeTypeName ?? $"ARRAY<{elementMapping.StoreType}>";
+                        return CreateArrayTypeMapping(clrType, elementType, elementMapping, storeType);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parse ARRAY&lt;element_type&gt; to extract element_type
+        /// </summary>
+        private static string? ParseArrayElementType(string storeType)
+        {
+            if (!storeType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var startIndex = "ARRAY<".Length;
+            var endIndex = FindMatchingCloseBracket(storeType, startIndex - 1);
+
+            if (endIndex == -1)
+            {
+                return null;
+            }
+
+            return storeType.Substring(startIndex, endIndex - startIndex);
+        }
+
+        /// <summary>
+        /// Extract element type from array/collection type
+        /// </summary>
+        private static Type? TryGetElementType(Type type)
+        {
+            // T[]
+            if (type.IsArray)
+            {
+                return type.GetElementType();
+            }
+
+            if (type.IsGenericType)
+            {
+                var genericDef = type.GetGenericTypeDefinition();
+                if (genericDef == typeof(IEnumerable<>) ||
+                    genericDef == typeof(IList<>) ||
+                    genericDef == typeof(List<>) ||
+                    genericDef == typeof(ICollection<>) ||
+                    genericDef == typeof(IReadOnlyList<>) ||
+                    genericDef == typeof(IReadOnlyCollection<>))
+                {
+                    return type.GetGenericArguments()[0];
+                }
+            }
+
+            foreach (var iface in type.GetInterfaces())
+            {
+                if (iface.IsGenericType &&
+                    iface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                {
+                    return iface.GetGenericArguments()[0];
+                }
+            }
+
+            return null;
+        }
+
+        private static RelationalTypeMapping CreateArrayTypeMapping(
+            Type? collectionType,
+            Type elementType,
+            RelationalTypeMapping elementMapping,
+            string storeType)
+        {
+            Type actualCollectionType;
+            Type concreteCollectionType;
+
+            if (collectionType == null)
+            {
+                actualCollectionType = elementType.MakeArrayType();
+                concreteCollectionType = actualCollectionType;
+            }
+            else if (collectionType.IsArray)
+            {
+                actualCollectionType = collectionType;
+                concreteCollectionType = collectionType;
+            }
+            else if (collectionType.IsInterface || collectionType.IsAbstract)
+            {
+                // Use array as concrete type for interfaces
+                actualCollectionType = collectionType;
+                concreteCollectionType = elementType.MakeArrayType();
+            }
+            else
+            {                
+                actualCollectionType = collectionType;
+                concreteCollectionType = collectionType;
+            }
+
+            // BigQueryArrayTypeMapping<TCollection, TConcreteCollection, TElement>
+            var mappingType = typeof(BigQueryArrayTypeMapping<,,>).MakeGenericType(
+                actualCollectionType,
+                concreteCollectionType,
+                elementType);
+
+            var constructorInfo = mappingType.GetConstructor(
+                new[] { typeof(string), typeof(RelationalTypeMapping) });
+
+            if (constructorInfo == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not find constructor for {mappingType.Name}");
+            }
+
+            return (RelationalTypeMapping)constructorInfo.Invoke(new object[] { storeType, elementMapping });
         }
 
         /// <summary>
@@ -260,6 +427,39 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 }
             }
             return -1;
+        }
+
+        /// <summary>
+        /// Check if a type is a collection type (array, List&lt;T&gt;, IEnumerable&lt;T&gt;, etc.)
+        /// </summary>
+        private static bool IsCollectionType(Type type)
+        {
+            // String - IEnumerable<char>); byte[] - BYTES
+            if (type == typeof(string) || type == typeof(byte[]))
+            {
+                return false;
+            }
+
+            if (type.IsArray)
+            {
+                return true;
+            }
+
+            if (type.IsGenericType)
+            {
+                var genericDef = type.GetGenericTypeDefinition();
+                if (genericDef == typeof(IEnumerable<>) ||
+                    genericDef == typeof(IList<>) ||
+                    genericDef == typeof(List<>) ||
+                    genericDef == typeof(ICollection<>) ||
+                    genericDef == typeof(IReadOnlyList<>) ||
+                    genericDef == typeof(IReadOnlyCollection<>))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsOwnedEntityType(Type type)

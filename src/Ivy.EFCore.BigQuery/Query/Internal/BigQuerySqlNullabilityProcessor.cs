@@ -12,6 +12,18 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
     {
     }
 
+    protected override TableExpressionBase Visit(TableExpressionBase tableExpressionBase)
+    {
+        if (tableExpressionBase is BigQueryUnnestExpression unnestExpression)
+        {
+            // Visit the array expression inside UNNEST
+            var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
+            return unnestExpression.Update((SqlExpression)visitedArray);
+        }
+
+        return base.Visit(tableExpressionBase);
+    }
+
     protected override SqlExpression VisitCustomSqlExpression(
         SqlExpression sqlExpression,
         bool allowOptimizedExpansion,
@@ -19,6 +31,19 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
     {
         switch (sqlExpression)
         {
+            case BigQueryArrayIndexExpression arrayIndexExpression:
+            {
+                // Visit the array and index expressions
+                var visitedArray = Visit(arrayIndexExpression.Array, allowOptimizedExpansion, out var arrayNullable);
+                var visitedIndex = Visit(arrayIndexExpression.Index, allowOptimizedExpansion, out _);
+
+                // Array indexing can return null if the index is out of bounds or the array is null
+                // In BigQuery, accessing arr[OFFSET(i)] returns NULL if index is out of range
+                nullable = true;
+
+                return arrayIndexExpression.Update((SqlExpression)visitedArray, (SqlExpression)visitedIndex);
+            }
+
             case BigQueryStructAccessExpression structAccessExpression:
             {
                 var visitedStruct = Visit(structAccessExpression.Struct, allowOptimizedExpansion, out var structNullable);
@@ -43,6 +68,17 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
                 nullable = anyNullable;
 
                 return structConstructorExpression.Update(visitedArguments);
+            }
+
+            case BigQueryInUnnestExpression inUnnestExpression:
+            {
+                var visitedItem = Visit(inUnnestExpression.Item, allowOptimizedExpansion, out _);
+                var visitedArray = Visit(inUnnestExpression.Array, allowOptimizedExpansion, out _);
+
+                // IN UNNEST returns a boolean, never null
+                nullable = false;
+
+                return inUnnestExpression.Update((SqlExpression)visitedItem, (SqlExpression)visitedArray);
             }
 
             default:

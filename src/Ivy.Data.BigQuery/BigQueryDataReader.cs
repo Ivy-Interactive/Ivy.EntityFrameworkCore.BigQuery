@@ -480,6 +480,53 @@ namespace Ivy.Data.BigQuery
                     return (T)(object)bytesValue;
                 }
 
+                // ARRAY
+                if (typeof(T).IsArray && value is Array sourceArray)
+                {
+                    var targetElementType = typeof(T).GetElementType()!;
+                    var sourceElementType = value.GetType().GetElementType()!;
+
+                    if (targetElementType == sourceElementType)
+                    {
+                        return (T)value;
+                    }
+
+                    // For cases like int[]
+                    var targetArray = Array.CreateInstance(targetElementType, sourceArray.Length);
+                    for (int i = 0; i < sourceArray.Length; i++)
+                    {
+                        var sourceElement = sourceArray.GetValue(i);
+                        if (sourceElement != null)
+                        {
+                            var convertedElement = Convert.ChangeType(sourceElement, targetElementType, CultureInfo.InvariantCulture);
+                            targetArray.SetValue(convertedElement, i);
+                        }
+                    }
+                    return (T)(object)targetArray;
+                }
+
+                // List<T>
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(List<>) && value is Array listSourceArray)
+                {
+                    var targetElementType = typeof(T).GetGenericArguments()[0];
+                    var listType = typeof(List<>).MakeGenericType(targetElementType);
+                    var list = (IList)Activator.CreateInstance(listType)!;
+
+                    foreach (var element in listSourceArray)
+                    {
+                        if (element != null)
+                        {
+                            var convertedElement = Convert.ChangeType(element, targetElementType, CultureInfo.InvariantCulture);
+                            list.Add(convertedElement);
+                        }
+                        else
+                        {
+                            list.Add(null);
+                        }
+                    }
+                    return (T)list;
+                }
+
                 switch (value)
                 {
                     case T typedValue:
