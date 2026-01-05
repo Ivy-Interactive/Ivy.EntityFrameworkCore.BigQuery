@@ -1,5 +1,6 @@
 using Ivy.Data.BigQuery;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -16,13 +17,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
     {
         private const string _projectId = "";
         private readonly IRelationalTypeMappingSource _typeMappingSource;
+        private readonly IPluralizer? _pluralizer;
         private readonly Dictionary<string, StructTypeInfo> _structTypes = new();
 
         public BigQueryDatabaseModelFactory(
             IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
-            IRelationalTypeMappingSource typeMappingSource)
+            IRelationalTypeMappingSource typeMappingSource,
+            IPluralizer? pluralizer = null)
         {
             _typeMappingSource = typeMappingSource;
+            _pluralizer = pluralizer;
         }
 
         /// <summary>
@@ -182,6 +186,23 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
 
                     var ordinal = Convert.ToInt32(row["ORDINAL_POSITION"]);
 
+                    // BigQuery doesn't support NOT NULL on ARRAY columns, so they're always nullable
+                    string? arrayStructClassName = null;
+                    if (dataType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isNullable = true;
+
+                        // ARRAY<STRUCT<...>>
+                        if (dataType.Length > 7)
+                        {
+                            var elementType = dataType.Substring(6, dataType.Length - 7); // Remove "ARRAY<" and ">"
+                            if (elementType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+                            {
+                                arrayStructClassName = RegisterStructType(elementType, table.Name, columnName, isArrayElement: true);
+                            }
+                        }
+                    }
+
                     var dbColumn = new DatabaseColumn
                     {
                         StoreType = dataType,
@@ -194,10 +215,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     if (dataType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
                     {
                         var structClassName = RegisterStructType(dataType, table.Name, columnName);
-                        dbColumn[RelationalAnnotationNames.Comment] = $"STRUCT_type: {structClassName}";
+                        //dbColumn[RelationalAnnotationNames.Comment] = $"STRUCT_type: {structClassName}";
                         dbColumn["BigQuery:IsStructColumn"] = true;
                         dbColumn["BigQuery:StructDefinition"] = dataType;
                         dbColumn["BigQuery:StructClassName"] = structClassName;
+                    }
+                    else if (arrayStructClassName != null)
+                    {
+                        //dbColumn[RelationalAnnotationNames.Comment] = $"ARRAY<STRUCT>_type: {arrayStructClassName}";
+                        dbColumn["BigQuery:StructClassName"] = arrayStructClassName;
                     }
 
                     table.Columns.Add(dbColumn);
@@ -329,15 +355,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
         /// <summary>
         /// Registers a STRUCT type for code generation and returns the generated class name
         /// </summary>
-        private string RegisterStructType(string structDefinition, string tableName, string columnName)
+        private string RegisterStructType(string structDefinition, string tableName, string columnName, bool isArrayElement = false)
         {
             if (_structTypes.TryGetValue(structDefinition, out var existing))
             {
                 return existing.ClassName;
             }
 
-            var className = GenerateStructClassName(tableName, columnName);
-
+            var className = GenerateStructClassName(tableName, columnName, isArrayElement);
+            
             var fields = ParseStructDefinition(structDefinition);
 
             var structInfo = new StructTypeInfo
@@ -354,9 +380,27 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
         /// <summary>
         /// Generate a meaningful class name for a STRUCT type
         /// </summary>
-        private string GenerateStructClassName(string tableName, string columnName)
+        private string GenerateStructClassName(string tableName, string columnName, bool isArrayElement)
         {
             var className = ToPascalCase(columnName);
+
+            // For array elements, singularize the class name
+            if (isArrayElement)
+            {
+                // Use EF Core's pluralizer if available (uses Humanizer library)
+                if (_pluralizer != null)
+                {
+                    className = _pluralizer.Singularize(className) ?? className;
+                }
+                else
+                {
+                    // Fallback: simple singularization by removing trailing 's'
+                    if (className.EndsWith("s", StringComparison.Ordinal) && className.Length > 1)
+                    {
+                        className = className.Substring(0, className.Length - 1);
+                    }
+                }
+            }
 
             var baseName = className;
             var counter = 1;
@@ -478,16 +522,36 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
             return -1;
         }
 
-        private static string MapBigQueryTypeToClrType(string bigQueryType)
+        private string MapBigQueryTypeToClrType(string bigQueryType)
         {
-            // Nested
+            // STRUCT - check if we've registered this type
             if (bigQueryType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
             {
-                return "object"; 
+                // Look up the registered struct type to get its class name
+                if (_structTypes.TryGetValue(bigQueryType, out var structInfo))
+                {
+                    return structInfo.ClassName;
+                }
+                // Fallback to object if not registered (shouldn't happen in normal flow)
+                return "object";
             }
 
             if (bigQueryType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
             {
+                // Extract element type from ARRAY<element_type>
+                // Ensure string is long enough: minimum valid is "ARRAY<X>" (8 chars)
+                if (bigQueryType.Length > 7)
+                {
+                    var elementType = bigQueryType.Substring(6, bigQueryType.Length - 7); // Remove "ARRAY<" and ">"
+
+                    // Recursively get CLR type for element
+                    var elementClrType = MapBigQueryTypeToClrType(elementType);
+
+                    // Return List<T> for arrays
+                    return $"System.Collections.Generic.List<{elementClrType}>";
+                }
+
+                // Malformed array type, fallback to object
                 return "System.Collections.Generic.List<object>";
             }
 

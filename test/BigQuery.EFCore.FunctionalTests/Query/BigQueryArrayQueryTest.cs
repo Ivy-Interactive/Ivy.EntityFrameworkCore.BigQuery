@@ -1,16 +1,10 @@
 using Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Ivy.EFCore.BigQuery.FunctionalTests.Query;
 
-/// <summary>
-/// Abstract base test class for BigQuery ARRAY functionality.
-/// Tests array indexing, length, count, first, and other operations.
-/// </summary>
 public abstract class BigQueryArrayQueryTest<TFixture> : QueryTestBase<TFixture>
     where TFixture : BigQueryArrayQueryFixture, new()
 {
