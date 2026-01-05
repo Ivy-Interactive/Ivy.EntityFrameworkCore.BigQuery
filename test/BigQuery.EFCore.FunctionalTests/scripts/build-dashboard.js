@@ -210,12 +210,22 @@ function buildModel(files) {
         return acc;
     }, { passed: 0, failed: 0, skipped: 0, total: 0, durationSec: wallClockSec });
 
-    return { parents, totals, files };
+    return { parents, totals, files, testRunDate: earliestStart };
 }
 
 function renderHtml(model, previous = null) {
     const dataJson = JSON.stringify(model);
     const prevJson = previous ? JSON.stringify(previous) : "null";
+    const generatedAt = model.testRunDate
+        ? new Date(model.testRunDate).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        })
+        : '';
 
     const clientScript = [
         "const model = JSON.parse(document.getElementById('data').textContent);",
@@ -508,7 +518,7 @@ function renderHtml(model, previous = null) {
     htmlParts.push("  </style>");
     htmlParts.push("</head>");
     htmlParts.push("<body>");
-    htmlParts.push("  <h1>Ivy.EntityFrameworkCore.BigQuery tests</h1>");
+    htmlParts.push("  <h1>Ivy.EntityFrameworkCore.BigQuery tests <span style=\"font-size: 16px; color: var(--muted); font-weight: 400; margin-left: 12px;\">" + generatedAt + "</span></h1>");
     htmlParts.push("  <div class=\"legend\">");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--pass)\"></span> Passed");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--fail)\"></span> Failed");

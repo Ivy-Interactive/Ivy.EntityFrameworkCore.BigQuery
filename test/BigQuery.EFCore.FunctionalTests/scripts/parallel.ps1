@@ -23,6 +23,10 @@
     List all available test groups and exit.
 .PARAMETER MaxParallel
     Maximum number of parallel test jobs to run. Defaults to 5.
+.PARAMETER NoHistory
+    If set, do not append results to history.json and omit history comparison in the dashboard.
+.PARAMETER Verbose
+    If set, streams test output to the console as jobs run.
 .EXAMPLE
     .\parallel.ps1 -ProjectId "my-project-id"
 .EXAMPLE
@@ -33,6 +37,10 @@
     .\parallel.ps1 -TestGroups Query.SqlQuery,Migrations.SqlGenerator
 .EXAMPLE
     .\parallel.ps1 -ListGroups
+.EXAMPLE
+    .\parallel.ps1 -NoHistory
+.EXAMPLE
+    .\parallel.ps1 -Verbose
 #>
 param(
     [string]$ProjectId = $null,
@@ -41,6 +49,8 @@ param(
     [string[]]$TestGroups = @("All"),
     [switch]$ListGroups,
     [int]$MaxParallel = 5,
+    [switch]$NoHistory,
+    [switch]$Verbose,
     [switch]$GenerateDashboard
 )
 $ErrorActionPreference = "Stop"
@@ -104,6 +114,7 @@ function Get-DynamicTestGroups {
             Dataset = $dataset
             Filter = "FullyQualifiedName~$($group.Name)"
             Description = $group.Name
+            TestCount = $group.Count
         }
     }
 
@@ -114,7 +125,7 @@ function Get-DynamicTestGroups {
 function Get-TrxTestCounts {
     param([string]$Path)
 
-    if (-not (Test-Path $Path)) {
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) {
         return $null
     }
 
@@ -193,6 +204,7 @@ Write-Host "Project ID:     $ProjectId" -ForegroundColor Yellow
 Write-Host "Auth Method:    $AuthMethod" -ForegroundColor Yellow
 Write-Host "Max Parallel:   $MaxParallel" -ForegroundColor Yellow
 Write-Host "Merge Results:  $Merge" -ForegroundColor Yellow
+Write-Host "History:        $(if ($NoHistory) { "Disabled" } else { "Enabled" })" -ForegroundColor Yellow
 Write-Host ""
 # Discover test groups with unique dataset names (aligned with Test Explorer grouping)
 $testProject = Join-Path $PSScriptRoot ".." "Ivy.EFCore.BigQuery.FunctionalTests.csproj"
@@ -204,7 +216,7 @@ if ($ListGroups) {
     $allTestGroups | ForEach-Object {
         Write-Host "  $($_.Name)" -ForegroundColor Yellow
         Write-Host "    Dataset:     $($_.Dataset)" -ForegroundColor Gray
-        Write-Host "    Description: $($_.Description)" -ForegroundColor Gray
+        #Write-Host "    Description: $($_.Description)" -ForegroundColor Gray
         Write-Host ""
     }
     exit 0
@@ -243,9 +255,20 @@ Write-Host ""
 $testResultsDir = Join-Path $PSScriptRoot "TestResults"
 if (Test-Path $testResultsDir) {
     Write-Host "Cleaning existing TestResults directory..." -ForegroundColor Yellow
+    # Preserve history.json if it exists
+    $historyPath = Join-Path $testResultsDir "history.json"
+    $historyBackup = $null
+    if ((Test-Path $historyPath) -and -not $NoHistory) {
+        $historyBackup = Get-Content -Path $historyPath -Raw
+    }
     Remove-Item -Path $testResultsDir -Recurse -Force
+    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
+    if ($historyBackup) {
+        $historyBackup | Set-Content -Path $historyPath
+    }
+} else {
+    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
 }
-New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
 # Install dotnet-trx-merge if merge is enabled
 if ($Merge) {
     Write-Host "Checking for dotnet-trx-merge tool..." -ForegroundColor Cyan
@@ -270,6 +293,13 @@ function Update-ProgressBars {
     for ($i = 0; $i -lt $script:runningJobs.Count; $i++) {
         $jobInfo = $script:runningJobs[$i]
         $job = $jobInfo.Job
+        $displayName = $jobInfo.Group.Name
+        if ($displayName -ne "Ivy.EntityFrameworkCore.BigQuery") {
+            $displayName = $displayName -replace "^Ivy\.EntityFrameworkCore\.BigQuery\.", ""
+        }
+        if ($displayName.Length -gt 41) {
+            $displayName = $displayName.Substring($displayName.Length - 41)
+        }
 
         if ($job.State -eq 'Running') {
             $output = Receive-Job -Job $job -Keep 2>&1 | Out-String
@@ -279,15 +309,31 @@ function Update-ProgressBars {
                 $output | Set-Content -Path (Join-Path $testResultsDir "debug_output.txt") -Force
             }
 
+            if ($Verbose -and $output.Length -gt $jobProgress[$i].LastOutputLength) {
+                $delta = $output.Substring($jobProgress[$i].LastOutputLength)
+                if ($delta) {
+                    Write-Host $delta -NoNewline
+                }
+                $jobProgress[$i].LastOutputLength = $output.Length
+            }
+
             # Try to get total test count from discovery output: "Discovering: MyTests (found X test cases)"
             if ($jobProgress[$i].Total -eq 0 -and $output -match 'found (\d+) test case') {
                 $jobProgress[$i].Total = [int]$matches[1]
             }
 
-            # Parse xUnit output - try multiple patterns
-            $passed = ([regex]::Matches($output, '\[PASS\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $failed = ([regex]::Matches($output, '\[FAIL\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $skipped = ([regex]::Matches($output, '\[SKIP\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            # Parse test output - support both xUnit and MSTest/VSTest formats
+            $passedXUnit = ([regex]::Matches($output, '\[PASS\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $passedMSTest = ([regex]::Matches($output, '^\s*Passed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $passed = $passedXUnit + $passedMSTest
+
+            $failedXUnit = ([regex]::Matches($output, '\[FAIL\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $failedMSTest = ([regex]::Matches($output, '^\s*Failed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $failed = $failedXUnit + $failedMSTest
+
+            $skippedXUnit = ([regex]::Matches($output, '\[SKIP\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $skippedMSTest = ([regex]::Matches($output, '^\s*Skipped\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $skipped = $skippedXUnit + $skippedMSTest
 
             $jobProgress[$i].Passed = $passed
             $jobProgress[$i].Failed = $failed
@@ -295,12 +341,12 @@ function Update-ProgressBars {
             $completed = $passed + $failed + $skipped
 
             $elapsed = [int]((Get-Date) - $jobProgress[$i].StartTime).TotalSeconds
-            $percent = if ($jobProgress[$i].Total -gt 0) { [int](($completed / $jobProgress[$i].Total) * 100) } else { -1 }
-            Write-Progress -Id $i -Activity $jobInfo.Group.Name -Status "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $elapsed sec)" -PercentComplete $percent
+            $percent = if ($jobProgress[$i].Total -gt 0) { [Math]::Min(100, [int](($completed / $jobProgress[$i].Total) * 100)) } else { -1 }
+            Write-Progress -Id $i -Activity $displayName -Status "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $elapsed sec)" -PercentComplete $percent
         } elseif ($job.State -eq 'Completed' -and -not $jobProgress[$i].Completed) {
             $p = $jobProgress[$i]
             $jobProgress[$i].Completed = $true
-            Write-Progress -Id $i -Activity $jobInfo.Group.Name -Status "Complete: P:$($p.Passed) F:$($p.Failed) S:$($p.Skipped)" -Completed
+            Write-Progress -Id $i -Activity $displayName -Status "Complete: P:$($p.Passed) F:$($p.Failed) S:$($p.Skipped)" -Completed
         }
     }
 }
@@ -342,21 +388,30 @@ try {
         Passed = 0
         Failed = 0
         Skipped = 0
-        Total = 0
+        Total = $(if ($null -ne $group.TestCount) { [int]$group.TestCount } else { 0 })
         StartTime = Get-Date
         Completed = $false
+        LastOutputLength = 0
     }
 
     # Show initial progress bar
     Write-Progress -Id ($groupIndex - 1) -Activity $group.Name -Status "Starting..." -PercentComplete -1
 
     $job = Start-Job -Name $group.Name -ScriptBlock {
-        param($ProjectId, $AuthMethod, $Dataset, $Filter, $TestProject, $TrxPath)
+        param($ProjectId, $AuthMethod, $Dataset, $Filter, $TestProject, $TrxPath, $Verbose)
         $env:BQ_EFCORE_TEST_CONN_STRING = "AuthMethod=$AuthMethod;ProjectId=$ProjectId;DefaultDatasetId=$Dataset"
         $cmdArgs = @("test", $TestProject, "--filter", $Filter, "--logger", "trx;LogFileName=$TrxPath", "--verbosity", "normal")
-        $output = dotnet @cmdArgs 2>&1
+        if ($Verbose) {
+            $output = @()
+            dotnet @cmdArgs 2>&1 | ForEach-Object {
+                $output += $_
+                Write-Output $_
+            }
+        } else {
+            $output = dotnet @cmdArgs 2>&1
+        }
         return @{ Output = $output; ExitCode = $LASTEXITCODE; TrxPath = $TrxPath }
-    } -ArgumentList $ProjectId, $AuthMethod, $group.Dataset, $group.Filter, $testProject, $trxPath
+    } -ArgumentList $ProjectId, $AuthMethod, $group.Dataset, $group.Filter, $testProject, $trxPath, $Verbose
 
     $script:runningJobs += @{ Job = $job; Group = $group; TrxPath = $trxPath }
 }
@@ -379,10 +434,21 @@ for ($i = 0; $i -lt $script:runningJobs.Count; $i++) {
 
     Write-Progress -Id $i -Activity $group.Name -Completed
 
-    $result = Receive-Job -Job $job -Wait
+    $jobOutput = Receive-Job -Job $job -Wait
     Remove-Job -Job $job
 
-    $success = $result.ExitCode -eq 0
+    # When -Verbose is used, the job outputs to pipeline, making $jobOutput an array
+    # The actual result hashtable is the last element
+    if ($jobOutput -is [Array] -and $jobOutput.Count -gt 0) {
+        $result = $jobOutput[-1]  # Get last element
+    } else {
+        $result = $jobOutput
+    }
+
+    # Handle case where job returns null or incomplete result
+    $exitCode = if ($result -and $null -ne $result.ExitCode) { $result.ExitCode } else { -1 }
+    $trxPath = if ($result -and $result.TrxPath) { $result.TrxPath } else { $jobInfo.TrxPath }
+    $success = $exitCode -eq 0
     # $status = if ($success) { "✓ PASSED" } else { "✗ FAILED" }
     # $color = if ($success) { "Green" } else { "Red" }
 
@@ -392,8 +458,8 @@ for ($i = 0; $i -lt $script:runningJobs.Count; $i++) {
     $results += @{
         Group = $group.Name
         Success = $success
-        ExitCode = $result.ExitCode
-        TrxPath = $result.TrxPath
+        ExitCode = $exitCode
+        TrxPath = $trxPath
     }
 }
 # Clear the running jobs list after completion
@@ -435,7 +501,9 @@ foreach ($result in $results) {
             TrxPath = $result.TrxPath
         }
     } else {
-        $missingTrx += $result.TrxPath
+        if (-not [string]::IsNullOrWhiteSpace($result.TrxPath)) {
+            $missingTrx += $result.TrxPath
+        }
         $groupSummaries += @{
             Name = $result.Group
             Passed = $null
@@ -458,39 +526,42 @@ if ($missingTrx.Count -gt 0) {
 }
 Write-Host ""
 
-# Persist summary history
-$historyPath = Join-Path $testResultsDir "history.json"
-$history = @()
-if (Test-Path $historyPath) {
-    try {
-        $loaded = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
-        # Flatten if double-nested (from old bug)
-        if ($loaded -is [Array] -and $loaded.Count -eq 1 -and $loaded[0] -is [Array]) {
-            $history = @($loaded[0])
-        } elseif ($loaded -is [Array]) {
-            $history = @($loaded)
-        } elseif ($null -ne $loaded) {
-            # Single object - wrap in array
-            $history = @($loaded)
+# Persist summary history unless disabled
+$historyPath = $null
+if (-not $NoHistory) {
+    $historyPath = Join-Path $testResultsDir "history.json"
+    $history = @()
+    if (Test-Path $historyPath) {
+        try {
+            $loaded = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+            # Flatten if double-nested (from old bug)
+            if ($loaded -is [Array] -and $loaded.Count -eq 1 -and $loaded[0] -is [Array]) {
+                $history = @($loaded[0])
+            } elseif ($loaded -is [Array]) {
+                $history = @($loaded)
+            } elseif ($null -ne $loaded) {
+                # Single object - wrap in array
+                $history = @($loaded)
+            }
+        } catch {
+            $history = @()
         }
-    } catch {
-        $history = @()
     }
-}
 
-$historyEntry = @{
-    Timestamp = (Get-Date).ToString("o")
-    Totals = $testTotals
-    Groups = $groupSummaries
-    Files = $results | ForEach-Object { $_.TrxPath }
+    $historyEntry = @{
+        Timestamp = (Get-Date).ToString("o")
+        Totals = $testTotals
+        Groups = $groupSummaries
+        Files = $results | ForEach-Object { $_.TrxPath }
+    }
+    $history += $historyEntry
+    if ($history.Count -gt 20) {
+        $history = $history[($history.Count - 20)..($history.Count - 1)]
+    }
+    # Save as array (no double-wrapping)
+    $jsonOutput = ConvertTo-Json -InputObject $history -Depth 6
+    $jsonOutput | Set-Content -Path $historyPath
 }
-$history += $historyEntry
-if ($history.Count -gt 20) {
-    $history = $history[($history.Count - 20)..($history.Count - 1)]
-}
-# Save as array (no double-wrapping)
-$jsonOutput = ConvertTo-Json -InputObject $history -Depth 6
-$jsonOutput | Set-Content -Path $historyPath
 
 $mergedTrxPath = $null
 # Merge TRX files if enabled
@@ -523,7 +594,7 @@ if ($GenerateDashboard) {
         $dashboardInput = $mergedTrxPath
     } elseif ($results.Count -gt 0) {
         $candidate = ($results | Select-Object -First 1).TrxPath
-        if (Test-Path $candidate) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
             $dashboardInput = $candidate
         }
     }
@@ -538,9 +609,13 @@ if ($GenerateDashboard) {
             $dashboardInput
             "--out"
             $dashboardOutput
-            "--history"
-            $historyPath
         )
+        if ($historyPath) {
+            $nodeArgs += @(
+                "--history"
+                $historyPath
+            )
+        }
 
         node @nodeArgs
         if ($LASTEXITCODE -eq 0) {
