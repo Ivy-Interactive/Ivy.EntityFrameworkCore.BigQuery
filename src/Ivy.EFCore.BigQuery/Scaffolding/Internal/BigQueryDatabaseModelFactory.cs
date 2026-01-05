@@ -255,6 +255,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     while (reader.Read())
                     {
                         var tableName = reader.GetString(0);
+                        // empty ddl
+                        if (reader.IsDBNull(1))
+                        {
+                            continue;
+                        }
                         var ddl = reader.GetString(1);
                         if (!string.IsNullOrWhiteSpace(ddl))
                         {
