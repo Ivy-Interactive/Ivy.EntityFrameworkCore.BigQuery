@@ -11,7 +11,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
     public class BigQueryBoolTypeMapping : BoolTypeMapping
     {
         public BigQueryBoolTypeMapping(string storeType = "BOOL")
-            : base(storeType, System.Data.DbType.Boolean)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(bool), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonBoolReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.Boolean))
         {
         }
 

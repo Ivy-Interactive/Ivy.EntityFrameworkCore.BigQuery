@@ -11,7 +11,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
     public class BigQueryGuidTypeMapping : GuidTypeMapping
     {
         public BigQueryGuidTypeMapping(string storeType = "STRING")
-            : base(storeType, System.Data.DbType.String)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(Guid), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonGuidReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.String))
         {
         }
 

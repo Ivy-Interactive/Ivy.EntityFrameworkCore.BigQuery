@@ -158,18 +158,28 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
     public static Type UnwrapNullableType(Type type)
     => Nullable.GetUnderlyingType(type) ?? type;
 
+    /// <summary>
+    /// Creates a JSON traversal expression for BigQuery JSON column navigation
+    /// </summary>
+    public virtual BigQueryJsonTraversalExpression JsonTraversal(
+        SqlExpression column,
+        IReadOnlyList<SqlExpression> path,
+        Type type,
+        RelationalTypeMapping? typeMapping = null)
+    {
+        return new BigQueryJsonTraversalExpression(column, path, type, typeMapping);
+    }
 
-    //[return: NotNullIfNotNull("sqlExpression")]
-    //public override SqlExpression? ApplyTypeMapping(SqlExpression? sqlExpression, RelationalTypeMapping? typeMapping)
-    //{
-    //    if (sqlExpression is not null && sqlExpression.TypeMapping is null)
-    //    {
-    //        sqlExpression = sqlExpression switch
-    //        {
-    //            _ => base.ApplyTypeMapping(sqlExpression, typeMapping)
-    //        };
-    //    }
+    /// <summary>
+    /// Creates a JSON traversal expression with an empty path (direct column access)
+    /// </summary>
+    public virtual BigQueryJsonTraversalExpression JsonTraversal(
+        SqlExpression column,
+        Type type,
+        RelationalTypeMapping typeMapping)
+    {
+        return new BigQueryJsonTraversalExpression(column, Array.Empty<SqlExpression>(), type, typeMapping);
+    }
 
-    //    return sqlExpression;
-    //}
+
 }

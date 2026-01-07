@@ -21,7 +21,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             new RelationalTypeMappingParameters(
                 new CoreTypeMappingParameters(
                     typeof(decimal),
-                    new DecimalToBigQueryNumericConverter()
+                    new DecimalToBigQueryNumericConverter(),
+                    jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonDecimalReaderWriter.Instance
                     ),
                 storeType,
                 StoreTypePostfix.PrecisionAndScale,

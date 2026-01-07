@@ -16,7 +16,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         private const string TimeFormatConst = "HH:mm:ss.ffffff";
 
         public BigQueryTimeOnlyTypeMapping(string storeType = "TIME")
-            : base(storeType, System.Data.DbType.Time)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(TimeOnly), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonTimeOnlyReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.Time))
         {
         }
 

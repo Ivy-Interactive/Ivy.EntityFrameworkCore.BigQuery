@@ -12,7 +12,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         public BigQueryByteArrayTypeMapping(string storeType = "BYTES")
              : base(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(typeof(byte[])),
+                    new CoreTypeMappingParameters(typeof(byte[]), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonByteArrayReaderWriter.Instance),
                     storeType,
                     StoreTypePostfix.None,
                     System.Data.DbType.Binary
