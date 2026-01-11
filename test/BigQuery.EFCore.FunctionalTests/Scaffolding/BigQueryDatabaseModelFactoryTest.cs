@@ -346,6 +346,43 @@ CREATE TABLE ArrayOfStructTable (
 
     #endregion
 
+    #region JSON
+
+    [ConditionalFact]
+    public void Create_json_columns()
+        => Test(
+            @"
+CREATE TABLE JsonTable (
+    Id INT64 NOT NULL,
+    Metadata JSON,
+    Settings JSON NOT NULL
+);",
+            Enumerable.Empty<string>(),
+            Enumerable.Empty<string>(),
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                Assert.Equal("JsonTable", table.Name);
+                Assert.Equal(3, table.Columns.Count);
+
+                var idCol = table.Columns.Single(c => c.Name == "Id");
+                Assert.Equal("INT64", idCol.StoreType);
+                Assert.False(idCol.IsNullable);
+
+                var metadataCol = table.Columns.Single(c => c.Name == "Metadata");
+                Assert.Equal("JSON", metadataCol.StoreType);
+                Assert.True(metadataCol.IsNullable);
+                Assert.True((bool?)metadataCol["BigQuery:IsJsonColumn"] ?? false);
+
+                var settingsCol = table.Columns.Single(c => c.Name == "Settings");
+                Assert.Equal("JSON", settingsCol.StoreType);
+                Assert.False(settingsCol.IsNullable);
+                Assert.True((bool?)settingsCol["BigQuery:IsJsonColumn"] ?? false);
+            },
+            "DROP TABLE JsonTable;");
+
+    #endregion
+
 
     public class BigQueryDatabaseModelFixture : SharedStoreFixtureBase<PoolableDbContext>
     {

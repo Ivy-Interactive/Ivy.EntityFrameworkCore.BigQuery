@@ -230,7 +230,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
         }
 
         /// <summary>
-        /// Remove DbSets
+        /// Remove DbSets and .ToTable() calls for struct entities
         /// </summary>
         private void PostProcessDbContext(ScaffoldedModel scaffoldedModel, IModel model)
         {
@@ -254,6 +254,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 }
             }
 
+            bool insideStructEntityConfiguration = false;
+            string? currentStructEntityName = null;
+
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
@@ -267,6 +270,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     continue;
                 }
 
+                // Check if we're entering a struct entity configuration block
                 if (structEntityNames.Any())
                 {
                     foreach (var structName in structEntityNames)
@@ -275,6 +279,28 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                         {
                             shouldSkip = true;
                             break;
+                        }
+
+                        // Check if entering modelBuilder.Entity<StructType>( configuration
+                        if (Regex.IsMatch(line.Trim(), $@"modelBuilder\.Entity<{Regex.Escape(structName)}>\s*\("))
+                        {
+                            insideStructEntityConfiguration = true;
+                            currentStructEntityName = structName;
+                            break;
+                        }
+                    }
+
+                    if (insideStructEntityConfiguration)
+                    {
+                        if (line.Trim().StartsWith(".ToTable("))
+                        {
+                            shouldSkip = true;
+                        }
+
+                        if (line.Trim() == "});")
+                        {
+                            insideStructEntityConfiguration = false;
+                            currentStructEntityName = null;
                         }
                     }
                 }
