@@ -22,7 +22,9 @@ public class BigQueryTestStore : RelationalTestStore
 
     public BigQueryTestStore(string name, bool shared = true, string? scriptPath = null, string? scriptDatasetName = null) : base(name, shared, CreateConnection(name))
     {
-        _testDatasetName = name;
+        var builder = new BigQueryConnectionStringBuilder(TestEnvironment.DefaultConnection);
+        _testDatasetName = !string.IsNullOrEmpty(builder.DefaultDatasetId) ? builder.DefaultDatasetId : name;
+
         _scriptDatasetName = scriptDatasetName;
         if (scriptPath != null)
         {
@@ -94,9 +96,6 @@ public class BigQueryTestStore : RelationalTestStore
         {
             if (_scriptPath != null)
             {
-                // Dataset exists, but we need to check if tables exist
-                // Only return false (skip script) if tables are already there
-                // This check will be done by ExecuteScript which handles existing tables
                 return false;
             }
 
@@ -122,10 +121,9 @@ public class BigQueryTestStore : RelationalTestStore
     {
         var script = File.ReadAllText(scriptPath);
 
-        // Replace hardcoded dataset name with actual dataset name if specified
         if (_scriptDatasetName != null && _scriptDatasetName != _testDatasetName)
         {
-            // Replace backtick-quoted dataset name (e.g., `efc_northwind` -> `actual_dataset_name`)
+            // Replace backtick-quoted dataset name (`efc_northwind` -> `actual_dataset_name`)
             script = script.Replace($"`{_scriptDatasetName}`", $"`{_testDatasetName}`");
             // Also replace unquoted references if any
             script = script.Replace(_scriptDatasetName, _testDatasetName);
@@ -266,8 +264,7 @@ public class BigQueryTestStore : RelationalTestStore
         }
         finally
         {
-            if (connection.State == ConnectionState.Closed
-                && connection.State != ConnectionState.Closed)
+            if (connection.State != ConnectionState.Closed)
             {
                 await connection.CloseAsync();
             }
