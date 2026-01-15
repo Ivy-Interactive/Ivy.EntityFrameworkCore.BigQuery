@@ -181,7 +181,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 
             if (operation.Behavior == BigQueryDropDatasetOperation.BigQueryDropDatasetBehavior.Cascade)
             {
-                builder.Append("CASCADE");
+                builder.Append(" CASCADE");
             }
             builder.EndCommand();
         }

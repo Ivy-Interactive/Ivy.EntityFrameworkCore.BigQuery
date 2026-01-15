@@ -2,20 +2,26 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
+    /// <summary>
+    /// BigQuery implementation of <see cref="IHistoryRepository"/>.
+    /// </summary>
+    /// <remarks>
+    /// BigQuery does not support traditional database locking mechanisms (advisory locks, SELECT FOR UPDATE, etc.).
+    /// This implementation uses no-op locking and relies on:
+    /// 1. The migration history table to prevent re-running applied migrations
+    /// 2. Idempotent DDL operations (CREATE TABLE IF NOT EXISTS, etc.)
+    /// 3. Single-deployer patterns typical in BigQuery environments
+    ///
+    /// Concurrent migrations are not supported. Run migrations from a single process.
+    /// </remarks>
     public class BigQueryHistoryRepository : HistoryRepository
     {
-        private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
-        private const int MaxRetries = 10;
-
         public BigQueryHistoryRepository(HistoryRepositoryDependencies dependencies)
             : base(dependencies)
         {
         }
-
-        protected virtual string LockTableName { get; } = "__EFMigrationsLock";
 
         /// <inheritdoc />
         public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
@@ -84,290 +90,39 @@ END;
 """;
         }
 
+        /// <inheritdoc />
         public override IMigrationsDatabaseLock AcquireDatabaseLock()
         {
             Dependencies.MigrationsLogger.AcquiringMigrationLock();
-
-            EnsureLockTableExists();
-
-            var lockId = Guid.NewGuid().ToString();
-            var retryCount = 0;
-            var retryDelay = RetryDelay;
-
-            while (retryCount < MaxRetries)
-            {
-                try
-                {
-                    var lockAcquired = TryAcquireLock(lockId);
-                    if (lockAcquired)
-                    {
-                        return new BigQueryMigrationDatabaseLock(lockId, this);
-                    }
-
-                    Thread.Sleep(retryDelay);
-                    retryCount++;
-
-                    retryDelay = TimeSpan.FromMilliseconds(
-                        retryDelay.TotalMilliseconds * 1.5 + Random.Shared.Next(0, 1000));
-                }
-                catch (Exception ex) when (retryCount < MaxRetries - 1)
-                {
-                    Thread.Sleep(retryDelay);
-                    retryCount++;
-                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 1.5);
-                }
-            }
-
-            throw new TimeoutException("Unable to acquire migration lock after maximum retries.");
+            return new BigQueryMigrationDatabaseLock(this);
         }
 
-        public override async Task<IMigrationsDatabaseLock> AcquireDatabaseLockAsync(CancellationToken cancellationToken = default)
+        /// <inheritdoc />
+        public override Task<IMigrationsDatabaseLock> AcquireDatabaseLockAsync(CancellationToken cancellationToken = default)
         {
             Dependencies.MigrationsLogger.AcquiringMigrationLock();
-
-            await EnsureLockTableExistsAsync(cancellationToken);
-
-            var lockId = Guid.NewGuid().ToString();
-            var retryCount = 0;
-            var retryDelay = RetryDelay;
-
-            while (retryCount < MaxRetries)
-            {
-                try
-                {
-                    var lockAcquired = await TryAcquireLockAsync(lockId, cancellationToken);
-                    if (lockAcquired)
-                    {
-                        return new BigQueryMigrationDatabaseLock(lockId, this);
-                    }
-
-                    await Task.Delay(retryDelay, cancellationToken);
-                    retryCount++;
-
-                    retryDelay = TimeSpan.FromMilliseconds(
-                        retryDelay.TotalMilliseconds * 1.5 + Random.Shared.Next(0, 1000));
-                }
-                catch (Exception ex) when (retryCount < MaxRetries - 1)
-                {
-                    await Task.Delay(retryDelay, cancellationToken);
-                    retryCount++;
-                    retryDelay = TimeSpan.FromMilliseconds(retryDelay.TotalMilliseconds * 1.5);
-                }
-            }
-
-            throw new TimeoutException("Unable to acquire migration lock after maximum retries.");
+            return Task.FromResult<IMigrationsDatabaseLock>(new BigQueryMigrationDatabaseLock(this));
         }
 
-        private void EnsureLockTableExists()
-        {
-            var lockTableName = GetLockTableName();
-            var existsCommand = Dependencies.RawSqlCommandBuilder.Build(CreateLockTableExistsSql(lockTableName));
-
-            var exists = InterpretExistsResult(existsCommand.ExecuteScalar(CreateRelationalCommandParameters()));
-            if (!exists)
-            {
-                var createCommand = CreateLockTableCommand(lockTableName);
-                createCommand.ExecuteNonQuery(CreateRelationalCommandParameters());
-            }
-        }
-
-        private async Task EnsureLockTableExistsAsync(CancellationToken cancellationToken)
-        {
-            var lockTableName = GetLockTableName();
-            var existsCommand = Dependencies.RawSqlCommandBuilder.Build(CreateLockTableExistsSql(lockTableName));
-
-            var exists = InterpretExistsResult(
-                await existsCommand.ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken));
-
-            if (!exists)
-            {
-                var createCommand = CreateLockTableCommand(lockTableName);
-                await createCommand.ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken);
-            }
-        }
-
-        private bool TryAcquireLock(string lockId)
-        {
-            var lockTableName = GetLockTableName();
-            var command = CreateAcquireLockCommand(lockTableName, lockId);
-
-            try
-            {
-                var result = command.ExecuteScalar(CreateRelationalCommandParameters());
-                return result switch
-                {
-                    null => false,
-                    long longValue => longValue > 0,
-                    int intValue => intValue > 0,
-                    decimal decimalValue => decimalValue > 0,
-                    double doubleValue => doubleValue > 0,
-                    _ => Convert.ToInt64((object)result) > 0
-                };
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private async Task<bool> TryAcquireLockAsync(string lockId, CancellationToken cancellationToken)
-        {
-            var lockTableName = GetLockTableName();
-            var command = CreateAcquireLockCommand(lockTableName, lockId);
-
-            try
-            {
-                var result = await command.ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken);
-                return result switch
-                {
-                    null => false,
-                    long longValue => longValue > 0,
-                    int intValue => intValue > 0,
-                    decimal decimalValue => decimalValue > 0,
-                    double doubleValue => doubleValue > 0,
-                    _ => Convert.ToInt64((object)result) > 0
-                };
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        internal void ReleaseLock(string lockId)
-        {
-            try
-            {
-                var lockTableName = GetLockTableName();
-                var command = CreateReleaseLockCommand(lockTableName, lockId);
-                command.ExecuteNonQuery(CreateRelationalCommandParameters());
-            }
-            catch
-            {
-                // Ignore
-            }
-        }
-
-        internal async Task ReleaseLockAsync(string lockId)
-        {
-            try
-            {
-                var lockTableName = GetLockTableName();
-                var command = CreateReleaseLockCommand(lockTableName, lockId);
-                await command.ExecuteNonQueryAsync(CreateRelationalCommandParameters(), CancellationToken.None);
-            }
-            catch
-            {
-                // Ignore
-            }
-        }
-
-        private string GetLockTableName()
-            => $"{TableName}_Lock";
-
-        private string CreateLockTableExistsSql(string lockTableName)
-        {
-            var schema = TableSchema ?? Dependencies.Connection.DbConnection.Database;
-            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
-            return $"""
-SELECT COUNT(*) 
-FROM {SqlGenerationHelper.DelimitIdentifier(schema)}.INFORMATION_SCHEMA.TABLES 
-WHERE table_name = {stringTypeMapping.GenerateSqlLiteral(lockTableName)}
-""";
-        }
-
-        private IRelationalCommand CreateLockTableCommand(string lockTableName)
-        {
-            var tableName = SqlGenerationHelper.DelimitIdentifier(lockTableName, TableSchema);
-            var sql = $"""
-CREATE TABLE IF NOT EXISTS {tableName} (
-    LockId STRING NOT NULL,
-    AcquiredAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP() NOT NULL,
-    ExpiresAt TIMESTAMP NOT NULL
-)
-""";
-            return Dependencies.RawSqlCommandBuilder.Build(sql);
-        }
-
-        private IRelationalCommand CreateAcquireLockCommand(string lockTableName, string lockId)
-        {
-            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
-            var lockIdLiteral = stringTypeMapping.GenerateSqlLiteral(lockId);
-            var tableName = SqlGenerationHelper.DelimitIdentifier(lockTableName, TableSchema);
-
-            var sql = $"""
-BEGIN
-  DECLARE lock_count INT64;
-
-  DELETE FROM {tableName}
-  WHERE ExpiresAt < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 10 MINUTE);
-
-  SET lock_count = (SELECT COUNT(*) FROM {tableName});
-
-  IF lock_count = 0 THEN
-    INSERT INTO {tableName} (LockId, AcquiredAt, ExpiresAt)
-    VALUES ({lockIdLiteral}, CURRENT_TIMESTAMP(), TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 10 MINUTE));
-  END IF;
-
-  SELECT @@row_count;
-END;
-""";
-            return Dependencies.RawSqlCommandBuilder.Build(sql);
-        }
-
-        private RelationalCommandParameterObject CreateRelationalCommandParameters()
-            => new(
-                Dependencies.Connection,
-                null,
-                null,
-                Dependencies.CurrentContext.Context,
-                Dependencies.CommandLogger,
-                CommandSource.Migrations);
-
-        private IRelationalCommand CreateReleaseLockCommand(string lockTableName, string lockId)
-        {
-            var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
-            var lockIdLiteral = stringTypeMapping.GenerateSqlLiteral(lockId);
-            var tableName = SqlGenerationHelper.DelimitIdentifier(lockTableName, TableSchema);
-
-            var sql = $"""
-DELETE FROM {tableName}
-WHERE LockId = {lockIdLiteral}
-""";
-            return Dependencies.RawSqlCommandBuilder.Build(sql);
-        }
-
+        /// <summary>
+        /// A no-op migration lock for BigQuery.
+        /// BigQuery doesn't support database-level locking, so this implementation
+        /// relies on the migration history table for coordination.
+        /// </summary>
         private sealed class BigQueryMigrationDatabaseLock : IMigrationsDatabaseLock
         {
-            private readonly string _lockId;
-            private readonly BigQueryHistoryRepository _repository;
-            private bool _disposed;
-
-            public BigQueryMigrationDatabaseLock(string lockId, BigQueryHistoryRepository repository)
+            public BigQueryMigrationDatabaseLock(IHistoryRepository historyRepository)
             {
-                _lockId = lockId;
-                _repository = repository;
+                HistoryRepository = historyRepository;
             }
 
-            public IHistoryRepository HistoryRepository => _repository;
+            public IHistoryRepository HistoryRepository { get; }
 
             public void Dispose()
             {
-                if (!_disposed)
-                {
-                    _repository.ReleaseLock(_lockId);
-                    _disposed = true;
-                }
             }
 
-            public async ValueTask DisposeAsync()
-            {
-                if (!_disposed)
-                {
-                    await _repository.ReleaseLockAsync(_lockId);
-                    _disposed = true;
-                }
-            }
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 }
