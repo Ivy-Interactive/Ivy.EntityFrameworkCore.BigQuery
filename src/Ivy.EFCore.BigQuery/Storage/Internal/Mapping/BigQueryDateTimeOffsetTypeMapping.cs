@@ -14,7 +14,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         private const string TimestampFormatConst = "yyyy-MM-dd HH:mm:ss.ffffff zzz";
 
         public BigQueryDateTimeOffsetTypeMapping(string storeType = "TIMESTAMP")
-            : base(storeType, System.Data.DbType.DateTimeOffset)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(DateTimeOffset), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonDateTimeOffsetReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.DateTimeOffset))
         {
         }
 

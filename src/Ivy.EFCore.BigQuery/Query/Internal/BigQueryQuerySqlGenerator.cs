@@ -244,6 +244,66 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
         }
 
+        protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+        {
+            var path = jsonScalarExpression.Path;
+            if (path.Count == 0)
+            {
+                Visit(jsonScalarExpression.Json);
+                return jsonScalarExpression;
+            }
+
+            // JSON_EXTRACT for objects/arrays, JSON_EXTRACT_SCALAR for primitives
+            var isScalar = jsonScalarExpression.TypeMapping is not Storage.Internal.Mapping.BigQueryOwnedJsonTypeMapping
+                && jsonScalarExpression.TypeMapping?.ElementTypeMapping is null;
+
+            if (isScalar)
+            {
+                Sql.Append("JSON_EXTRACT_SCALAR(");
+            }
+            else
+            {
+                Sql.Append("JSON_EXTRACT(");
+            }
+
+            Visit(jsonScalarExpression.Json);
+            Sql.Append(", ");
+            GenerateJsonPath(path);
+            Sql.Append(")");
+
+            return jsonScalarExpression;
+        }
+
+        private void GenerateJsonPath(IReadOnlyList<PathSegment> path)
+        {
+            Sql.Append("'$");
+
+            foreach (var pathSegment in path)
+            {
+                switch (pathSegment)
+                {
+                    case { PropertyName: string propertyName }:
+                        Sql.Append(".").Append(propertyName);
+                        break;
+
+                    case { ArrayIndex: SqlConstantExpression { Value: int index } }:
+                        Sql.Append("[").Append(index.ToString()).Append("]");
+                        break;
+
+                    case { ArrayIndex: not null }:
+                        // Dynamic array index - BigQuery doesn't support this in JSON path strings
+                        throw new InvalidOperationException(
+                            "BigQuery JSON paths do not support dynamic array indices. " +
+                            "Array indices must be constant values.");
+
+                    default:
+                        throw new InvalidOperationException($"Unknown path segment type: {pathSegment}");
+                }
+            }
+
+            Sql.Append("'");
+        }
+
         protected override Expression VisitCrossApply(CrossApplyExpression crossApplyExpression)
         {
             Sql.Append("CROSS JOIN ");

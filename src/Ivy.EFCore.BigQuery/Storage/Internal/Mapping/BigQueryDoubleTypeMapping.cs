@@ -8,7 +8,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
     public class BigQueryDoubleTypeMapping : DoubleTypeMapping
     {
         public BigQueryDoubleTypeMapping(string storeType = "FLOAT64")
-            : base(storeType, System.Data.DbType.Double)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(double), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonDoubleReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.Double))
         {
         }
 

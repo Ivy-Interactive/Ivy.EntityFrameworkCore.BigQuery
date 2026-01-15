@@ -16,7 +16,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         private const string DateFormatConst = "yyyy-MM-dd";
 
         public BigQueryDateOnlyTypeMapping(string storeType = "DATE")
-            : base(storeType,System.Data.DbType.Date)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(DateOnly), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonDateOnlyReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.Date))
         {
         }
 

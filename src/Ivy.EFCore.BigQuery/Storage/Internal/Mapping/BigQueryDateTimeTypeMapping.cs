@@ -14,7 +14,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         private const string DateTimeFormatConst = "yyyy-MM-dd HH:mm:ss.ffffff";
 
         public BigQueryDateTimeTypeMapping(string storeType = "DATETIME")
-            : base(storeType, System.Data.DbType.DateTime)
+            : base(
+                new RelationalTypeMappingParameters(
+                    new CoreTypeMappingParameters(typeof(DateTime), jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonDateTimeReaderWriter.Instance),
+                    storeType,
+                    StoreTypePostfix.None,
+                    System.Data.DbType.DateTime))
         {
         }
 

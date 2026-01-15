@@ -68,11 +68,44 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
                 ? null // Multidimensional arrays not supported for comparers
                 : CreateValueComparer(elementMapping.Comparer);
 
+            JsonValueReaderWriter? jsonValueReaderWriter = null;
+            if (elementMapping.JsonValueReaderWriter != null)
+            {
+                Type collectionReaderWriterType;
+                Type elementTypeArgument;
+
+                if (typeof(TElement).IsValueType)
+                {
+                    var underlyingType = Nullable.GetUnderlyingType(typeof(TElement));
+                    if (underlyingType != null)
+                    {
+                        collectionReaderWriterType = typeof(JsonCollectionOfNullableStructsReaderWriter<,>);
+                        elementTypeArgument = underlyingType;
+                    }
+                    else
+                    {
+                        collectionReaderWriterType = typeof(JsonCollectionOfStructsReaderWriter<,>);
+                        elementTypeArgument = typeof(TElement);
+                    }
+                }
+                else
+                {
+                    collectionReaderWriterType = typeof(JsonCollectionOfReferencesReaderWriter<,>);
+                    elementTypeArgument = typeof(TElement);
+                }
+
+                var genericType = collectionReaderWriterType.MakeGenericType(typeof(TConcreteCollection), elementTypeArgument);
+                jsonValueReaderWriter = (JsonValueReaderWriter)Activator.CreateInstance(
+                    genericType,
+                    elementMapping.JsonValueReaderWriter)!;
+            }
+
             return new RelationalTypeMappingParameters(
                 new CoreTypeMappingParameters(
-                    typeof(TCollection), 
-                    converter, 
-                    comparer, 
+                    typeof(TCollection),
+                    converter,
+                    comparer,
+                    jsonValueReaderWriter: jsonValueReaderWriter,
                     elementMapping: elementMapping),
                 storeType);
         }

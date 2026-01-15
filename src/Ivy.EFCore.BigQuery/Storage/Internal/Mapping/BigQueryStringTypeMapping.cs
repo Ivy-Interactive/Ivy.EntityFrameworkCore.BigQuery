@@ -22,7 +22,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         protected BigQueryStringTypeMapping(string storeType)
              : this(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(_clrType),
+                    new CoreTypeMappingParameters(_clrType, jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonStringReaderWriter.Instance),
                     storeType,
                     StoreTypePostfix.None,
                     System.Data.DbType.String,

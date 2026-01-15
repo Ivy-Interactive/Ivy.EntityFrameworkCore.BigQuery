@@ -27,6 +27,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         private readonly BigQueryIntTypeMapping _int = new();
         private readonly BigQueryShortTypeMapping _short = new();
         private readonly BigQueryByteTypeMapping _byte = new();
+        private readonly BigQueryJsonTypeMapping _json = new("JSON", typeof(string));
 
         private readonly ConcurrentDictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly ConcurrentDictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -53,6 +54,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 { "BIGNUMERIC", new List<RelationalTypeMapping> { _bigNumericDefault } },
                 { "NUMERIC", new List<RelationalTypeMapping> { _numericDefault } },
                 { "BIGNUMERIC(57, 28)", new List<RelationalTypeMapping> { _decimal } },
+                { "JSON", new List<RelationalTypeMapping> { _json } },
             };
 
             _storeTypeMappings = new ConcurrentDictionary<string, RelationalTypeMapping>(

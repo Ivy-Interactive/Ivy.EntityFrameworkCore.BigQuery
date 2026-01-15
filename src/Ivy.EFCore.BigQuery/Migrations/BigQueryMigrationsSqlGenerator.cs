@@ -1,5 +1,6 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -207,6 +208,54 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
         }
 
         // CREATE TABLE
+        protected override void CreateTableColumns(
+            CreateTableOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder)
+        {
+            base.CreateTableColumns(operation, model, builder);
+
+            if (model == null)
+            {
+                return;
+            }
+
+            var addedJsonColumns = new HashSet<string>();
+            var first = operation.Columns.Count == 0;
+
+            var entityTypes = model.GetEntityTypes()
+                .Where(et => et.GetTableName() == operation.Name && et.GetSchema() == operation.Schema);
+
+            foreach (var entityType in entityTypes)
+            {
+                foreach (var navigation in entityType.GetNavigations())
+                {
+                    var targetType = navigation.TargetEntityType;
+                    if (targetType.IsMappedToJson())
+                    {
+                        var containerColumnName = targetType.GetContainerColumnName();
+                        var containerColumnType = targetType.GetContainerColumnType() ?? "JSON";
+
+                        if (!string.IsNullOrEmpty(containerColumnName) &&
+                            !operation.Columns.Any(c => c.Name == containerColumnName) &&
+                            addedJsonColumns.Add(containerColumnName))
+                        {
+                            if (!first)
+                            {
+                                builder.AppendLine(",");
+                            }
+                            first = false;
+
+                            builder
+                                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(containerColumnName))
+                                .Append(" ")
+                                .Append(containerColumnType);
+                        }
+                    }
+                }
+            }
+        }
+
         protected override void Generate(
             CreateTableOperation operation,
             IModel? model,

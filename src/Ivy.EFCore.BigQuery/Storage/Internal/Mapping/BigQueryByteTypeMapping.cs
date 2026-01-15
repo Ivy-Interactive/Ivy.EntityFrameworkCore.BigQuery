@@ -17,7 +17,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         protected BigQueryByteTypeMapping(string storeType)
              : this(
                 new RelationalTypeMappingParameters(
-                    new CoreTypeMappingParameters(_clrType),
+                    new CoreTypeMappingParameters(_clrType, jsonValueReaderWriter: Microsoft.EntityFrameworkCore.Storage.Json.JsonByteReaderWriter.Instance),
                     storeType,
                     StoreTypePostfix.None,
                     System.Data.DbType.Byte

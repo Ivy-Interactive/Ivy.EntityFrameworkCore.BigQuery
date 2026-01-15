@@ -214,7 +214,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
 
                     if (dataType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
                     {
-                        var structClassName = RegisterStructType(dataType, table.Name, columnName);
+                        var structClassName = RegisterStructType(dataType, table.Name, columnName, isArrayElement: true);
                         //dbColumn[RelationalAnnotationNames.Comment] = $"STRUCT_type: {structClassName}";
                         dbColumn["BigQuery:IsStructColumn"] = true;
                         dbColumn["BigQuery:StructDefinition"] = dataType;
@@ -224,6 +224,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     {
                         //dbColumn[RelationalAnnotationNames.Comment] = $"ARRAY<STRUCT>_type: {arrayStructClassName}";
                         dbColumn["BigQuery:StructClassName"] = arrayStructClassName;
+                    }
+                    else if (dataType.Equals("JSON", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dbColumn["BigQuery:IsJsonColumn"] = true;
                     }
 
                     table.Columns.Add(dbColumn);
@@ -383,23 +387,21 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
         }
 
         /// <summary>
-        /// Generate a meaningful class name for a STRUCT type
+        /// Singularize class name in navigation
         /// </summary>
         private string GenerateStructClassName(string tableName, string columnName, bool isArrayElement)
         {
             var className = ToPascalCase(columnName);
 
-            // For array elements, singularize the class name
             if (isArrayElement)
             {
-                // Use EF Core's pluralizer if available (uses Humanizer library)
+
                 if (_pluralizer != null)
                 {
                     className = _pluralizer.Singularize(className) ?? className;
                 }
                 else
                 {
-                    // Fallback: simple singularization by removing trailing 's'
                     if (className.EndsWith("s", StringComparison.Ordinal) && className.Length > 1)
                     {
                         className = className.Substring(0, className.Length - 1);
@@ -573,6 +575,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 "TIME" => "System.TimeOnly",
                 "NUMERIC" => "decimal",
                 "BIGNUMERIC" => "decimal",
+                "JSON" => "string",
                 _ when bigQueryType.StartsWith("NUMERIC(", StringComparison.OrdinalIgnoreCase) => "decimal",
                 _ when bigQueryType.StartsWith("BIGNUMERIC(", StringComparison.OrdinalIgnoreCase) => "decimal",
                 _ => "object"
