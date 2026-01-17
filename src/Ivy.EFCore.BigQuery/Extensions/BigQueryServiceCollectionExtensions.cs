@@ -64,7 +64,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Extensions
               .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, BigQuerySqlTranslatingExpressionVisitorFactory>()
               .TryAdd<IRelationalParameterBasedSqlProcessorFactory, BigQueryRelationalParameterBasedSqlProcessorFactory>()
               .TryAdd<IQueryCompilationContextFactory, BigQueryQueryCompilationContextFactory>()
-              
+              .TryAdd<IQueryTranslationPostprocessorFactory, BigQueryQueryTranslationPostprocessorFactory>()
+
               .TryAddProviderSpecificServices(
                   s =>
                   {
