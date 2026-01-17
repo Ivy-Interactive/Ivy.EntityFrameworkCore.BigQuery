@@ -1,13 +1,13 @@
-using Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
+using Ivy.EntityFrameworkCore.BigQuery.TestModels.Array;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public abstract class BigQueryArrayQueryFixture : SharedStoreFixtureBase<BigQueryArrayContext>, IQueryFixtureBase, ITestSqlLoggerFactory
+public abstract class ArrayQueryFixture : SharedStoreFixtureBase<BigQueryArrayContext>, IQueryFixtureBase, ITestSqlLoggerFactory
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
@@ -15,7 +15,7 @@ public abstract class BigQueryArrayQueryFixture : SharedStoreFixtureBase<BigQuer
     public TestSqlLoggerFactory TestSqlLoggerFactory
         => (TestSqlLoggerFactory)ListLoggerFactory;
 
-    private BigQueryArrayData? _expectedData;
+    private ArrayData? _expectedData;
 
     public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
         => base.AddOptions(builder)
@@ -28,26 +28,26 @@ public abstract class BigQueryArrayQueryFixture : SharedStoreFixtureBase<BigQuer
         => CreateContext;
 
     public ISetSource GetExpectedData()
-        => _expectedData ??= new BigQueryArrayData();
+        => _expectedData ??= new ArrayData();
 
     public IReadOnlyDictionary<Type, object> EntitySorters
         => new Dictionary<Type, Func<object, object>>
         {
-            { typeof(BigQueryArrayEntity), e => ((BigQueryArrayEntity)e)?.Id ?? 0 },
-            { typeof(BigQueryArrayContainerEntity), e => ((BigQueryArrayContainerEntity)e)?.Id ?? 0 }
+            { typeof(ArrayEntity), e => ((ArrayEntity)e)?.Id ?? 0 },
+            { typeof(ArrayContainerEntity), e => ((ArrayContainerEntity)e)?.Id ?? 0 }
         }.ToDictionary(e => e.Key, e => (object)e.Value);
 
     public IReadOnlyDictionary<Type, object> EntityAsserters
         => new Dictionary<Type, Action<object?, object?>>
         {
             {
-                typeof(BigQueryArrayEntity), (e, a) =>
+                typeof(ArrayEntity), (e, a) =>
                 {
                     Assert.Equal(e is null, a is null);
                     if (a is not null)
                     {
-                        var expected = (BigQueryArrayEntity)e!;
-                        var actual = (BigQueryArrayEntity)a;
+                        var expected = (ArrayEntity)e!;
+                        var actual = (ArrayEntity)a;
 
                         Assert.Equal(expected.Id, actual.Id);
                         Assert.Equal(expected.IntArray, actual.IntArray);
@@ -65,13 +65,13 @@ public abstract class BigQueryArrayQueryFixture : SharedStoreFixtureBase<BigQuer
                 }
             },
             {
-                typeof(BigQueryArrayContainerEntity), (e, a) =>
+                typeof(ArrayContainerEntity), (e, a) =>
                 {
                     Assert.Equal(e is null, a is null);
                     if (a is not null)
                     {
-                        var expected = (BigQueryArrayContainerEntity)e!;
-                        var actual = (BigQueryArrayContainerEntity)a;
+                        var expected = (ArrayContainerEntity)e!;
+                        var actual = (ArrayContainerEntity)a;
 
                         Assert.Equal(expected.Id, actual.Id);
                         Assert.Equal(expected.ArrayEntities.Count, actual.ArrayEntities.Count);
@@ -79,9 +79,4 @@ public abstract class BigQueryArrayQueryFixture : SharedStoreFixtureBase<BigQuer
                 }
             }
         }.ToDictionary(e => e.Key, e => (object)e.Value);
-}
-
-public class BigQueryArrayArrayQueryFixture : BigQueryArrayQueryFixture
-{
-    protected override string StoreName => "BigQueryArrayTests";
 }

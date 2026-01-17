@@ -72,6 +72,49 @@ function loadHistory(historyPath) {
     }
 }
 
+function loadPreviousTests(historyPath) {
+    if (!historyPath) return new Map();
+    try {
+        if (!fs.existsSync(historyPath)) return new Map();
+        const data = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+        if (!Array.isArray(data) || data.length < 2) return new Map();
+        const prev = data[data.length - 2];
+        if (!prev || !Array.isArray(prev.Tests)) return new Map();
+        const map = new Map();
+        for (const t of prev.Tests) {
+            map.set(t.name, t.status);
+        }
+        return map;
+    } catch {
+        return new Map();
+    }
+}
+
+function updateHistoryWithTests(historyPath, tests) {
+    if (!historyPath) return;
+    try {
+        if (!fs.existsSync(historyPath)) return;
+        const data = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+        if (!Array.isArray(data) || data.length === 0) return;
+        // Add tests to the last (current) entry
+        const current = data[data.length - 1];
+        current.Tests = tests.map(t => ({ name: t.fullTestName, status: t.status }));
+        fs.writeFileSync(historyPath, JSON.stringify(data, null, 2), "utf8");
+    } catch (err) {
+        console.warn(`Failed to update history with tests: ${err.message}`);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function summarizeTrx(file) {
     const xmlText = fs.readFileSync(file, "utf8");
     const parser = new XMLParser({
@@ -89,7 +132,14 @@ function summarizeTrx(file) {
         const id = test.id || test.Id;
         const method = test.TestMethod || {};
         const className = method.className || method.ClassName || "Unknown";
-        const name = method.name || method.Name || test.name || test.Name || "Unnamed";
+        // Prefer the full test name (includes params like "async: True") over bare method name
+        const fullName = test.name || test.Name || "";
+        let name = method.name || method.Name || "Unnamed";
+        // Extract the test name with parameters from the full name if available
+        if (fullName && fullName.includes(className + ".")) {
+            const afterClass = fullName.substring(fullName.indexOf(className + ".") + className.length + 1);
+            if (afterClass) name = afterClass;
+        }
         testMap.set(id, { className, name });
     }
 
@@ -104,11 +154,38 @@ function summarizeTrx(file) {
         if (outcome === "passed") status = "Passed";
         else if (outcome === "failed") status = "Failed";
 
+        // Extract error information for failed tests
+        let errorMessage = '';
+        let stackTrace = '';
+        let output = '';
+
+        if (result.Output) {
+            const outputObj = result.Output;
+
+            // Error info
+            if (outputObj.ErrorInfo) {
+                const errorInfo = outputObj.ErrorInfo;
+                errorMessage = errorInfo.Message || '';
+                stackTrace = errorInfo.StackTrace || '';
+            }
+
+            // Standard output
+            if (outputObj.StdOut) {
+                output = outputObj.StdOut;
+            }
+        }
+
+        const fullTestName = `${meta.className}.${meta.name}`;
+
         records.push({
             className: meta.className,
             testName: meta.name,
+            fullTestName: fullTestName,
             status,
             durationSec,
+            errorMessage,
+            stackTrace,
+            output,
         });
     }
 
@@ -136,6 +213,7 @@ function aggregate(records) {
                 total: 0,
                 durationSec: 0,
                 children: new Map(),
+                tests: [],
             });
         }
         const parent = parents.get(parentName);
@@ -148,6 +226,7 @@ function aggregate(records) {
                 skipped: 0,
                 total: 0,
                 durationSec: 0,
+                tests: [],
             });
         }
         const child = parent.children.get(childName);
@@ -155,10 +234,12 @@ function aggregate(records) {
         child[rec.status.toLowerCase()] += 1;
         child.total += 1;
         child.durationSec += rec.durationSec;
+        child.tests.push(rec);
 
         parent[rec.status.toLowerCase()] += 1;
         parent.total += 1;
         parent.durationSec += rec.durationSec;
+        parent.tests.push(rec);
     }
 
     return Array.from(parents.values()).map((p) => ({
@@ -213,9 +294,12 @@ function buildModel(files) {
     return { parents, totals, files, testRunDate: earliestStart };
 }
 
-function renderHtml(model, previous = null) {
+function renderHtml(model, previous = null, prevTests = new Map()) {
     const dataJson = JSON.stringify(model);
     const prevJson = previous ? JSON.stringify(previous) : "null";
+    // Convert Map to object for JSON serialization
+    const prevTestsObj = Object.fromEntries(prevTests);
+    const prevTestsJson = JSON.stringify(prevTestsObj);
     const generatedAt = model.testRunDate
         ? new Date(model.testRunDate).toLocaleString('en-US', {
             year: 'numeric',
@@ -230,6 +314,24 @@ function renderHtml(model, previous = null) {
     const clientScript = [
         "const model = JSON.parse(document.getElementById('data').textContent);",
         "const previous = " + prevJson + ";",
+        "const prevTests = " + prevTestsJson + ";",
+        "const getTestDelta = (fullTestName, currentStatus) => {",
+        "  const prevStatus = prevTests[fullTestName];",
+        "  if (!prevStatus) return '';",
+        "  if (prevStatus === currentStatus) return '';",
+        "  if (currentStatus === 'Passed' && prevStatus !== 'Passed') return '<span class=\"delta-indicator delta-improved\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  if (currentStatus === 'Failed' && prevStatus === 'Passed') return '<span class=\"delta-indicator delta-regressed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  if (currentStatus === 'Skipped' && prevStatus === 'Passed') return '<span class=\"delta-indicator delta-regressed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  if (currentStatus === 'Skipped' && prevStatus === 'Failed') return '<span class=\"delta-indicator delta-improved\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  return '<span class=\"delta-indicator delta-changed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "};",
+        "const copyIcon = '<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\"><path fill=\"currentColor\" d=\"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z\"/></svg>';",
+        "function copyToClipboard(text, btn) {",
+        "  navigator.clipboard.writeText(text).then(() => {",
+        "    btn.classList.add('copied');",
+        "    setTimeout(() => btn.classList.remove('copied'), 1500);",
+        "  });",
+        "}",
         "const formatPct = (part, total) => total ? Math.round((part / total) * 100) : 0;",
         "const trimPrefix = (name) => {",
         "  const trimmed = name.replace(/^Ivy\\.EntityFrameworkCore\\.BigQuery\\.?/, '');",
@@ -247,6 +349,143 @@ function renderHtml(model, previous = null) {
         "  if (s || parts.length === 0) parts.push(s + 's');",
         "  return parts.join(' ');",
         "};",
+        "const escapeHtml = (text) => {",
+        "  if (!text) return '';",
+        "  const div = document.createElement('div');",
+        "  div.textContent = text;",
+        "  return div.innerHTML;",
+        "};",
+        "function toggleTests(groupName) {",
+        "  const safeId = groupName.replace(/[^a-zA-Z0-9]/g, '_');",
+        "  const testsEl = document.getElementById('tests-' + safeId);",
+        "  if (!testsEl) return;",
+        "  const isCurrentlyHidden = testsEl.style.display === 'none';",
+        "  // Close all other open test lists first",
+        "  document.querySelectorAll('.tests-container').forEach(el => {",
+        "    if (el !== testsEl) {",
+        "      el.style.display = 'none';",
+        "      // Clear any selected test details in those containers",
+        "      const detailsPanel = el.querySelector('.test-details-panel');",
+        "      if (detailsPanel) {",
+        "        detailsPanel.innerHTML = '<div class=\"no-test-selected\">Click on a test to view details</div>';",
+        "      }",
+        "    }",
+        "  });",
+        "  // Toggle current one",
+        "  testsEl.style.display = isCurrentlyHidden ? 'flex' : 'none';",
+        "  // Clear details panel when opening",
+        "  if (isCurrentlyHidden) {",
+        "    const detailsPanel = testsEl.querySelector('.test-details-panel');",
+        "    if (detailsPanel) {",
+        "      detailsPanel.innerHTML = '<div class=\"no-test-selected\">Click on a test to view details</div>';",
+        "    }",
+        "  }",
+        "}",
+        "function showTestDetails(parentName, testIndex, containerId) {",
+        "  const parent = model.parents.find(p => p.name === parentName);",
+        "  if (!parent) return;",
+        "  const test = parent.tests[testIndex];",
+        "  if (!test) return;",
+        "  // Find the details panel in the same container",
+        "  const container = document.getElementById(containerId);",
+        "  if (!container) return;",
+        "  const detailsPanel = container.querySelector('.test-details-panel');",
+        "  if (!detailsPanel) return;",
+        "  // Mark selected test item",
+        "  container.querySelectorAll('.test-item').forEach(item => item.classList.remove('selected'));",
+        "  const testItems = container.querySelectorAll('.test-item');",
+        "  if (testItems[testIndex]) testItems[testIndex].classList.add('selected');",
+        "  const testNameId = 'copy-testname-' + containerId + '-' + testIndex;",
+        "  const classNameId = 'copy-classname-' + containerId + '-' + testIndex;",
+        "  const errorId = 'copy-error-' + containerId + '-' + testIndex;",
+        "  const stackId = 'copy-stack-' + containerId + '-' + testIndex;",
+        "  const outputId = 'copy-output-' + containerId + '-' + testIndex;",
+        "  let html = '<div class=\"details-header\">';",
+        "  html += '<div class=\"detail-header-row\"><h3 style=\"margin: 0; font-size: 16px; word-break: break-word;\">' + escapeHtml(test.testName) + '</h3>';",
+        "  html += '<button class=\"copy-btn\" id=\"' + testNameId + '\" title=\"Copy test name\">' + copyIcon + '</button></div>';",
+        "  html += '</div>';",
+        "  html += '<div class=\"details-content\">';",
+        "  html += '<div class=\"detail-row\"><span class=\"detail-label\">Status:</span><span class=\"status-badge status-' + test.status.toLowerCase() + '\">' + test.status + '</span></div>';",
+        "  html += '<div class=\"detail-row\"><span class=\"detail-label\">Class:</span><span>' + escapeHtml(test.className) + '</span>';",
+        "  html += '<button class=\"copy-btn\" id=\"' + classNameId + '\" title=\"Copy class name\">' + copyIcon + '</button></div>';",
+        "  html += '<div class=\"detail-row\"><span class=\"detail-label\">Duration:</span><span>' + formatSec(test.durationSec) + '</span></div>';",
+        "  if (test.errorMessage) {",
+        "    html += '<div class=\"detail-section\"><div class=\"detail-label-row\"><span class=\"detail-label\">Error Message:</span>';",
+        "    html += '<button class=\"copy-btn\" id=\"' + errorId + '\" title=\"Copy error message\">' + copyIcon + '</button></div>';",
+        "    html += '<pre class=\"error-text\">' + escapeHtml(test.errorMessage) + '</pre></div>';",
+        "  }",
+        "  if (test.stackTrace) {",
+        "    html += '<div class=\"detail-section\"><div class=\"detail-label-row\"><span class=\"detail-label\">Stack Trace:</span>';",
+        "    html += '<button class=\"copy-btn\" id=\"' + stackId + '\" title=\"Copy stack trace\">' + copyIcon + '</button></div>';",
+        "    html += '<pre class=\"stack-trace\">' + escapeHtml(test.stackTrace) + '</pre></div>';",
+        "  }",
+        "  if (test.output) {",
+        "    html += '<div class=\"detail-section\"><div class=\"detail-label-row\"><span class=\"detail-label\">Output:</span>';",
+        "    html += '<button class=\"copy-btn\" id=\"' + outputId + '\" title=\"Copy output\">' + copyIcon + '</button></div>';",
+        "    html += '<pre class=\"output-text\">' + escapeHtml(test.output) + '</pre></div>';",
+        "  }",
+        "  html += '</div>';",
+        "  detailsPanel.innerHTML = html;",
+        "  // Attach copy handlers",
+        "  document.getElementById(testNameId).onclick = function() { copyToClipboard(test.testName, this); };",
+        "  document.getElementById(classNameId).onclick = function() { copyToClipboard(test.className, this); };",
+        "  if (test.errorMessage) document.getElementById(errorId).onclick = function() { copyToClipboard(test.errorMessage, this); };",
+        "  if (test.stackTrace) document.getElementById(stackId).onclick = function() { copyToClipboard(test.stackTrace, this); };",
+        "  if (test.output) document.getElementById(outputId).onclick = function() { copyToClipboard(test.output, this); };",
+        "}",
+        "// Draggable divider functionality",
+        "let activeDivider = null;",
+        "let startX = 0;",
+        "let startLeftWidth = 0;",
+        "function initDividerDrag(e, divider) {",
+        "  e.preventDefault();",
+        "  activeDivider = divider;",
+        "  const container = divider.parentElement;",
+        "  const leftPanel = container.querySelector('.test-list-panel');",
+        "  startX = e.clientX;",
+        "  startLeftWidth = leftPanel.offsetWidth;",
+        "  document.addEventListener('mousemove', doDividerDrag);",
+        "  document.addEventListener('mouseup', stopDividerDrag);",
+        "  document.body.style.cursor = 'col-resize';",
+        "  document.body.style.userSelect = 'none';",
+        "}",
+        "function doDividerDrag(e) {",
+        "  if (!activeDivider) return;",
+        "  const container = activeDivider.parentElement;",
+        "  const leftPanel = container.querySelector('.test-list-panel');",
+        "  const containerWidth = container.offsetWidth;",
+        "  const dx = e.clientX - startX;",
+        "  let newLeftWidth = startLeftWidth + dx;",
+        "  // Constrain between 20% and 80% of container",
+        "  const minWidth = containerWidth * 0.2;",
+        "  const maxWidth = containerWidth * 0.8;",
+        "  newLeftWidth = Math.max(minWidth, Math.min(maxWidth, newLeftWidth));",
+        "  const leftPct = (newLeftWidth / containerWidth) * 100;",
+        "  leftPanel.style.width = leftPct + '%';",
+        "}",
+        "function stopDividerDrag() {",
+        "  activeDivider = null;",
+        "  document.removeEventListener('mousemove', doDividerDrag);",
+        "  document.removeEventListener('mouseup', stopDividerDrag);",
+        "  document.body.style.cursor = '';",
+        "  document.body.style.userSelect = '';",
+        "}",
+        "function filterTests(containerId, filter) {",
+        "  const container = document.getElementById(containerId);",
+        "  if (!container) return;",
+        "  const buttons = container.querySelectorAll('.filter-btn');",
+        "  buttons.forEach(btn => btn.classList.remove('active'));",
+        "  const activeBtn = container.querySelector('.filter-btn[data-filter=\"' + filter + '\"]');",
+        "  if (activeBtn) activeBtn.classList.add('active');",
+        "  const items = container.querySelectorAll('.test-item');",
+        "  items.forEach(item => {",
+        "    if (filter === 'all') { item.style.display = 'flex'; }",
+        "    else if (filter === 'passed' && item.classList.contains('status-passed')) { item.style.display = 'flex'; }",
+        "    else if (filter === 'failed' && item.classList.contains('status-failed')) { item.style.display = 'flex'; }",
+        "    else if (filter === 'skipped' && item.classList.contains('status-skipped')) { item.style.display = 'flex'; }",
+        "    else { item.style.display = 'none'; }",
+        "  });",
+        "}",
         "const summaryEl = document.getElementById('summary');",
         "const prevTotals = previous ? (previous.Totals || {}) : {};",
         "const prevTotalPass = prevTotals.Passed || 0;",
@@ -348,7 +587,7 @@ function renderHtml(model, previous = null) {
         "  const failPct = formatPct(parent.failed, parent.total);",
         "  const skipPct = 100 - passPct - failPct;",
         "  const deltaLabel = prevParent ? ('Δ Passed ' + (parent.passed - prevPPass) + ', Failed ' + (parent.failed - prevPFail)) : '';",
-        "  const childHtml = parent.children.map(child => {",
+        "  const childResults = parent.children.map(child => {",
         "    let displayName = child.name.replace(/\\+/g, '.');",
         "    const parentName = trimPrefix(parent.name);",
         "    const prefix = parent.name + '.';",
@@ -372,9 +611,24 @@ function renderHtml(model, previous = null) {
         "    const deltaFailPct = formatPct(Math.max(0, deltaFail), child.total);",
         "    const deltaSkipPct = formatPct(Math.max(0, deltaSkip), child.total);",
         "    ",
+        "    const safeChildId = child.name.replace(/[^a-zA-Z0-9]/g, '_');",
+        "    const childContainerId = 'tests-' + safeChildId;",
+        "    const childTestItemsHtml = child.tests.map((test, idx) => {",
+        "      const statusClass = 'status-' + test.status.toLowerCase();",
+        "      const childIdx = parent.tests.findIndex(t => t.fullTestName === test.fullTestName);",
+        "      const deltaHtml = getTestDelta(test.fullTestName, test.status);",
+        "      return '<div class=\"test-item ' + statusClass + '\" onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + childIdx + ', \\'' + childContainerId + '\\')\">' +",
+        "        '<span class=\"test-icon\"></span>' +",
+        "        '<span class=\"test-name\">' + escapeHtml(test.testName) + '</span>' +",
+        "        deltaHtml +",
+        "        '<span class=\"test-duration\">' + formatSec(test.durationSec) + '</span>' +",
+        "        '</div>';",
+        "    }).join('');",
+        "    ",
         "    let left = 0;",
         "    let html = '';",
         "    html += '<div class=\"child\">';",
+        "    html += '<div class=\"eye-icon\" onclick=\"toggleTests(\\'' + child.name.replace(/'/g, '\\\\\\'') + '\\')\"><svg viewBox=\"0 0 24 24\"><path d=\"M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z\"/></svg></div>';",
         "    html += '<div class=\"title\">' + displayName + '</div>';",
         "    html += '<div class=\"bar\">';",
         "    ",
@@ -408,11 +662,42 @@ function renderHtml(model, previous = null) {
         "    if (prevChild) {",
         "      html += '<span>Δ ' + (child.passed - prevPass) + '/' + (child.failed - prevFail) + '</span>';",
         "    }",
-        "    html += '</div></div>';",
-        "    return html;",
+        "    html += '</div>';",
+        "    html += '</div>';",
+        "    var testsContainer = '<div class=\"tests-container\" id=\"' + childContainerId + '\" style=\"display: none;\">';",
+        "    testsContainer += '<div class=\"test-list-panel\">';",
+        "    testsContainer += '<div class=\"filter-buttons\">';",
+        "    testsContainer += '<button class=\"filter-btn active\" data-filter=\"all\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'all\\')\">All</button>';",
+        "    testsContainer += '<button class=\"filter-btn\" data-filter=\"passed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'passed\\')\">Passed</button>';",
+        "    testsContainer += '<button class=\"filter-btn\" data-filter=\"failed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'failed\\')\">Failed</button>';",
+        "    testsContainer += '<button class=\"filter-btn\" data-filter=\"skipped\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'skipped\\')\">Skipped</button>';",
+        "    testsContainer += '</div>';",
+        "    testsContainer += '<div class=\"test-items-list\">' + childTestItemsHtml + '</div>';",
+        "    testsContainer += '</div>';",
+        "    testsContainer += '<div class=\"split-divider\" onmousedown=\"initDividerDrag(event, this)\"></div>';",
+        "    testsContainer += '<div class=\"test-details-panel\"><div class=\"no-test-selected\">Click on a test to view details</div></div>';",
+        "    testsContainer += '</div>';",
+        "    return { childDiv: html, testsContainer: testsContainer };",
+        "  });",
+        "  const childHtml = childResults.map(r => r.childDiv).join('');",
+        "  const childTestsContainersHtml = childResults.map(r => r.testsContainer).join('');",
+        "  ",
+        "  const safeParentId = parent.name.replace(/[^a-zA-Z0-9]/g, '_');",
+        "  const parentContainerId = 'tests-' + safeParentId;",
+        "  const testsItemsHtml = parent.tests.map((test, idx) => {",
+        "    const statusClass = 'status-' + test.status.toLowerCase();",
+        "    const deltaHtml = getTestDelta(test.fullTestName, test.status);",
+        "    return '<div class=\"test-item ' + statusClass + '\" onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + idx + ', \\'' + parentContainerId + '\\')\">' +",
+        "      '<span class=\"test-icon\"></span>' +",
+        "      '<span class=\"test-name\">' + escapeHtml(test.testName) + '</span>' +",
+        "      deltaHtml +",
+        "      '<span class=\"test-duration\">' + formatSec(test.durationSec) + '</span>' +",
+        "      '</div>';",
         "  }).join('');",
+        "  ",
         "  let card = '';",
         "  card += '<div class=\"card\">';",
+        "  card += '<div class=\"eye-icon\" onclick=\"toggleTests(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\')\"><svg viewBox=\"0 0 24 24\"><path d=\"M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z\"/></svg></div>';",
         "  card += '<div class=\"card-header\">';",
         "  card += '<div class=\"card-title\">' + trimPrefix(parent.name) + '</div>';",
         "  card += '<div class=\"meta\">';",
@@ -450,7 +735,20 @@ function renderHtml(model, previous = null) {
         "  }",
         "  card += '</div>';",
         "  card += '<div class=\"meta\">' + passPct + '% passed | ' + failPct + '% failed | ' + skipPct + '% skipped</div>';",
-        "  if (!hideChildren) { card += '<div class=\"children\">' + childHtml + '</div>'; }",
+        "  if (!hideChildren) { card += '<div class=\"children\">' + childHtml + '</div>' + childTestsContainersHtml; }",
+        "  card += '<div class=\"tests-container\" id=\"' + parentContainerId + '\" style=\"display: none;\">';",
+        "  card += '<div class=\"test-list-panel\">';",
+        "  card += '<div class=\"filter-buttons\">';",
+        "  card += '<button class=\"filter-btn active\" data-filter=\"all\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'all\\')\">All</button>';",
+        "  card += '<button class=\"filter-btn\" data-filter=\"passed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'passed\\')\">Passed</button>';",
+        "  card += '<button class=\"filter-btn\" data-filter=\"failed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'failed\\')\">Failed</button>';",
+        "  card += '<button class=\"filter-btn\" data-filter=\"skipped\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'skipped\\')\">Skipped</button>';",
+        "  card += '</div>';",
+        "  card += '<div class=\"test-items-list\">' + testsItemsHtml + '</div>';",
+        "  card += '</div>';",
+        "  card += '<div class=\"split-divider\" onmousedown=\"initDividerDrag(event, this)\"></div>';",
+        "  card += '<div class=\"test-details-panel\"><div class=\"no-test-selected\">Click on a test to view details</div></div>';",
+        "  card += '</div>';",
         "  card += '</div>';",
         "  return card;",
         "}).join('');",
@@ -463,7 +761,7 @@ function renderHtml(model, previous = null) {
     htmlParts.push("<head>");
     htmlParts.push("  <meta charset=\"UTF-8\" />");
     htmlParts.push("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />");
-    htmlParts.push("  <title> EF Core Test Dashboard</title>");
+    htmlParts.push("  <title>BigQuery EF Core Test Dashboard</title>");
     htmlParts.push("  <style>");
     htmlParts.push("    :root {");
     htmlParts.push("      --bg: #041209;");
@@ -495,7 +793,7 @@ function renderHtml(model, previous = null) {
     htmlParts.push("    .badge .value { font-size: 20px; font-weight: 700; margin-top: 4px; }");
     htmlParts.push("    .groups { display: flex; flex-direction: column; gap: 14px; }");
     htmlParts.push("    .card {");
-    htmlParts.push("      background: var(--panel);");
+    htmlParts.push("      background: var(--panel); position: relative;");
     htmlParts.push("      border: 2px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow);");
     htmlParts.push("    }");
     htmlParts.push("    .card-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }");
@@ -508,13 +806,129 @@ function renderHtml(model, previous = null) {
     htmlParts.push("    .bar-pass-delta { background: #00a86b; }");
     htmlParts.push("    .bar-fail-delta { background: #ff6b6b; }");
     htmlParts.push("    .bar-skip-delta { background: #6b6d6a; }");
-    htmlParts.push("    .meta { color: var(--muted); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; }");
+    htmlParts.push("    .meta { color: var(--muted); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }");
     htmlParts.push("    .children { margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }");
-    htmlParts.push("    .child { padding: 10px 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; }");
+    htmlParts.push("    .child { padding: 10px 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; position: relative; }");
     htmlParts.push("    .child .title { font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }");
     htmlParts.push("    .legend { display: flex; gap: 12px; align-items: center; margin: 10px 0 18px; color: var(--muted); font-size: 13px; }");
     htmlParts.push("    .dot { width: 12px; height: 12px; border-radius: 999px; display: inline-block; }");
-    htmlParts.push("    @media (max-width: 640px) { body { padding: 16px; } .children { grid-template-columns: 1fr; } }");
+    htmlParts.push("    .eye-icon {");
+    htmlParts.push("      position: absolute; top: 16px; right: 16px; width: 24px; height: 24px;");
+    htmlParts.push("      cursor: pointer; opacity: 0; transition: opacity 0.2s, transform 0.2s;");
+    htmlParts.push("      z-index: 10;");
+    htmlParts.push("    }");
+    htmlParts.push("    .child .eye-icon { top: 10px; right: 12px; width: 20px; height: 20px; }");
+    htmlParts.push("    .card:hover .eye-icon, .child:hover .eye-icon { opacity: 0.6; }");
+    htmlParts.push("    .eye-icon:hover { opacity: 1 !important; transform: scale(1.1); }");
+    htmlParts.push("    .eye-icon svg { width: 100%; height: 100%; fill: var(--accent); }");
+    htmlParts.push("    .tests-container {");
+    htmlParts.push("      display: flex; flex-direction: row; margin-top: 14px; padding: 14px;");
+    htmlParts.push("      border-top: 1px solid var(--border); height: 400px; min-height: 200px;");
+    htmlParts.push("    }");
+    htmlParts.push("    .test-list-panel {");
+    htmlParts.push("      width: 40%; min-width: 150px; padding-right: 8px;");
+    htmlParts.push("      display: flex; flex-direction: column;");
+    htmlParts.push("    }");
+    htmlParts.push("    .filter-buttons {");
+    htmlParts.push("      display: flex; gap: 6px; margin-bottom: 10px; flex-shrink: 0;");
+    htmlParts.push("    }");
+    htmlParts.push("    .filter-btn {");
+    htmlParts.push("      padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;");
+    htmlParts.push("      background: transparent; color: var(--muted); font-size: 12px; cursor: pointer;");
+    htmlParts.push("      transition: all 0.15s;");
+    htmlParts.push("    }");
+    htmlParts.push("    .filter-btn:hover { border-color: var(--accent); color: var(--text); }");
+    htmlParts.push("    .filter-btn.active { background: var(--accent); color: #0a0f0d; border-color: var(--accent); }");
+    htmlParts.push("    .test-items-list { overflow-y: auto; flex: 1; }");
+    htmlParts.push("    .split-divider {");
+    htmlParts.push("      width: 6px; background: var(--border); cursor: col-resize; flex-shrink: 0;");
+    htmlParts.push("      border-radius: 3px; transition: background 0.2s;");
+    htmlParts.push("    }");
+    htmlParts.push("    .split-divider:hover { background: var(--accent); }");
+    htmlParts.push("    .test-details-panel {");
+    htmlParts.push("      flex: 1; min-width: 200px; overflow-y: auto; padding-left: 16px;");
+    htmlParts.push("    }");
+    htmlParts.push("    .no-test-selected {");
+    htmlParts.push("      display: flex; align-items: center; justify-content: center; height: 100%;");
+    htmlParts.push("      color: var(--muted); font-size: 14px; font-style: italic;");
+    htmlParts.push("    }");
+    htmlParts.push("    .details-header { margin-bottom: 16px; }");
+    htmlParts.push("    .details-content { font-size: 14px; }");
+    htmlParts.push("    .test-item {");
+    htmlParts.push("      display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 6px;");
+    htmlParts.push("      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px;");
+    htmlParts.push("      cursor: pointer; transition: all 0.15s;");
+    htmlParts.push("    }");
+    htmlParts.push("    .test-item:hover { background: rgba(255,255,255,0.06); }");
+    htmlParts.push("    .test-item.selected { background: rgba(34,211,238,0.15); border-color: var(--accent); }");
+    htmlParts.push("    .test-icon {");
+    htmlParts.push("      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;");
+    htmlParts.push("    }");
+    htmlParts.push("    .test-item.status-passed .test-icon { background: var(--pass); }");
+    htmlParts.push("    .test-item.status-failed .test-icon { background: var(--fail); }");
+    htmlParts.push("    .test-item.status-skipped .test-icon { background: var(--skip); }");
+    htmlParts.push("    .test-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }");
+    htmlParts.push("    .test-duration { font-size: 12px; color: var(--muted); }");
+    htmlParts.push("    .delta-indicator {");
+    htmlParts.push("      font-size: 11px; font-weight: 700; margin-left: 6px; padding: 2px 5px;");
+    htmlParts.push("      border-radius: 4px; flex-shrink: 0;");
+    htmlParts.push("    }");
+    htmlParts.push("    .delta-improved { background: var(--pass); color: #0a0f0d; }");
+    htmlParts.push("    .delta-regressed { background: var(--fail); color: white; }");
+    htmlParts.push("    .delta-changed { background: var(--skip); color: #0a0f0d; }");
+    htmlParts.push("    .test-modal {");
+    htmlParts.push("      display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;");
+    htmlParts.push("      background: rgba(0,0,0,0.8); align-items: center; justify-content: center; padding: 20px;");
+    htmlParts.push("    }");
+    htmlParts.push("    .modal-dialog {");
+    htmlParts.push("      background: var(--panel); border: 2px solid var(--border); border-radius: 16px;");
+    htmlParts.push("      max-width: 900px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;");
+    htmlParts.push("      box-shadow: 0 20px 60px rgba(0,0,0,0.5);");
+    htmlParts.push("    }");
+    htmlParts.push("    .modal-header {");
+    htmlParts.push("      display: flex; justify-content: space-between; align-items: start; padding: 20px; border-bottom: 2px solid var(--border);");
+    htmlParts.push("    }");
+    htmlParts.push("    .close-btn {");
+    htmlParts.push("      background: none; border: none; color: var(--muted); font-size: 28px; cursor: pointer;");
+    htmlParts.push("      line-height: 1; padding: 0; width: 32px; height: 32px; flex-shrink: 0;");
+    htmlParts.push("    }");
+    htmlParts.push("    .close-btn:hover { color: var(--text); }");
+    htmlParts.push("    .modal-body { padding: 20px; overflow-y: auto; }");
+    htmlParts.push("    .detail-row { display: flex; gap: 12px; margin-bottom: 12px; font-size: 14px; align-items: center; }");
+    htmlParts.push("    .detail-label { font-weight: 600; color: var(--muted); min-width: 80px; }");
+    htmlParts.push("    .detail-header-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }");
+    htmlParts.push("    .detail-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }");
+    htmlParts.push("    .copy-btn {");
+    htmlParts.push("      background: transparent; border: 1px solid var(--border); border-radius: 4px;");
+    htmlParts.push("      padding: 4px 6px; cursor: pointer; color: var(--muted); transition: all 0.15s;");
+    htmlParts.push("      display: flex; align-items: center; justify-content: center; flex-shrink: 0;");
+    htmlParts.push("    }");
+    htmlParts.push("    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }");
+    htmlParts.push("    .copy-btn.copied { border-color: var(--pass); color: var(--pass); }");
+    htmlParts.push("    .detail-section { margin-top: 20px; }");
+    htmlParts.push("    .detail-section .detail-label { margin-bottom: 8px; display: block; }");
+    htmlParts.push("    .status-badge {");
+    htmlParts.push("      padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase;");
+    htmlParts.push("    }");
+    htmlParts.push("    .status-badge.status-passed { background: var(--pass); color: #0a0f0d; }");
+    htmlParts.push("    .status-badge.status-failed { background: var(--fail); color: white; }");
+    htmlParts.push("    .status-badge.status-skipped { background: var(--skip); color: #0a0f0d; }");
+    htmlParts.push("    .error-text, .stack-trace, .output-text {");
+    htmlParts.push("      background: #0a0f0d; padding: 12px; border-radius: 8px; overflow-x: auto;");
+    htmlParts.push("      font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.5;");
+    htmlParts.push("      white-space: pre-wrap; word-break: break-word;");
+    htmlParts.push("    }");
+    htmlParts.push("    .error-text { color: #ff6b6b; border-left: 3px solid var(--fail); }");
+    htmlParts.push("    .stack-trace { color: #ffa500; border-left: 3px solid #ffa500; }");
+    htmlParts.push("    .output-text { color: var(--muted); border-left: 3px solid var(--muted); }");
+    htmlParts.push("    @media (max-width: 640px) {");
+    htmlParts.push("      body { padding: 16px; }");
+    htmlParts.push("      .children { grid-template-columns: 1fr; }");
+    htmlParts.push("      .tests-container { flex-direction: column; height: auto; max-height: 600px; }");
+    htmlParts.push("      .test-list-panel { width: 100%; max-height: 200px; padding-right: 0; padding-bottom: 8px; }");
+    htmlParts.push("      .split-divider { width: 100%; height: 6px; cursor: row-resize; margin: 8px 0; }");
+    htmlParts.push("      .test-details-panel { padding-left: 0; padding-top: 8px; }");
+    htmlParts.push("    }");
     htmlParts.push("  </style>");
     htmlParts.push("</head>");
     htmlParts.push("<body>");
@@ -554,7 +968,15 @@ function main() {
 
     const model = buildModel(files);
     const prev = loadHistory(args.history);
-    const html = renderHtml(model, prev);
+    const prevTests = loadPreviousTests(args.history);
+
+    // Collect all tests from the model
+    const allTests = model.parents.flatMap(p => p.tests);
+
+    // Update history with current test results
+    updateHistoryWithTests(args.history, allTests);
+
+    const html = renderHtml(model, prev, prevTests);
     fs.writeFileSync(args.out, html, "utf8");
     console.log(`Dashboard written to ${args.out} (files: ${files.length})`);
 }

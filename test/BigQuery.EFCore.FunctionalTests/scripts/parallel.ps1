@@ -255,16 +255,24 @@ Write-Host ""
 $testResultsDir = Join-Path $PSScriptRoot "TestResults"
 if (Test-Path $testResultsDir) {
     Write-Host "Cleaning existing TestResults directory..." -ForegroundColor Yellow
-    # Preserve history.json if it exists
+    # Preserve history.json and HTML reports
     $historyPath = Join-Path $testResultsDir "history.json"
     $historyBackup = $null
     if ((Test-Path $historyPath) -and -not $NoHistory) {
         $historyBackup = Get-Content -Path $historyPath -Raw
     }
+    $htmlReports = Get-ChildItem -Path $testResultsDir -Filter "tests_*.html" -ErrorAction SilentlyContinue
+    $htmlBackups = @{}
+    foreach ($html in $htmlReports) {
+        $htmlBackups[$html.Name] = Get-Content -Path $html.FullName -Raw
+    }
     Remove-Item -Path $testResultsDir -Recurse -Force
     New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
     if ($historyBackup) {
         $historyBackup | Set-Content -Path $historyPath
+    }
+    foreach ($name in $htmlBackups.Keys) {
+        $htmlBackups[$name] | Set-Content -Path (Join-Path $testResultsDir $name)
     }
 } else {
     New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
@@ -299,13 +307,20 @@ function Update-ProgressBars {
         }
         if ($displayName.Length -gt 41) {
             $displayName = $displayName.Substring($displayName.Length - 41)
+        } else {
+            $displayName = $displayName.PadRight(41)
         }
 
         if ($job.State -eq 'Running') {
-            $output = Receive-Job -Job $job -Keep 2>&1 | Out-String
+            try {
+                $output = Receive-Job -Job $job -Keep 2>&1 | Out-String
+            } catch {
+                # Race condition with job output buffer - skip this update
+                continue
+            }
 
             # DEBUG: Save first job's output to file for inspection
-            if ($i -eq 0 -and $output.Length -gt 100) {
+            if ($i -eq 0 -and $output.Length -gt 50) {
                 $output | Set-Content -Path (Join-Path $testResultsDir "debug_output.txt") -Force
             }
 
@@ -322,18 +337,10 @@ function Update-ProgressBars {
                 $jobProgress[$i].Total = [int]$matches[1]
             }
 
-            # Parse test output - support both xUnit and MSTest/VSTest formats
-            $passedXUnit = ([regex]::Matches($output, '\[PASS\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $passedMSTest = ([regex]::Matches($output, '^\s*Passed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $passed = $passedXUnit + $passedMSTest
-
-            $failedXUnit = ([regex]::Matches($output, '\[FAIL\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $failedMSTest = ([regex]::Matches($output, '^\s*Failed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $failed = $failedXUnit + $failedMSTest
-
-            $skippedXUnit = ([regex]::Matches($output, '\[SKIP\]', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $skippedMSTest = ([regex]::Matches($output, '^\s*Skipped\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
-            $skipped = $skippedXUnit + $skippedMSTest
+            # Parse test output (VSTest format from dotnet test --verbosity normal)
+            $passed = ([regex]::Matches($output, '^\s*Passed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $failed = ([regex]::Matches($output, '^\s*Failed\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
+            $skipped = ([regex]::Matches($output, '^\s*Skipped\s+', [System.Text.RegularExpressions.RegexOptions]::Multiline)).Count
 
             $jobProgress[$i].Passed = $passed
             $jobProgress[$i].Failed = $failed
@@ -342,7 +349,8 @@ function Update-ProgressBars {
 
             $elapsed = [int]((Get-Date) - $jobProgress[$i].StartTime).TotalSeconds
             $percent = if ($jobProgress[$i].Total -gt 0) { [Math]::Min(100, [int](($completed / $jobProgress[$i].Total) * 100)) } else { -1 }
-            Write-Progress -Id $i -Activity $displayName -Status "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $elapsed sec)" -PercentComplete $percent
+            $status = "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $($elapsed)s)"
+            Write-Progress -Id $i -Activity $displayName -Status $status -PercentComplete $percent
         } elseif ($job.State -eq 'Completed' -and -not $jobProgress[$i].Completed) {
             $p = $jobProgress[$i]
             $jobProgress[$i].Completed = $true
@@ -366,7 +374,7 @@ function Cleanup-Jobs {
 }
 
 # Run tests in parallel using jobs
-Write-Host "Starting parallel test execution with live progress..." -ForegroundColor Cyan
+Write-Host "Starting parallel test execution..." -ForegroundColor Cyan
 Write-Host ""
 
 try {
@@ -398,20 +406,13 @@ try {
     Write-Progress -Id ($groupIndex - 1) -Activity $group.Name -Status "Starting..." -PercentComplete -1
 
     $job = Start-Job -Name $group.Name -ScriptBlock {
-        param($ProjectId, $AuthMethod, $Dataset, $Filter, $TestProject, $TrxPath, $Verbose)
+        param($ProjectId, $AuthMethod, $Dataset, $Filter, $TestProject, $TrxPath)
         $env:BQ_EFCORE_TEST_CONN_STRING = "AuthMethod=$AuthMethod;ProjectId=$ProjectId;DefaultDatasetId=$Dataset"
         $cmdArgs = @("test", $TestProject, "--filter", $Filter, "--logger", "trx;LogFileName=$TrxPath", "--verbosity", "normal")
-        if ($Verbose) {
-            $output = @()
-            dotnet @cmdArgs 2>&1 | ForEach-Object {
-                $output += $_
-                Write-Output $_
-            }
-        } else {
-            $output = dotnet @cmdArgs 2>&1
-        }
-        return @{ Output = $output; ExitCode = $LASTEXITCODE; TrxPath = $TrxPath }
-    } -ArgumentList $ProjectId, $AuthMethod, $group.Dataset, $group.Filter, $testProject, $trxPath, $Verbose
+        # Always stream output so Receive-Job -Keep can track progress
+        dotnet @cmdArgs 2>&1 | ForEach-Object { Write-Output $_ }
+        return @{ ExitCode = $LASTEXITCODE; TrxPath = $TrxPath }
+    } -ArgumentList $ProjectId, $AuthMethod, $group.Dataset, $group.Filter, $testProject, $trxPath
 
     $script:runningJobs += @{ Job = $job; Group = $group; TrxPath = $trxPath }
 }
@@ -602,7 +603,8 @@ if ($GenerateDashboard) {
     if ($dashboardInput) {
         Write-Host "Building dashboard..." -ForegroundColor Cyan
         $dashboardScript = Join-Path $PSScriptRoot "build-dashboard.js"
-        $dashboardOutput = Join-Path $testResultsDir "dashboard.html"
+        $timestamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+        $dashboardOutput = Join-Path $testResultsDir "tests_$timestamp.html"
         $nodeArgs = @(
             $dashboardScript
             "--file"

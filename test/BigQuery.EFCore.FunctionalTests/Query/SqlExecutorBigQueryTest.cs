@@ -7,6 +7,8 @@ using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Xunit.Abstractions;
 
+#pragma warning disable EF1002 // Risk of vulnerability to SQL injection.
+
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQueryFixture<SqlExecutorModelCustomizer>>
@@ -36,6 +38,7 @@ public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQuer
         var contactTitle = "Sales Representative";
 
         using var context = CreateContext();
+
 
         var actual = async
             ? await context.Database.ExecuteSqlRawAsync(

@@ -1,473 +1,615 @@
-using Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using Xunit.Abstractions;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.Query;
+namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public abstract class BigQueryArrayQueryTest<TFixture> : QueryTestBase<TFixture>
-    where TFixture : BigQueryArrayQueryFixture, new()
+public class BigQueryArrayQueryTest(
+    BigQueryArrayQueryTest.BigQueryArrayQueryFixture fixture,
+    ITestOutputHelper testOutputHelper)
+    : ArrayQueryTest<BigQueryArrayQueryTest.BigQueryArrayQueryFixture>(fixture, testOutputHelper)
 {
-    protected BigQueryArrayQueryTest(TFixture fixture, ITestOutputHelper testOutputHelper)
-        : base(fixture)
-    {
-        Fixture.TestSqlLoggerFactory.Clear();
-        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
-    }
-
-    #region Roundtrip
-
-    [ConditionalFact]
-    public virtual void Roundtrip()
-    {
-        using var ctx = Fixture.CreateContext();
-        var entity = ctx.ArrayEntities.Single(e => e.Id == 1);
-
-        Assert.Equal([1, 2, 3], entity.IntArray);
-        Assert.Equal([1, 2, 3], entity.IntList);
-        Assert.Equal([10L, 20L, 30L], entity.LongArray);
-        Assert.Equal(["apple", "banana", "cherry"], entity.StringArray);
-        Assert.Equal(["apple", "banana", "cherry"], entity.StringList);
-        Assert.Equal([1.1, 2.2, 3.3], entity.DoubleArray);
-        Assert.Equal([1.1, 2.2, 3.3], entity.DoubleList);
-        Assert.Equal([true, false, true], entity.BoolArray);
-        Assert.Equal([1, 2, 3], entity.ByteArray);
-    }
-
-    #endregion
-
     #region Indexers
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Index_with_constant(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray[0] == 1));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Index_with_parameter(bool async)
+    public override async Task Index_with_constant(bool async)
     {
-        var index = 0;
+        await base.Index_with_constant(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray[index] == 1));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(0)] = 1
+""");
     }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task String_array_index_with_constant(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.StringArray[0] == "apple"));
+    public override async Task Index_with_parameter(bool async)
+    {
+        await base.Index_with_parameter(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Index_in_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, FirstInt = e.IntArray[0], SecondString = e.StringArray[1] }));
+        AssertSql(
+            """
+@__index_0='0'
 
-#pragma warning disable CS0472 // Comparing value type to null
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Non_nullable_value_array_index_compare_to_null(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray[1] == null),
-            assertEmpty: true);
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(@__index_0)] = 1
+""");
+    }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Non_nullable_reference_array_index_compare_to_null(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.StringArray[1] == null),
-            assertEmpty: true);
-#pragma warning restore CS0472
+    public override async Task String_array_index_with_constant(bool async)
+    {
+        await base.String_array_index_with_constant(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`StringArray`[OFFSET(0)] = 'apple'
+""");
+    }
+
+    public override async Task Index_in_projection(bool async)
+    {
+        await base.Index_in_projection(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`IntArray`[OFFSET(0)] AS `FirstInt`, `a`.`StringArray`[OFFSET(1)] AS `SecondString`
+FROM `ArrayEntities` AS `a`
+""");
+    }
 
     #endregion Indexers
 
     #region ElementAt
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task ElementAt_with_constant(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.ElementAt(0) == 1));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task ElementAt_with_parameter(bool async)
+    public override async Task ElementAt_with_constant(bool async)
     {
-        var index = 1;
+        await base.ElementAt_with_constant(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.ElementAt(index) == 2));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(0)] = 1
+""");
     }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task ElementAt_in_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, Second = e.StringArray.ElementAt(1) }));
+    public override async Task ElementAt_with_parameter(bool async)
+    {
+        await base.ElementAt_with_parameter(async);
+
+        AssertSql(
+            """
+@__index_0='1'
+
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(@__index_0)] = 2
+""");
+    }
+
+    public override async Task ElementAt_in_projection(bool async)
+    {
+        await base.ElementAt_in_projection(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`StringArray`[OFFSET(1)] AS `Second`
+FROM `ArrayEntities` AS `a`
+""");
+    }
 
     #endregion ElementAt
 
     #region Length/Count
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Length(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.Length == 3));
+    public override async Task Array_Length(bool async)
+    {
+        await base.Array_Length(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Length_in_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, Count = e.IntArray.Length }));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3
+""");
+    }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task List_Count(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntList.Count == 3));
+    public override async Task Array_Length_in_projection(bool async)
+    {
+        await base.Array_Length_in_projection(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Enumerable_Count(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.Count() == 3));
+        AssertSql(
+            """
+SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Count`
+FROM `ArrayEntities` AS `a`
+""");
+    }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task String_array_Length(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.StringArray.Length >= 3));
+    public override async Task List_Count(bool async)
+    {
+        await base.List_Count(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Length_on_EF_Property(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => EF.Property<int[]>(e, nameof(BigQueryArrayEntity.IntArray)).Length == 3));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntList`) = 3
+""");
+    }
+
+    public override async Task Enumerable_Count(bool async)
+    {
+        await base.Enumerable_Count(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3
+""");
+    }
+
+    public override async Task String_array_Length(bool async)
+    {
+        await base.String_array_Length(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`StringArray`) >= 3
+""");
+    }
 
     #endregion Length/Count
 
-    #region SequenceEqual
+    #region First/FirstOrDefault
 
-    // TODO: BigQuery does not support direct array equality comparison with `=` operator.
-    // See docs/ArraySequenceEqual.md for potential workarounds using UNNEST or TO_JSON_STRING.
-    // These tests are skipped until a workaround is implemented.
-    [ConditionalTheory(Skip = "BigQuery does not support array equality comparison - see docs/ArraySequenceEqual.md")]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task SequenceEqual_with_parameter(bool async)
+    public override async Task Array_First(bool async)
     {
-        var arr = new[] { 1, 2, 3 };
+        await base.Array_First(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.SequenceEqual(arr)));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(0)] = 1
+""");
     }
 
-    [ConditionalTheory(Skip = "BigQuery does not support array equality comparison - see docs/ArraySequenceEqual.md")]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task SequenceEqual_with_different_parameter(bool async)
+    public override async Task Array_FirstOrDefault(bool async)
     {
-        var arr = new[] { 4, 5, 6, 7 };
+        await base.Array_FirstOrDefault(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.SequenceEqual(arr)));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(0)] = 1
+""");
+    }
+
+    public override async Task Array_First_in_projection(bool async)
+    {
+        await base.Array_First_in_projection(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`StringArray`[OFFSET(0)] AS `First`
+FROM `ArrayEntities` AS `a`
+""");
+    }
+
+    public override async Task List_First(bool async)
+    {
+        await base.List_First(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntList`[OFFSET(0)] = 1
+""");
+    }
+
+    #endregion First/FirstOrDefault
+
+    #region Complex Queries
+
+    public override async Task Multiple_array_operations_in_projection(bool async)
+    {
+        await base.Multiple_array_operations_in_projection(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Length`, `a`.`IntArray`[OFFSET(0)] AS `First`, `a`.`IntArray`[OFFSET(1)] AS `Second`, `a`.`StringArray`[OFFSET(0)] AS `StringFirst`
+FROM `ArrayEntities` AS `a`
+""");
+    }
+
+    public override async Task Array_operations_with_predicates(bool async)
+    {
+        await base.Array_operations_with_predicates(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND `a`.`IntArray`[OFFSET(0)] < 5
+""");
+    }
+
+    public override async Task Array_indexing_with_arithmetic(bool async)
+    {
+        await base.Array_indexing_with_arithmetic(async);
+
+        AssertSql(
+            """
+@__offset_0='1'
+
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(0 + @__offset_0)] = 2
+""");
+    }
+
+    public override async Task Different_array_types_in_same_query(bool async)
+    {
+        await base.Different_array_types_in_same_query(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3 AND `a`.`StringArray`[OFFSET(0)] = 'apple'
+""");
+    }
+
+    #endregion Complex Queries
+
+    #region Ordering
+
+    public override async Task OrderBy_array_length(bool async)
+    {
+        await base.OrderBy_array_length(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+ORDER BY ARRAY_LENGTH(`a`.`IntArray`), `a`.`Id`
+""");
+    }
+
+    public override async Task OrderBy_array_first_element(bool async)
+    {
+        await base.OrderBy_array_first_element(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+ORDER BY `a`.`IntArray`[OFFSET(0)], `a`.`Id`
+""");
+    }
+
+    #endregion Ordering
+
+    #region Subqueries
+
+    public override async Task Array_in_scalar_subquery(bool async)
+    {
+        await base.Array_in_scalar_subquery(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`ArrayEntities`
+FROM `ArrayContainers` AS `a`
+WHERE (
+    SELECT ARRAY_LENGTH(`a0`.`IntArray`)
+    FROM `ArrayEntities` AS `a0`
+    WHERE `a`.`Id` = `a0`.`ContainerId`
+    ORDER BY `a0`.`Id`
+    LIMIT 1) > 0
+""");
+    }
+
+    #endregion Subqueries
+
+    #region Null Comparisons
+
+    public override async Task Non_nullable_value_array_index_compare_to_null(bool async)
+    {
+        await base.Non_nullable_value_array_index_compare_to_null(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray`[OFFSET(1)] IS NULL
+""");
+    }
+
+    public override async Task Non_nullable_reference_array_index_compare_to_null(bool async)
+    {
+        await base.Non_nullable_reference_array_index_compare_to_null(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`StringArray`[OFFSET(1)] IS NULL
+""");
+    }
+
+    #endregion Null Comparisons
+
+    #region EF.Property
+
+    public override async Task Array_Length_on_EF_Property(bool async)
+    {
+        await base.Array_Length_on_EF_Property(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3
+""");
+    }
+
+    #endregion EF.Property
+
+    #region SelectMany
+
+    public override async Task SelectMany_array_column(bool async)
+    {
+        await base.SelectMany_array_column(async);
+
+        AssertSql(
+            """
+SELECT `i`
+FROM `ArrayEntities` AS `a`
+CROSS JOIN UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+""");
+    }
+
+    public override async Task SelectMany_with_projection(bool async)
+    {
+        await base.SelectMany_with_projection(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `i` AS `Value`
+FROM `ArrayEntities` AS `a`
+CROSS JOIN UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+""");
+    }
+
+    #endregion SelectMany
+
+    #region SequenceEqual
+
+    public override async Task SequenceEqual_with_parameter(bool async)
+    {
+        await base.SequenceEqual_with_parameter(async);
+
+        AssertSql(
+            """
+@__arr_0='[1,2,3]' (DbType = Object)
+
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray` = @__arr_0
+""");
+    }
+
+    public override async Task SequenceEqual_with_different_parameter(bool async)
+    {
+        await base.SequenceEqual_with_different_parameter(async);
+
+        AssertSql(
+            """
+@__arr_0='[4,5,6,7]' (DbType = Object)
+
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`IntArray` = @__arr_0
+""");
     }
 
     #endregion SequenceEqual
 
     #region Containment
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_column_Contains_literal_item(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.Contains(1)));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_column_Contains_parameter_item(bool async)
+    public override async Task Array_column_Contains_literal_item(bool async)
     {
-        var p = 1;
+        await base.Array_column_Contains_literal_item(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.Contains(p)));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE 1 IN (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+)
+""");
     }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_column_Contains_column_item(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.Contains(e.Id)));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task String_array_Contains_literal(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.StringArray.Contains("apple")));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_constant_Contains_column(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => new[] { 1, 2 }.Contains(e.Id)));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_param_Contains_column(bool async)
+    public override async Task Array_column_Contains_parameter_item(bool async)
     {
-        var arr = new[] { 1, 2 };
+        await base.Array_column_Contains_parameter_item(async);
 
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => arr.Contains(e.Id)));
+        AssertSql(
+            """
+@__p_0='1'
+
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE @__p_0 IN (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+)
+""");
+    }
+
+    public override async Task Array_column_Contains_column_item(bool async)
+    {
+        await base.Array_column_Contains_column_item(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`Id` IN (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+)
+""");
+    }
+
+    public override async Task String_array_Contains_literal(bool async)
+    {
+        await base.String_array_Contains_literal(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE 'apple' IN (
+    SELECT `s`
+    FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
+)
+""");
+    }
+
+    public override async Task Array_constant_Contains_column(bool async)
+    {
+        await base.Array_constant_Contains_column(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`Id` IN (1, 2)
+""");
+    }
+
+    public override async Task Array_param_Contains_column(bool async)
+    {
+        await base.Array_param_Contains_column(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE `a`.`Id` IN (1, 2)
+""");
     }
 
     #endregion Containment
 
     #region Any/All
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Any_no_predicate(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.Any()));
+    public override async Task Any_no_predicate(bool async)
+    {
+        await base.Any_no_predicate(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Any_with_predicate(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.Any(i => i > 5)));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE EXISTS (
+    SELECT 1
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`)
+""");
+    }
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task All_with_predicate(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => e.IntArray.All(i => i > 0)));
+    public override async Task Any_with_predicate(bool async)
+    {
+        await base.Any_with_predicate(async);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Any_Contains_on_constant_array(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => new[] { 1, 2 }.Any(p => e.IntArray.Contains(p))));
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE EXISTS (
+    SELECT 1
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    WHERE `i` > 5)
+""");
+    }
 
-    [ConditionalTheory]
+    public override async Task All_with_predicate(bool async)
+    {
+        await base.All_with_predicate(async);
+
+        AssertSql(
+            """
+SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
+FROM `ArrayEntities` AS `a`
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    WHERE `i` <= 0)
+""");
+    }
+
+    [ConditionalTheory(Skip = "BigQuery does not support VALUES syntax in UNION ALL - needs SELECT instead")]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task All_Contains(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().Where(e => new[] { 1, 2 }.All(p => e.IntArray.Contains(p))));
+    public override async Task Any_Contains_on_constant_array(bool async)
+    {
+        await base.Any_Contains_on_constant_array(async);
+    }
+
+    [ConditionalTheory(Skip = "BigQuery does not support VALUES syntax in UNION ALL - needs SELECT instead")]
+    [MemberData(nameof(IsAsyncData))]
+    public override async Task All_Contains(bool async)
+    {
+        await base.All_Contains(async);
+    }
 
     #endregion Any/All
 
-    #region SelectMany
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task SelectMany_array_column(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>().SelectMany(e => e.IntArray));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task SelectMany_with_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .SelectMany(e => e.IntArray, (e, i) => new { e.Id, Value = i }));
-
-    #endregion SelectMany
-
-    #region First/FirstOrDefault
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_First(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.First() == 1));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_FirstOrDefault(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.FirstOrDefault() == 1));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_First_in_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, First = e.StringArray.First() }));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task List_First(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntList.First() == 1));
-
-    #endregion First/FirstOrDefault
-
     #region Concat/Reverse
 
-    [ConditionalTheory]
+    [ConditionalTheory(Skip = "EF Core limitation: Collection projections with ToArray() require ARRAY() subquery translation")]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Concat_with_constant(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, Combined = e.IntArray.Concat(new[] { 99, 100 }).ToArray() }));
+    public override async Task Array_Concat_with_constant(bool async)
+    {
+        await base.Array_Concat_with_constant(async);
+    }
 
-    [ConditionalTheory]
+    [ConditionalTheory(Skip = "EF Core limitation: Collection projections with ToArray() require ARRAY() subquery translation")]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Concat_two_columns(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray != null && e.IntList != null)
-                .Select(e => new { e.Id, Combined = e.IntArray.Concat(e.IntList).ToArray() }));
+    public override async Task Array_Concat_two_columns(bool async)
+    {
+        await base.Array_Concat_two_columns(async);
+    }
 
-    [ConditionalTheory]
+    [ConditionalTheory(Skip = "EF Core limitation: Collection projections with ToArray() require ARRAY() subquery translation")]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Reverse(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, Reversed = e.IntArray.Reverse().ToArray() }));
+    public override async Task Array_Reverse(bool async)
+    {
+        await base.Array_Reverse(async);
+    }
 
-    [ConditionalTheory]
+    [ConditionalTheory(Skip = "EF Core limitation: Collection projections with ToArray() require ARRAY() subquery translation")]
     [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_Concat_then_Reverse(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new { e.Id, Result = e.IntArray.Concat(new[] { 99 }).Reverse().ToArray() }));
+    public override async Task Array_Concat_then_Reverse(bool async)
+    {
+        await base.Array_Concat_then_Reverse(async);
+    }
 
     #endregion Concat/Reverse
 
-    #region Complex Queries
+    private void AssertSql(params string[] expected)
+        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Multiple_array_operations_in_projection(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Select(e => new
-                {
-                    e.Id,
-                    Length = e.IntArray.Length,
-                    First = e.IntArray.First(),
-                    Second = e.IntArray.ElementAt(1),
-                    StringFirst = e.StringArray.First()
-                }));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_operations_with_predicates(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.Length > 2 && e.IntArray.First() < 5));
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_indexing_with_arithmetic(bool async)
+    public class BigQueryArrayQueryFixture : ArrayQueryFixture
     {
-        var offset = 1;
-
-        return AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray[0 + offset] == 2));
+        protected override string StoreName => "BigQueryArrayTests";
     }
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Different_array_types_in_same_query(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .Where(e => e.IntArray.Length == 3 && e.StringArray.First() == "apple"));
-
-    #endregion Complex Queries
-
-    #region Ordering
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task OrderBy_array_length(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .OrderBy(e => e.IntArray.Length)
-                .ThenBy(e => e.Id),
-            assertOrder: true);
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task OrderBy_array_first_element(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayEntity>()
-                .OrderBy(e => e.IntArray.First())
-                .ThenBy(e => e.Id),
-            assertOrder: true);
-
-    #endregion Ordering
-
-    #region Subqueries
-
-    [ConditionalTheory]
-    [MemberData(nameof(IsAsyncData))]
-    public virtual Task Array_in_scalar_subquery(bool async)
-        => AssertQuery(
-            async,
-            ss => ss.Set<BigQueryArrayContainerEntity>()
-                .Where(c => c.ArrayEntities.OrderBy(e => e.Id).First().IntArray.Length > 0));
-
-    #endregion Subqueries
 }

@@ -1,21 +1,21 @@
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
+namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Array;
 
-public class BigQueryArrayData : ISetSource
+public class ArrayData : ISetSource
 {
-    public IReadOnlyList<BigQueryArrayEntity> ArrayEntities { get; } = CreateArrayEntities();
-    public IReadOnlyList<BigQueryArrayContainerEntity> ContainerEntities { get; } = CreateContainerEntities();
+    public IReadOnlyList<ArrayEntity> ArrayEntities { get; } = CreateArrayEntities();
+    public IReadOnlyList<ArrayContainerEntity> ContainerEntities { get; } = CreateContainerEntities();
 
     public IQueryable<TEntity> Set<TEntity>()
         where TEntity : class
     {
-        if (typeof(TEntity) == typeof(BigQueryArrayEntity))
+        if (typeof(TEntity) == typeof(ArrayEntity))
         {
             return (IQueryable<TEntity>)ArrayEntities.AsQueryable();
         }
 
-        if (typeof(TEntity) == typeof(BigQueryArrayContainerEntity))
+        if (typeof(TEntity) == typeof(ArrayContainerEntity))
         {
             return (IQueryable<TEntity>)ContainerEntities.AsQueryable();
         }
@@ -23,7 +23,7 @@ public class BigQueryArrayData : ISetSource
         throw new InvalidOperationException("Invalid entity type: " + typeof(TEntity));
     }
 
-    public static IReadOnlyList<BigQueryArrayEntity> CreateArrayEntities()
+    public static IReadOnlyList<ArrayEntity> CreateArrayEntities()
         =>
         [
             new()
@@ -73,6 +73,6 @@ public class BigQueryArrayData : ISetSource
             }
         ];
 
-    public static IReadOnlyList<BigQueryArrayContainerEntity> CreateContainerEntities()
-        => [new BigQueryArrayContainerEntity { Id = 1, ArrayEntities = CreateArrayEntities().ToList() }];
+    public static IReadOnlyList<ArrayContainerEntity> CreateContainerEntities()
+        => [new ArrayContainerEntity { Id = 1, ArrayEntities = CreateArrayEntities().ToList() }];
 }

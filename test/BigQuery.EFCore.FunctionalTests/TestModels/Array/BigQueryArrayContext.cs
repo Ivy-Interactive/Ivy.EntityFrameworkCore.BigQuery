@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
+namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Array;
 
 public class BigQueryArrayContext : DbContext
 {
@@ -9,12 +9,12 @@ public class BigQueryArrayContext : DbContext
     {
     }
 
-    public DbSet<BigQueryArrayEntity> ArrayEntities { get; set; } = null!;
-    public DbSet<BigQueryArrayContainerEntity> ArrayContainers { get; set; } = null!;
+    public DbSet<ArrayEntity> ArrayEntities { get; set; } = null!;
+    public DbSet<ArrayContainerEntity> ArrayContainers { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<BigQueryArrayEntity>(entity =>
+        modelBuilder.Entity<ArrayEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -30,7 +30,7 @@ public class BigQueryArrayContext : DbContext
             entity.Property(e => e.Name).IsRequired();
         });
 
-        modelBuilder.Entity<BigQueryArrayContainerEntity>(entity =>
+        modelBuilder.Entity<ArrayContainerEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasMany(e => e.ArrayEntities)
@@ -42,13 +42,13 @@ public class BigQueryArrayContext : DbContext
 
     public static async Task SeedAsync(BigQueryArrayContext context)
     {
-        var arrayEntities = BigQueryArrayData.CreateArrayEntities().ToList();
+        var arrayEntities = ArrayData.CreateArrayEntities().ToList();
 
         context.ArrayEntities.AddRange(arrayEntities);
         await context.SaveChangesAsync();
 
         context.ArrayContainers.Add(
-            new BigQueryArrayContainerEntity
+            new ArrayContainerEntity
             {
                 Id = 1,
                 ArrayEntities = arrayEntities

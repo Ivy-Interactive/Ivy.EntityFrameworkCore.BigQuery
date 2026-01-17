@@ -1,6 +1,6 @@
-namespace Ivy.EFCore.BigQuery.FunctionalTests.TestModels.BigQueryArray;
+namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Array;
 
-public class BigQueryArrayEntity
+public class ArrayEntity
 {
     public int Id { get; set; }
 
