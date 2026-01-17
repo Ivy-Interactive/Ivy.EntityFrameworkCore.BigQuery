@@ -12,7 +12,7 @@
 		<Authors>Ivy Interactive AB</Authors>
 		<Company>Ivy Interactive AB</Company>
 		<PackageTags>BigQuery ADO.NET database</PackageTags>
-		<RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EFCore.BigQuery</RepositoryUrl>
+		<RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EntityFrameworkCore.BigQuery</RepositoryUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
