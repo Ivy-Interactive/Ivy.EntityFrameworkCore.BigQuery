@@ -9,7 +9,7 @@ const path = require("path");
 const { XMLParser } = require("fast-xml-parser");
 
 function parseArgs(argv) {
-    const args = { files: [], dir: null, out: "dashboard.html", history: null, hideChildren: false };
+    const args = { files: [], dir: null, out: "dashboard.html", history: null, hideChildren: false, compareRun: null };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if ((arg === "--file" || arg === "--merged" || arg === "--in") && argv[i + 1]) {
@@ -20,6 +20,8 @@ function parseArgs(argv) {
             args.out = argv[++i];
         } else if (arg === "--history" && argv[i + 1]) {
             args.history = argv[++i];
+        } else if ((arg === "--compare-run" || arg === "--compareRun") && argv[i + 1]) {
+            args.compareRun = argv[++i];
         } else if (arg === "--hide-children") {
             args.hideChildren = true;
         }
@@ -60,25 +62,65 @@ function getParentGroup(className) {
     return segments.join(".");
 }
 
-function loadHistory(historyPath) {
+function timestampToRunId(timestamp) {
+    if (!timestamp) return null;
+    // Handle both ISO format (T separator) and space separator
+    const match = timestamp.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+    if (!match) return null;
+    return `${match[1]}${match[2]}${match[3]}_${match[4]}${match[5]}${match[6]}`;
+}
+
+function loadHistory(historyPath, compareRunId = null) {
     if (!historyPath) return null;
     try {
         if (!fs.existsSync(historyPath)) return null;
         const data = JSON.parse(fs.readFileSync(historyPath, "utf8"));
         if (!Array.isArray(data) || data.length < 2) return null;
+
+        // If a specific run ID is requested, find that entry
+        if (compareRunId) {
+            for (const entry of data) {
+                const entryRunId = timestampToRunId(entry.Timestamp);
+                if (entryRunId === compareRunId) {
+                    return entry;
+                }
+            }
+            // Run ID not found, fall back to previous run
+            console.warn(`Run ID "${compareRunId}" not found in history, using previous run`);
+        }
+
+        // Default: return the second-to-last entry (previous run)
         return data[data.length - 2];
     } catch {
         return null;
     }
 }
 
-function loadPreviousTests(historyPath) {
+function loadPreviousTests(historyPath, compareRunId = null) {
     if (!historyPath) return new Map();
     try {
         if (!fs.existsSync(historyPath)) return new Map();
         const data = JSON.parse(fs.readFileSync(historyPath, "utf8"));
         if (!Array.isArray(data) || data.length < 2) return new Map();
-        const prev = data[data.length - 2];
+
+        let prev = null;
+
+        // If a specific run ID is requested, find that entry
+        if (compareRunId) {
+            for (const entry of data) {
+                const entryRunId = timestampToRunId(entry.Timestamp);
+                if (entryRunId === compareRunId) {
+                    prev = entry;
+                    break;
+                }
+            }
+        }
+
+        // Default: use the second-to-last entry
+        if (!prev) {
+            prev = data[data.length - 2];
+        }
+
         if (!prev || !Array.isArray(prev.Tests)) return new Map();
         const map = new Map();
         for (const t of prev.Tests) {
@@ -294,7 +336,7 @@ function buildModel(files) {
     return { parents, totals, files, testRunDate: earliestStart };
 }
 
-function renderHtml(model, previous = null, prevTests = new Map()) {
+function renderHtml(model, previous = null, prevTests = new Map(), currentGitInfo = null, prevGitInfo = null) {
     const dataJson = JSON.stringify(model);
     const prevJson = previous ? JSON.stringify(previous) : "null";
     // Convert Map to object for JSON serialization
@@ -310,6 +352,10 @@ function renderHtml(model, previous = null, prevTests = new Map()) {
             second: '2-digit'
         })
         : '';
+
+    // Git commit display info
+    const currentGitShort = currentGitInfo?.shortCommit || null;
+    const prevGitShort = prevGitInfo?.shortCommit || null;
 
     const clientScript = [
         "const model = JSON.parse(document.getElementById('data').textContent);",
@@ -932,7 +978,16 @@ function renderHtml(model, previous = null, prevTests = new Map()) {
     htmlParts.push("  </style>");
     htmlParts.push("</head>");
     htmlParts.push("<body>");
-    htmlParts.push("  <h1>Ivy.EntityFrameworkCore.BigQuery tests <span style=\"font-size: 16px; color: var(--muted); font-weight: 400; margin-left: 12px;\">" + generatedAt + "</span></h1>");
+    // Build git info display string
+    let gitInfoHtml = "";
+    if (currentGitShort) {
+        gitInfoHtml = ` <span style="font-size: 14px; color: var(--accent); font-weight: 500; margin-left: 12px;" title="Current commit">${currentGitShort}</span>`;
+        if (prevGitShort && previous) {
+            gitInfoHtml += `<span style="font-size: 14px; color: var(--muted); margin-left: 4px;">vs</span>`;
+            gitInfoHtml += `<span style="font-size: 14px; color: #a78bfa; font-weight: 500; margin-left: 4px;" title="Comparison commit">${prevGitShort}</span>`;
+        }
+    }
+    htmlParts.push("  <h1>Ivy.EntityFrameworkCore.BigQuery tests <span style=\"font-size: 16px; color: var(--muted); font-weight: 400; margin-left: 12px;\">" + generatedAt + "</span>" + gitInfoHtml + "</h1>");
     htmlParts.push("  <div class=\"legend\">");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--pass)\"></span> Passed");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--fail)\"></span> Failed");
@@ -955,6 +1010,22 @@ function renderHtml(model, previous = null, prevTests = new Map()) {
     return htmlParts.join("\n");
 }
 
+function loadCurrentGitInfo(historyPath) {
+    if (!historyPath) return null;
+    try {
+        if (!fs.existsSync(historyPath)) return null;
+        const data = JSON.parse(fs.readFileSync(historyPath, "utf8"));
+        if (!Array.isArray(data) || data.length === 0) return null;
+        const current = data[data.length - 1];
+        return {
+            commit: current.GitCommit || null,
+            shortCommit: current.GitCommitShort || null
+        };
+    } catch {
+        return null;
+    }
+}
+
 function main() {
     const args = parseArgs(process.argv.slice(2));
     let files = [...args.files];
@@ -967,8 +1038,8 @@ function main() {
     }
 
     const model = buildModel(files);
-    const prev = loadHistory(args.history);
-    const prevTests = loadPreviousTests(args.history);
+    const prev = loadHistory(args.history, args.compareRun);
+    const prevTests = loadPreviousTests(args.history, args.compareRun);
 
     // Collect all tests from the model
     const allTests = model.parents.flatMap(p => p.tests);
@@ -976,7 +1047,14 @@ function main() {
     // Update history with current test results
     updateHistoryWithTests(args.history, allTests);
 
-    const html = renderHtml(model, prev, prevTests);
+    // Load git commit info for current and comparison runs
+    const currentGitInfo = loadCurrentGitInfo(args.history);
+    const prevGitInfo = prev ? {
+        commit: prev.GitCommit || null,
+        shortCommit: prev.GitCommitShort || null
+    } : null;
+
+    const html = renderHtml(model, prev, prevTests, currentGitInfo, prevGitInfo);
     fs.writeFileSync(args.out, html, "utf8");
     console.log(`Dashboard written to ${args.out} (files: ${files.length})`);
 }

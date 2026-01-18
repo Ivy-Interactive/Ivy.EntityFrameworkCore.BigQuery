@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Diagnostics;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
@@ -176,7 +178,10 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
         Func<BloggingContext, Task> testOperation,
         Func<BloggingContext, Task> nestedTestOperation)
         => TestHelpers.ExecuteWithStrategyInTransactionAsync(
-            CreateContext, null, testOperation, nestedTestOperation);
+            CreateContext, UseTransaction, testOperation, nestedTestOperation);
+
+    protected void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
+        => facade.UseTransaction(transaction.GetDbTransaction());
 
     private class BloggingContext(DbContextOptions options) : PoolableDbContext(options)
     {

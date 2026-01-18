@@ -41,6 +41,10 @@
     .\parallel.ps1 -NoHistory
 .EXAMPLE
     .\parallel.ps1 -Verbose
+.EXAMPLE
+    .\parallel.ps1 -ListHistory
+.EXAMPLE
+    .\parallel.ps1 -CompareRunId "20250115_143022"
 #>
 param(
     [string]$ProjectId = $null,
@@ -48,6 +52,8 @@ param(
     [bool]$Merge = $true,
     [string[]]$TestGroups = @("All"),
     [switch]$ListGroups,
+    [switch]$ListHistory,
+    [string]$CompareRunId = $null,
     [int]$MaxParallel = 5,
     [switch]$NoHistory,
     [switch]$Verbose,
@@ -62,8 +68,142 @@ if (-not $PSBoundParameters.ContainsKey('GenerateDashboard')) {
 $runId = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $env:BQ_TEST_RUN_ID = $runId
 
+# Capture current git commit hash
+$gitCommitHash = $null
+$gitCommitShort = $null
+try {
+    $gitCommitHash = (git rev-parse HEAD 2>$null)
+    if ($gitCommitHash) {
+        $gitCommitShort = $gitCommitHash.Substring(0, 7)
+    }
+} catch {
+    # Git not available or not a git repo
+}
+
 # Track jobs for cleanup
 $script:runningJobs = @()
+
+# Handle -ListHistory flag early (before any other processing)
+if ($ListHistory) {
+    $testResultsDir = Join-Path $PSScriptRoot "TestResults"
+    $historyPath = Join-Path $testResultsDir "history.json"
+
+    if (-not (Test-Path $historyPath)) {
+        Write-Host "No test history found at: $historyPath" -ForegroundColor Yellow
+        exit 0
+    }
+
+    try {
+        $history = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+        if (-not $history -or $history.Count -eq 0) {
+            Write-Host "Test history is empty." -ForegroundColor Yellow
+            exit 0
+        }
+
+        Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "║  Test Run History                                              ║" -ForegroundColor Cyan
+        Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Found $($history.Count) test run(s):" -ForegroundColor Green
+        Write-Host ""
+
+        $index = 0
+        foreach ($entry in $history) {
+            $index++
+            $timestamp = $entry.Timestamp
+            $totals = $entry.Totals
+            $gitHash = if ($entry.GitCommitShort) { $entry.GitCommitShort } else { "n/a" }
+            $runIdFromTimestamp = ""
+
+            # Extract run ID from timestamp - handle both DateTime and string
+            if ($timestamp) {
+                if ($timestamp -is [DateTime]) {
+                    $runIdFromTimestamp = $timestamp.ToString("yyyyMMdd_HHmmss")
+                } else {
+                    # String format: try to parse as DateTime
+                    $dt = [DateTime]::MinValue
+                    if ([DateTime]::TryParse($timestamp, [ref]$dt)) {
+                        $runIdFromTimestamp = $dt.ToString("yyyyMMdd_HHmmss")
+                    } else {
+                        $runIdFromTimestamp = $timestamp.ToString().Substring(0, [Math]::Min(19, $timestamp.ToString().Length))
+                    }
+                }
+            } else {
+                $runIdFromTimestamp = "(no timestamp)"
+            }
+
+            $passedStr = if ($null -ne $totals.Passed) { $totals.Passed } else { "?" }
+            $failedStr = if ($null -ne $totals.Failed) { $totals.Failed } else { "?" }
+            $skippedStr = if ($null -ne $totals.Skipped) { $totals.Skipped } else { "?" }
+            $totalStr = if ($null -ne $totals.Total) { $totals.Total } else { "?" }
+
+            $statusColor = if ($totals.Failed -gt 0) { "Red" } else { "Green" }
+
+            Write-Host "  [$index] " -NoNewline -ForegroundColor White
+            Write-Host "$runIdFromTimestamp" -NoNewline -ForegroundColor Yellow
+            Write-Host " (git: $gitHash)" -NoNewline -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "      Passed: $passedStr  Failed: $failedStr  Skipped: $skippedStr  Total: $totalStr" -ForegroundColor $statusColor
+            Write-Host ""
+        }
+
+        Write-Host "To compare with a specific run, use:" -ForegroundColor Cyan
+        Write-Host "  .\parallel.ps1 -CompareRunId `"<run_id>`"" -ForegroundColor Gray
+        Write-Host ""
+    } catch {
+        Write-Host "Error reading history: $_" -ForegroundColor Red
+        exit 1
+    }
+
+    exit 0
+}
+
+# Validate CompareRunId if specified
+if ($CompareRunId) {
+    $testResultsDir = Join-Path $PSScriptRoot "TestResults"
+    $historyPath = Join-Path $testResultsDir "history.json"
+
+    if (-not (Test-Path $historyPath)) {
+        Write-Host "Error: Cannot use -CompareRunId because no test history exists." -ForegroundColor Red
+        Write-Host "Run tests at least once first to create history." -ForegroundColor Yellow
+        exit 1
+    }
+
+    try {
+        $history = Get-Content -Path $historyPath -Raw | ConvertFrom-Json
+        $found = $false
+
+        foreach ($entry in $history) {
+            $timestamp = $entry.Timestamp
+            $entryRunId = $null
+            if ($timestamp) {
+                if ($timestamp -is [DateTime]) {
+                    $entryRunId = $timestamp.ToString("yyyyMMdd_HHmmss")
+                } else {
+                    $dt = [DateTime]::MinValue
+                    if ([DateTime]::TryParse($timestamp, [ref]$dt)) {
+                        $entryRunId = $dt.ToString("yyyyMMdd_HHmmss")
+                    }
+                }
+            }
+            if ($entryRunId -eq $CompareRunId) {
+                $found = $true
+                break
+            }
+        }
+
+        if (-not $found) {
+            Write-Host "Error: Run ID '$CompareRunId' not found in history." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Use -ListHistory to see available run IDs:" -ForegroundColor Yellow
+            Write-Host "  .\parallel.ps1 -ListHistory" -ForegroundColor Gray
+            exit 1
+        }
+    } catch {
+        Write-Host "Error reading history: $_" -ForegroundColor Red
+        exit 1
+    }
+}
 
 function New-DatasetName {
     param([string]$GroupName)
@@ -86,7 +226,7 @@ function Get-DynamicTestGroups {
 
     $groups = $output |
         ForEach-Object {
-            if ($_ -match "\b(?<name>[^\s]*\.[^\s]*\.[^\s]*)") {
+            if ($_ -match '\b(?<name>[^\s]*\.[^\s]*\.[^\s]*)') {
                 $name = $matches["name"]
                 $name -replace "\.[^.]+$", ""
             }
@@ -190,7 +330,7 @@ $null = Register-EngineEvent -SourceIdentifier Console_CancelKeyPress -SupportEv
 # Determine project ID from environment or parameter
 if ([string]::IsNullOrEmpty($ProjectId)) {
     $envConnString = [Environment]::GetEnvironmentVariable("BQ_EFCORE_TEST_CONN_STRING")
-    if ($envConnString -match "ProjectId=([^;]+)") {
+    if ($envConnString -match 'ProjectId=([^;]+)') {
         $ProjectId = $matches[1]
     } else {
         $ProjectId = "test-project"
@@ -554,6 +694,8 @@ if (-not $NoHistory) {
         Totals = $testTotals
         Groups = $groupSummaries
         Files = $results | ForEach-Object { $_.TrxPath }
+        GitCommit = $gitCommitHash
+        GitCommitShort = $gitCommitShort
     }
     $history += $historyEntry
     if ($history.Count -gt 20) {
@@ -616,6 +758,12 @@ if ($GenerateDashboard) {
             $nodeArgs += @(
                 "--history"
                 $historyPath
+            )
+        }
+        if ($CompareRunId) {
+            $nodeArgs += @(
+                "--compare-run"
+                $CompareRunId
             )
         }
 
