@@ -41,10 +41,26 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
             => new BigQueryStringTypeMapping(parameters);
 
+        public override string GenerateSqlLiteral(object? value)
+        {
+            if (value == null)
+            {
+                return "NULL";
+            }
+            
+            var stringValue = value as string ?? value.ToString()!;
+            return GenerateNonNullSqlLiteral(stringValue);
+        }
+
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            var stringValue = (string)value;
-            var escapedValue = stringValue.Replace("\\", "\\\\").Replace("'", "\\'");
+            var stringValue = value as string ?? value.ToString()!;
+            var escapedValue = stringValue
+                .Replace("\\", "\\\\")
+                .Replace("'", "\\'") 
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
             return $"'{escapedValue}'";
         }
     }
