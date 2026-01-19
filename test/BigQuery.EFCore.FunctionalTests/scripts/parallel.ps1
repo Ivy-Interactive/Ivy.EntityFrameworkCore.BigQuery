@@ -24,7 +24,7 @@
 .PARAMETER MaxParallel
     Maximum number of parallel test jobs to run. Defaults to 5.
 .PARAMETER NoHistory
-    If set, do not append results to history.json and omit history comparison in the dashboard.
+    If set, do not append results to history.json and omit history comparison in the report.
 .PARAMETER Verbose
     If set, streams test output to the console as jobs run.
 .EXAMPLE
@@ -57,15 +57,15 @@ param(
     [int]$MaxParallel = 5,
     [switch]$NoHistory,
     [switch]$Verbose,
-    [switch]$GenerateDashboard
+    [switch]$GenerateReport
 )
 $ErrorActionPreference = "Stop"
-if (-not $PSBoundParameters.ContainsKey('GenerateDashboard')) {
-    $GenerateDashboard = $true
+if (-not $PSBoundParameters.ContainsKey('GenerateReport')) {
+    $GenerateReport = $true
 }
 
 # Generate unique run ID for this test execution (used by Northwind tests for unique dataset names)
-$runId = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
+$runId = [DateTime]::Now.ToString("yyyyMMdd_HHmmss")
 $env:BQ_TEST_RUN_ID = $runId
 
 # Capture current git commit hash
@@ -150,6 +150,19 @@ if ($ListHistory) {
         Write-Host "To compare with a specific run, use:" -ForegroundColor Cyan
         Write-Host "  .\parallel.ps1 -CompareRunId `"<run_id>`"" -ForegroundColor Gray
         Write-Host ""
+
+        # List report files
+        $reportsPath = Join-Path $testResultsDir "reports"
+        if (Test-Path $reportsPath) {
+            $reports = Get-ChildItem -Path $reportsPath -Filter "tests_*.html" | Sort-Object Name
+            if ($reports.Count -gt 0) {
+                Write-Host "Report files:" -ForegroundColor Cyan
+                foreach ($d in $reports) {
+                    Write-Host "  $($d.Name)" -ForegroundColor Gray
+                }
+                Write-Host ""
+            }
+        }
     } catch {
         Write-Host "Error reading history: $_" -ForegroundColor Red
         exit 1
@@ -391,32 +404,26 @@ $selectedGroups | ForEach-Object {
     Write-Host "  • $($_.Name) - $($_.Description)" -ForegroundColor Gray
 }
 Write-Host ""
-# Ensure TestResults directory exists
+# Set up directory structure
 $testResultsDir = Join-Path $PSScriptRoot "TestResults"
-if (Test-Path $testResultsDir) {
-    Write-Host "Cleaning existing TestResults directory..." -ForegroundColor Yellow
-    # Preserve history.json and HTML reports
-    $historyPath = Join-Path $testResultsDir "history.json"
-    $historyBackup = $null
-    if ((Test-Path $historyPath) -and -not $NoHistory) {
-        $historyBackup = Get-Content -Path $historyPath -Raw
-    }
-    $htmlReports = Get-ChildItem -Path $testResultsDir -Filter "tests_*.html" -ErrorAction SilentlyContinue
-    $htmlBackups = @{}
-    foreach ($html in $htmlReports) {
-        $htmlBackups[$html.Name] = Get-Content -Path $html.FullName -Raw
-    }
-    Remove-Item -Path $testResultsDir -Recurse -Force
-    New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
-    if ($historyBackup) {
-        $historyBackup | Set-Content -Path $historyPath
-    }
-    foreach ($name in $htmlBackups.Keys) {
-        $htmlBackups[$name] | Set-Content -Path (Join-Path $testResultsDir $name)
-    }
-} else {
+$trxDir = Join-Path $testResultsDir "trx"
+$reportsDir = Join-Path $testResultsDir "reports"
+$historyPath = Join-Path $testResultsDir "history.json"
+
+# Create base directories if needed
+if (-not (Test-Path $testResultsDir)) {
     New-Item -ItemType Directory -Path $testResultsDir -Force | Out-Null
 }
+if (-not (Test-Path $reportsDir)) {
+    New-Item -ItemType Directory -Path $reportsDir -Force | Out-Null
+}
+
+# Clean and recreate trx folder (temp files only)
+if (Test-Path $trxDir) {
+    Remove-Item -Path $trxDir -Recurse -Force
+}
+New-Item -ItemType Directory -Path $trxDir -Force | Out-Null
+Write-Host "TRX output folder: $trxDir" -ForegroundColor Gray
 # Install dotnet-trx-merge if merge is enabled
 if ($Merge) {
     Write-Host "Checking for dotnet-trx-merge tool..." -ForegroundColor Cyan
@@ -488,8 +495,9 @@ function Update-ProgressBars {
             $completed = $passed + $failed + $skipped
 
             $elapsed = [int]((Get-Date) - $jobProgress[$i].StartTime).TotalSeconds
+            $elapsedStr = if ($elapsed -ge 60) { "$([int]($elapsed / 60))m $($elapsed % 60)s" } else { "$($elapsed)s" }
             $percent = if ($jobProgress[$i].Total -gt 0) { [Math]::Min(100, [int](($completed / $jobProgress[$i].Total) * 100)) } else { -1 }
-            $status = "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $($elapsed)s)"
+            $status = "P:$passed F:$failed S:$skipped ($completed/$($jobProgress[$i].Total), $elapsedStr)"
             Write-Progress -Id $i -Activity $displayName -Status $status -PercentComplete $percent
         } elseif ($job.State -eq 'Completed' -and -not $jobProgress[$i].Completed) {
             $p = $jobProgress[$i]
@@ -529,7 +537,7 @@ try {
     }
 
     $groupIndex++
-    $trxPath = Join-Path $testResultsDir "$($group.Name).trx"
+    $trxPath = Join-Path $trxDir "$($group.Name).trx"
 
     # Initialize progress tracking
     $jobProgress[$groupIndex - 1] = @{
@@ -575,32 +583,39 @@ for ($i = 0; $i -lt $script:runningJobs.Count; $i++) {
 
     Write-Progress -Id $i -Activity $group.Name -Completed
 
-    $jobOutput = Receive-Job -Job $job -Wait
+    $jobOutput = Receive-Job -Job $job -Wait 2>&1
+    $jobError = $job.ChildJobs[0].Error | Out-String
     Remove-Job -Job $job
 
     # When -Verbose is used, the job outputs to pipeline, making $jobOutput an array
     # The actual result hashtable is the last element
     if ($jobOutput -is [Array] -and $jobOutput.Count -gt 0) {
         $result = $jobOutput[-1]  # Get last element
+        # Capture any error strings from the output
+        $errorLines = $jobOutput | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] -or ($_ -is [string] -and $_ -match '(error|exception|failed|crash)') } | ForEach-Object { $_.ToString() }
     } else {
         $result = $jobOutput
+        $errorLines = @()
     }
 
     # Handle case where job returns null or incomplete result
     $exitCode = if ($result -and $null -ne $result.ExitCode) { $result.ExitCode } else { -1 }
     $trxPath = if ($result -and $result.TrxPath) { $result.TrxPath } else { $jobInfo.TrxPath }
     $success = $exitCode -eq 0
-    # $status = if ($success) { "✓ PASSED" } else { "✗ FAILED" }
-    # $color = if ($success) { "Green" } else { "Red" }
 
-    # $progress = $jobProgress[$i]
-    # Write-Host "[$($i+1)/$($script:runningJobs.Count)] $status - $($group.Name) (P:$($progress.Passed) F:$($progress.Failed) S:$($progress.Skipped))" -ForegroundColor $color
+    # Capture error info for failed jobs
+    $errorInfo = ""
+    if (-not $success) {
+        if ($jobError) { $errorInfo += $jobError }
+        if ($errorLines) { $errorInfo += ($errorLines -join "`n") }
+    }
 
     $results += @{
         Group = $group.Name
         Success = $success
         ExitCode = $exitCode
         TrxPath = $trxPath
+        ErrorInfo = $errorInfo
     }
 }
 # Clear the running jobs list after completion
@@ -615,6 +630,41 @@ Write-Host "══════════════════════�
 Write-Host ""
 Write-Host "Total Time: $($elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Yellow
 Write-Host ""
+
+# Check for crashed test groups (no TRX file or non-zero exit)
+$crashedGroups = @()
+foreach ($r in $results) {
+    $hasTrx = $r.TrxPath -and (Test-Path -LiteralPath $r.TrxPath)
+    if (-not $hasTrx) {
+        $crashedGroups += @{
+            Name = $r.Group
+            ExitCode = $r.ExitCode
+            HasTrx = $hasTrx
+            TrxPath = $r.TrxPath
+            ErrorInfo = $r.ErrorInfo
+        }
+    }
+}
+
+if ($crashedGroups.Count -gt 0) {
+    Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "║  CRASHED TEST GROUPS ($($crashedGroups.Count))                                      ║" -ForegroundColor Red
+    Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host ""
+    foreach ($crashed in $crashedGroups) {
+        Write-Host "  ✗ $($crashed.Name)" -ForegroundColor Red
+        Write-Host "    No TRX file produced - test runner crashed" -ForegroundColor Yellow
+        Write-Host "    Exit code: $($crashed.ExitCode)" -ForegroundColor Gray
+        if ($crashed.ErrorInfo -and $crashed.ErrorInfo.Trim()) {
+            Write-Host "    Error output:" -ForegroundColor Yellow
+            $crashed.ErrorInfo.Trim().Split("`n") | Select-Object -First 10 | ForEach-Object {
+                Write-Host "      $_" -ForegroundColor Gray
+            }
+        }
+        Write-Host ""
+    }
+}
+
 # Display summary
 $groupFailed = ($results | Where-Object { -not $_.Success }).Count
 
@@ -668,9 +718,7 @@ if ($missingTrx.Count -gt 0) {
 Write-Host ""
 
 # Persist summary history unless disabled
-$historyPath = $null
 if (-not $NoHistory) {
-    $historyPath = Join-Path $testResultsDir "history.json"
     $history = @()
     if (Test-Path $historyPath) {
         try {
@@ -707,53 +755,64 @@ if (-not $NoHistory) {
 }
 
 $mergedTrxPath = $null
-# Merge TRX files if enabled
+# Merge TRX files if enabled - only include files that actually exist
 if ($Merge -and $results.Count -gt 1) {
     Write-Host "Merging TRX files..." -ForegroundColor Cyan
-    $mergedTrxPath = Join-Path $testResultsDir "TestResults.trx"
-    $trxFiles = $results | ForEach-Object { $_.TrxPath }
-    try {
-        # Use dotnet-trx-merge to combine results
-        $trxArgs = @("--output", $mergedTrxPath)
-        foreach ($trx in $trxFiles) {
-            $trxArgs += @("--file", $trx)
-        }
+    $mergedTrxPath = Join-Path $trxDir "TestResults.trx"
+    # Filter to only existing TRX files
+    $trxFiles = $results | ForEach-Object { $_.TrxPath } | Where-Object { Test-Path -LiteralPath $_ }
+    if ($trxFiles.Count -eq 0) {
+        Write-Host "✗ No TRX files found to merge" -ForegroundColor Red
+        $mergedTrxPath = $null
+    } elseif ($trxFiles.Count -eq 1) {
+        Write-Host "Only 1 TRX file found, skipping merge" -ForegroundColor Yellow
+        $mergedTrxPath = $null
+    } else {
+        try {
+            # Use dotnet-trx-merge to combine results
+            $trxArgs = @("--output", $mergedTrxPath)
+            foreach ($trx in $trxFiles) {
+                $trxArgs += @("--file", $trx)
+            }
 
-        trx-merge @trxArgs
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ Merged results saved to: $mergedTrxPath" -ForegroundColor Green
-        } else {
-            Write-Host "✗ Failed to merge TRX files (exit code: $LASTEXITCODE)" -ForegroundColor Red
+            trx-merge @trxArgs
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Merged $($trxFiles.Count) TRX files to: $mergedTrxPath" -ForegroundColor Green
+            } else {
+                Write-Host "✗ Failed to merge TRX files (exit code: $LASTEXITCODE)" -ForegroundColor Red
+                $mergedTrxPath = $null
+            }
+        } catch {
+            Write-Host "✗ Error merging TRX files: $_" -ForegroundColor Red
+            $mergedTrxPath = $null
         }
-    } catch {
-        Write-Host "✗ Error merging TRX files: $_" -ForegroundColor Red
     }
     Write-Host ""
 }
-# Build HTML dashboard from TRX results
-if ($GenerateDashboard) {
-    $dashboardInput = $null
-    if ($Merge -and $results.Count -gt 1 -and $mergedTrxPath -and (Test-Path $mergedTrxPath)) {
-        $dashboardInput = $mergedTrxPath
-    } elseif ($results.Count -gt 0) {
-        $candidate = ($results | Select-Object -First 1).TrxPath
-        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
-            $dashboardInput = $candidate
-        }
+# Build HTML report from TRX results
+$reportOutput = $null
+if ($GenerateReport) {
+    $reportInputFiles = @()
+    if ($Merge -and $mergedTrxPath -and (Test-Path $mergedTrxPath)) {
+        $reportInputFiles = @($mergedTrxPath)
+    } else {
+        # Use all existing TRX files
+        $reportInputFiles = $results | ForEach-Object { $_.TrxPath } | Where-Object { Test-Path -LiteralPath $_ }
     }
 
-    if ($dashboardInput) {
-        Write-Host "Building dashboard..." -ForegroundColor Cyan
-        $dashboardScript = Join-Path $PSScriptRoot "build-dashboard.js"
-        $timestamp = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
-        $dashboardOutput = Join-Path $testResultsDir "tests_$timestamp.html"
+    if ($reportInputFiles.Count -gt 0) {
+        Write-Host "Building report from $($reportInputFiles.Count) TRX file(s)..." -ForegroundColor Cyan
+        $reportScript = Join-Path $PSScriptRoot "build-dashboard.js"
+        $timestamp = [DateTime]::Now.ToString("yyyyMMdd_HHmmss")
+        $reportOutput = Join-Path $reportsDir "tests_$timestamp.html"
         $nodeArgs = @(
-            $dashboardScript
-            "--file"
-            $dashboardInput
+            $reportScript
             "--out"
-            $dashboardOutput
+            $reportOutput
         )
+        foreach ($trxFile in $reportInputFiles) {
+            $nodeArgs += @("--file", $trxFile)
+        }
         if ($historyPath) {
             $nodeArgs += @(
                 "--history"
@@ -769,22 +828,16 @@ if ($GenerateDashboard) {
 
         node @nodeArgs
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✓ Dashboard generated at: $dashboardOutput" -ForegroundColor Green
+            Write-Host "✓ Report generated at: $reportOutput" -ForegroundColor Green
         } else {
-            Write-Host "✗ Failed to generate dashboard (exit code: $LASTEXITCODE)" -ForegroundColor Red
+            Write-Host "✗ Failed to generate report (exit code: $LASTEXITCODE)" -ForegroundColor Red
         }
         Write-Host ""
     } else {
-        Write-Host "No TRX results available to build dashboard." -ForegroundColor Yellow
+        Write-Host "No TRX results available to build report." -ForegroundColor Yellow
         Write-Host ""
     }
 }
-# List all TRX files
-Write-Host "Test result files:" -ForegroundColor White
-Get-ChildItem -Path $testResultsDir -Filter "*.trx" | ForEach-Object {
-    Write-Host "  • $($_.Name)" -ForegroundColor Gray
-}
-Write-Host ""
 } catch {
     Write-Host "`nInterrupted!" -ForegroundColor Red
     throw
@@ -795,12 +848,23 @@ Write-Host ""
 # Cleanup: Unregister event handler
 Unregister-Event -SourceIdentifier Console_CancelKeyPress -ErrorAction SilentlyContinue
 Unregister-Event -SourceIdentifier PowerShell.Exiting -ErrorAction SilentlyContinue
-# Exit with failure code if any tests failed
-$anyFailures = ($testTotals.Failed -gt 0) -or ($groupFailed -gt 0)
-if ($anyFailures) {
-    Write-Host "Some tests failed ($($testTotals.Failed) failed of $($testTotals.Total)). See individual TRX files for details." -ForegroundColor Red
-    exit 1
+
+# Final summary
+Write-Host ""
+Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  RESULTS: " -NoNewline -ForegroundColor White
+Write-Host "$($testTotals.Passed) passed" -NoNewline -ForegroundColor Green
+Write-Host " | " -NoNewline -ForegroundColor Gray
+if ($testTotals.Failed -gt 0) {
+    Write-Host "$($testTotals.Failed) failed" -NoNewline -ForegroundColor Yellow
 } else {
-    Write-Host "All tests passed ($($testTotals.Passed)/$($testTotals.Total))." -ForegroundColor Green
-    exit 0
+    Write-Host "0 failed" -NoNewline -ForegroundColor Green
 }
+Write-Host " | " -NoNewline -ForegroundColor Gray
+Write-Host "$($testTotals.Skipped) skipped" -ForegroundColor Gray
+Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+if ($reportOutput -and (Test-Path $reportOutput)) {
+    Write-Host "  Report: $reportOutput" -ForegroundColor Cyan
+    Start-Process $reportOutput
+}
+Write-Host ""

@@ -28,6 +28,10 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
         await ExecuteWithStrategyInTransactionAsync(
             async context =>
             {
+                // Clean up data from previous runs - BQ doesn't support transaction rollback
+                await context.Set<Blog>().ExecuteDeleteAsync();
+                await context.Set<Owner>().ExecuteDeleteAsync();
+
                 var owner1 = new Owner();
                 var owner2 = new Owner();
                 context.Owners.Add(owner1);
@@ -38,7 +42,7 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
                     var blog = new Blog();
                     if (clientPk)
                     {
-                        blog.Id = Guid.NewGuid().ToString();
+                        blog.Id = Guid.NewGuid();
                     }
 
                     if (clientFk)
@@ -68,6 +72,9 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
         await ExecuteWithStrategyInTransactionAsync(
             async context =>
             {
+                await context.Set<Blog>().ExecuteDeleteAsync();
+                await context.Set<Owner>().ExecuteDeleteAsync();
+
                 var owner1 = new Owner { Name = "0" };
                 var owner2 = new Owner { Name = "1" };
                 context.Owners.Add(owner1);
@@ -75,7 +82,7 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
 
                 var blog1 = new Blog
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    Id = Guid.NewGuid(),
                     Owner = owner1,
                     Order = 1
                 };
@@ -90,7 +97,7 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
                 blog1.Order = 0;
                 var blog2 = new Blog
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    Id = Guid.NewGuid(),
                     Owner = owner1,
                     Order = 1
                 };
@@ -100,7 +107,7 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
 
                 var blog3 = new Blog
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    Id = Guid.NewGuid(),
                     Owner = owner2,
                     Order = 2
                 };
@@ -124,12 +131,15 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
             null,
             async context =>
             {
+                await context.Set<Blog>().ExecuteDeleteAsync();
+                await context.Set<Owner>().ExecuteDeleteAsync();
+
                 var owner = new Owner();
                 context.Owners.Add(owner);
 
                 for (var i = 1; i < 3; i++)
                 {
-                    var blog = new Blog { Id = Guid.NewGuid().ToString(), Owner = owner };
+                    var blog = new Blog { Id = Guid.NewGuid(), Owner = owner };
 
                     context.Set<Blog>().Add(blog);
                     expectedBlogs.Add(blog);
@@ -181,7 +191,9 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
             CreateContext, UseTransaction, testOperation, nestedTestOperation);
 
     protected void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
-        => facade.UseTransaction(transaction.GetDbTransaction());
+    {
+        // BQ doesn't support sharing transactions between contexts
+    }
 
     private class BloggingContext(DbContextOptions options) : PoolableDbContext(options)
     {
@@ -190,7 +202,18 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
             modelBuilder.Entity<Owner>(
                 b =>
                 {
+                    // Use client-side GUID generation since BigQuery doesn't support server-side key generation
                     b.Property(e => e.Id).ValueGeneratedOnAdd();
+                });
+
+            modelBuilder.Entity<Blog>(
+                b =>
+                {
+                    // BQ doesn't support server-side key generation
+                    b.HasOne(e => e.Owner)
+                        .WithMany()
+                        .HasForeignKey(e => e.OwnerId)
+                        .IsRequired(false);
                 });
         }
 
@@ -200,16 +223,16 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
 
     private class Blog
     {
-        public string Id { get; set; }
+        public Guid Id { get; set; }
         public int Order { get; set; }
-        public string OwnerId { get; set; }
-        public Owner Owner { get; set; }
+        public string? OwnerId { get; set; }
+        public Owner? Owner { get; set; }
     }
 
     private class Owner
     {
         public string Id { get; set; }
-        public string Name { get; set; }
+        public string? Name { get; set; }
     }
 
     public class BatchingTestFixture : SharedStoreFixtureBase<PoolableDbContext>
