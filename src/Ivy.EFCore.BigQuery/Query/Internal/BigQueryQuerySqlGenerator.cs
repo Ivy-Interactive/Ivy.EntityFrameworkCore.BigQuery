@@ -502,6 +502,44 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(EntityFrameworkQueryableExtensions.ExecuteUpdate)));
         }
 
+        protected override Expression VisitDelete(DeleteExpression deleteExpression)
+        {
+            var selectExpression = deleteExpression.SelectExpression;
+
+            if (selectExpression is
+                {
+                    Tables: [var table],
+                    GroupBy: [],
+                    Having: null,
+                    Projection: [],
+                    Orderings: [],
+                    Offset: null,
+                    Limit: null
+                }
+                && table.Equals(deleteExpression.Table))
+            {
+                Sql.Append("DELETE FROM ");
+                Visit(deleteExpression.Table);
+
+                if (selectExpression.Predicate != null)
+                {
+                    Sql.AppendLine().Append("WHERE ");
+                    Visit(selectExpression.Predicate);
+                }
+                else
+                {
+                    // WHERE is always required
+                    Sql.AppendLine().Append("WHERE true");
+                }
+
+                return deleteExpression;
+            }
+
+            throw new InvalidOperationException(
+                RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(
+                    nameof(EntityFrameworkQueryableExtensions.ExecuteDelete)));
+        }
+
         protected override void GeneratePseudoFromClause()
         {
         }
