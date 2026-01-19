@@ -1,4 +1,5 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 using System.Text;
 
@@ -9,6 +10,44 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
         public BigQueryUpdateSqlGenerator(UpdateSqlGeneratorDependencies dependencies)
         : base(dependencies)
         { }
+
+        /// <summary>
+        /// Generates SQL literal, handling types that don't work with ValueConverter.Sanitize, which uses
+        /// Convert.ChangeType, which fails for types that don't implement IConvertible (enums, TimeSpan, DateOnly, TimeOnly, etc.)
+        /// </summary>
+        private static string? GenerateLiteral(RelationalTypeMapping? typeMapping, object? value)
+        {
+            if (value == null || typeMapping == null)
+                return null;
+
+            var valueType = value.GetType();
+
+            if (valueType.IsEnum)
+            {
+                var numericValue = Convert.ChangeType(value, Enum.GetUnderlyingType(valueType));
+                return numericValue.ToString();
+            }
+
+            // [Column(TypeName = "int")] bool BoolField)
+            if (valueType == typeof(bool))
+            {
+                var storeType = typeMapping.StoreType?.ToUpperInvariant() ?? "";
+                if (storeType.Contains("INT"))
+                {
+                    return (bool)value ? "1" : "0";
+                }
+            }
+
+            try
+            {
+                return typeMapping.GenerateSqlLiteral(value);
+            }
+            // Doesn't implement IConvertible
+            catch (InvalidCastException)
+            {                
+                return typeMapping.GenerateProviderValueSqlLiteral(value);
+            }
+        }
 
         protected override void AppendUpdateCommand(
         StringBuilder commandStringBuilder,
@@ -54,7 +93,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                 {
                     if (modification.Value != null)
                     {
-                        var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                        var literal = GenerateLiteral(modification.TypeMapping, modification.Value);
                         commandStringBuilder.Append(literal ?? "NULL");
                     }
                     else
@@ -70,7 +109,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                 }
                 else if (modification.Value != null)
                 {
-                    var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                    var literal = GenerateLiteral(modification.TypeMapping, modification.Value);
                     commandStringBuilder.Append(literal ?? "NULL");
                 }
                 else
@@ -111,9 +150,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             {
                 var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
 
-                commandStringBuilder
-                    .AppendLine()
-                    .Append("VALUES (");
+                // Note: AppendValuesHeader already adds "VALUES ", so we just add "("
+                commandStringBuilder.Append("(");
 
                 for (var i = 0; i < operations.Count; i++)
                 {
@@ -128,7 +166,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     {
                         if (modification.Value != null)
                         {
-                            var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                            var literal = GenerateLiteral(modification.TypeMapping, modification.Value);
                             commandStringBuilder.Append(literal ?? "NULL");
                         }
                         else
@@ -144,7 +182,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     }
                     else if (modification.Value != null)
                     {
-                        var literal = modification.TypeMapping?.GenerateSqlLiteral(modification.Value);
+                        var literal = GenerateLiteral(modification.TypeMapping, modification.Value);
                         commandStringBuilder.Append(literal ?? "NULL");
                     }
                     else
@@ -278,8 +316,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     {
                         if (columnModification.IsWrite && columnModification.Value != null)
                         {
-                            var typeMapping = columnModification.TypeMapping;
-                            var value = typeMapping?.GenerateSqlLiteral(columnModification.Value);
+                            var value = GenerateLiteral(columnModification.TypeMapping, columnModification.Value);
                             commandStringBuilder.Append(value ?? "NULL");
                         }
                         else
@@ -295,8 +332,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     }
                     else if (columnModification.IsWrite && columnModification.Value != null)
                     {
-                        var typeMapping = columnModification.TypeMapping;
-                        var value = typeMapping?.GenerateSqlLiteral(columnModification.Value);
+                        var value = GenerateLiteral(columnModification.TypeMapping, columnModification.Value);
                         commandStringBuilder.Append(value ?? "NULL");
                     }
                     else
