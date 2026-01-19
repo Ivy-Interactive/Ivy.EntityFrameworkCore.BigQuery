@@ -372,6 +372,11 @@ namespace Ivy.Data.BigQuery
             {
                 if (value is bool boolValue)
                     return (T)(object)boolValue;
+                // Support reading bool from integer columns (0 = false, non-zero = true)
+                if (value is long longValue)
+                    return (T)(object)(longValue != 0);
+                if (value is int intValue)
+                    return (T)(object)(intValue != 0);
                 throw new InvalidCastException($"Cannot cast value of type '{value?.GetType()}' from column '{GetName(ordinal)}' to type 'System.Boolean'.");
             }
 

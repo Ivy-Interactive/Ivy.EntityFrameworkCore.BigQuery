@@ -188,6 +188,20 @@ namespace Ivy.Data.BigQuery
 
             var type = value.GetType();
 
+            // Handle enum types by mapping to their underlying numeric type
+            if (type.IsEnum)
+            {
+                var underlyingType = Enum.GetUnderlyingType(type);
+                if (underlyingType == typeof(ulong))
+                    return (DbType.UInt64, Google.Cloud.BigQuery.V2.BigQueryDbType.BigNumeric);
+                if (underlyingType == typeof(long))
+                    return (DbType.Int64, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
+                if (underlyingType == typeof(int) || underlyingType == typeof(uint) ||
+                    underlyingType == typeof(short) || underlyingType == typeof(ushort) ||
+                    underlyingType == typeof(byte) || underlyingType == typeof(sbyte))
+                    return (DbType.Int64, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
+            }
+
             if (value is Stream) return (DbType.Binary, Google.Cloud.BigQuery.V2.BigQueryDbType.Bytes);
             if (type == typeof(int) || type == typeof(int?)) return (DbType.Int32, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
             if (type == typeof(short) || type == typeof(short?)) return (DbType.Int16, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
@@ -295,6 +309,11 @@ namespace Ivy.Data.BigQuery
                 {
                     type = Google.Cloud.BigQuery.V2.BigQueryDbType.Bytes;
                 }
+            }
+
+            else if (apiValue != null && apiValue.GetType().IsEnum)
+            {
+                apiValue = Convert.ChangeType(apiValue, Enum.GetUnderlyingType(apiValue.GetType()));
             }
 
             else if (apiValue is DateOnly dateOnlyValue)
