@@ -29,10 +29,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            var numericValue = (BigQueryBigNumeric)value;
             string typePrefix = Parameters.StoreType.StartsWith("BIG", StringComparison.OrdinalIgnoreCase)
                 ? "BIGNUMERIC" : "NUMERIC";
-            return $"{typePrefix} '{numericValue}'";
+
+            return value switch
+            {
+                BigQueryBigNumeric bqNumeric => $"{typePrefix} '{bqNumeric}'",
+                long longValue => $"{typePrefix} '{longValue}'",
+                decimal decimalValue => $"{typePrefix} '{decimalValue}'",
+                _ => $"{typePrefix} '{Convert.ToDecimal(value)}'"
+            };
         }
 
 
