@@ -188,17 +188,15 @@ namespace Ivy.Data.BigQuery
 
             var type = value.GetType();
 
-            // Handle enum types by mapping to their underlying numeric type
             if (type.IsEnum)
             {
                 var underlyingType = Enum.GetUnderlyingType(type);
-                if (underlyingType == typeof(ulong))
-                    return (DbType.UInt64, Google.Cloud.BigQuery.V2.BigQueryDbType.BigNumeric);
                 if (underlyingType == typeof(long))
                     return (DbType.Int64, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
-                if (underlyingType == typeof(int) || underlyingType == typeof(uint) ||
-                    underlyingType == typeof(short) || underlyingType == typeof(ushort) ||
-                    underlyingType == typeof(byte) || underlyingType == typeof(sbyte))
+                if (underlyingType == typeof(int) ||
+                    underlyingType == typeof(short) ||
+                    underlyingType == typeof(byte) ||
+                    underlyingType == typeof(sbyte))
                     return (DbType.Int64, Google.Cloud.BigQuery.V2.BigQueryDbType.Int64);
             }
 
