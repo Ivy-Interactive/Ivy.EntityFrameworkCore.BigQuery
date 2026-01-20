@@ -77,8 +77,34 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 BigQueryStructAccessExpression structAccessExpression => VisitBigQueryStructAccess(structAccessExpression),
                 //BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
                 BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
+                BigQueryJsonTraversalExpression jsonTraversalExpression => VisitBigQueryJsonTraversal(jsonTraversalExpression),
                 _ => base.VisitExtension(extensionExpression)
             };
+        }
+
+        /// <summary>
+        /// Generates SQL for JSON traversal using BigQuery's dot notation.
+        /// e.g. `j`.`Customer`.Name
+        /// </summary>
+        protected virtual Expression VisitBigQueryJsonTraversal(BigQueryJsonTraversalExpression jsonTraversalExpression)
+        {
+            Visit(jsonTraversalExpression.Expression);
+            foreach (var pathComponent in jsonTraversalExpression.Path)
+            {
+                if (pathComponent is SqlConstantExpression { Value: string fieldName })
+                {
+                    Sql.Append(".");
+                    Sql.Append(fieldName);
+                }
+                else
+                {
+                    Sql.Append("[");
+                    Visit(pathComponent);
+                    Sql.Append("]");
+                }
+            }
+
+            return jsonTraversalExpression;
         }
 
         protected virtual Expression VisitBigQueryUnnest(BigQueryUnnestExpression unnestExpression)

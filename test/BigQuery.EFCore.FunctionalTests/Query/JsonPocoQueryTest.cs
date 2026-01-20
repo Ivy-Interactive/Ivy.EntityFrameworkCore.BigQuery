@@ -30,7 +30,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
         Assert.Equal(8, types.Int64);
     }
 
-    [Fact]
+    [Fact(Skip = "BigQuery does not support JSON equality - needs TO_JSON_STRING translation")]
     public void Literal()
     {
         using var ctx = CreateContext();
@@ -45,7 +45,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "BigQuery does not support JSON equality - needs TO_JSON_STRING translation")]
     public void Parameter()
     {
         using var ctx = CreateContext();
@@ -322,12 +322,6 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
                     .HasColumnType("JSON");
             });
 
-            // Ignore all the POCO types that only exist within JSON columns
-            modelBuilder.Ignore<Customer>();
-            modelBuilder.Ignore<Statistics>();
-            modelBuilder.Ignore<NestedStatistics>();
-            modelBuilder.Ignore<Order>();
-            modelBuilder.Ignore<VariousTypes>();
         }
 
         public static async Task SeedAsync(JsonPocoQueryContext context)

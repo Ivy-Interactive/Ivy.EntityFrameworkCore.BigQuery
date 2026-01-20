@@ -69,7 +69,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 return null;
             }
 
-            if (member == RootElement && instance is ColumnExpression { TypeMapping: BigQueryJsonTypeMapping } column)
+            if (member == RootElement && instance is ColumnExpression column && IsJsonTypeMapping(column.TypeMapping))
             {
                 return _sqlExpressionFactory.JsonTraversal(
                     column,
@@ -90,10 +90,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             IReadOnlyList<SqlExpression> arguments,
             IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
-            if (method.DeclaringType != typeof(JsonElement) || instance?.TypeMapping is not BigQueryJsonTypeMapping mapping)
+            if (method.DeclaringType != typeof(JsonElement) || !IsJsonTypeMapping(instance?.TypeMapping))
             {
                 return null;
             }
+
+            var mapping = instance!.TypeMapping;
 
             if (instance is ColumnExpression columnExpression)
             {
@@ -157,5 +159,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 returnType,
                 typeMapping);
         }
+
+        private static bool IsJsonTypeMapping(RelationalTypeMapping? typeMapping)
+            => typeMapping is BigQueryJsonTypeMapping or BigQueryOwnedJsonTypeMapping;
     }
 }

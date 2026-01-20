@@ -178,6 +178,47 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         }
 
         /// <summary>
+        /// Creates a parameter. Overridden to handle string values directly since EF Core's owned JSON
+        /// infrastructure passes serialized JSON strings, bypassing the value converter sanitization.
+        /// </summary>
+        public override DbParameter CreateParameter(DbCommand command, string name, object? value, bool? nullable, System.Data.ParameterDirection direction)
+        {
+            var parameter = command.CreateParameter();
+            parameter.Direction = direction;
+            parameter.ParameterName = name;
+
+            // Handle values directly without going through value converter sanitization
+            if (value is string stringValue)
+            {
+                parameter.Value = stringValue;
+            }
+            else if (value is JsonElement jsonElement)
+            {
+                parameter.Value = jsonElement.GetRawText();
+            }
+            else if (value is JsonDocument jsonDocument)
+            {
+                parameter.Value = jsonDocument.RootElement.GetRawText();
+            }
+            else if (value == null || value == DBNull.Value)
+            {
+                parameter.Value = DBNull.Value;
+            }
+            else
+            {
+                parameter.Value = JsonSerializer.Serialize(value);
+            }
+
+            if (nullable.HasValue)
+            {
+                parameter.IsNullable = nullable.Value;
+            }
+
+            ConfigureParameter(parameter);
+            return parameter;
+        }
+
+        /// <summary>
         /// Converts a value to a JSON string for parameter binding.
         /// </summary>
         private string ConvertToJsonString(object value)

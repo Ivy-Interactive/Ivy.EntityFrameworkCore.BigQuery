@@ -81,6 +81,23 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
                 return inUnnestExpression.Update((SqlExpression)visitedItem, (SqlExpression)visitedArray);
             }
 
+            case BigQueryJsonTraversalExpression jsonTraversalExpression:
+            {
+                var visitedExpression = Visit(jsonTraversalExpression.Expression, allowOptimizedExpansion, out var expressionNullable);
+                var visitedPath = new List<SqlExpression>();
+
+                foreach (var pathComponent in jsonTraversalExpression.Path)
+                {
+                    var visitedComponent = Visit(pathComponent, allowOptimizedExpansion, out _);
+                    visitedPath.Add((SqlExpression)visitedComponent);
+                }
+
+                // Traversal can return null if the path doesn't exist or base is null
+                nullable = true;
+
+                return jsonTraversalExpression.Update((SqlExpression)visitedExpression, visitedPath);
+            }
+
             default:
                 return base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable);
         }
