@@ -324,6 +324,16 @@ namespace Ivy.Data.BigQuery
                 apiValue = guidValue.ToString();
             }
 
+            else if (apiValue is System.Text.Json.JsonElement jsonElement)
+            {
+                apiValue = jsonElement.ToString();
+            }
+
+            else if (apiValue is System.Text.Json.JsonDocument jsonDocument)
+            {
+                apiValue = jsonDocument.RootElement.ToString();
+            }
+
             return new Google.Cloud.BigQuery.V2.BigQueryParameter(name, type.Value, apiValue);
         }
     }

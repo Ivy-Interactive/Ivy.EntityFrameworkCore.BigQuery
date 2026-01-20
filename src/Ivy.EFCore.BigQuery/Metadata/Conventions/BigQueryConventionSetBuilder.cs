@@ -24,6 +24,10 @@ public class BigQueryConventionSetBuilder : RelationalConventionSetBuilder
 
         conventionSet.EntityTypeAddedConventions.Add(new BigQueryStructEntityConvention());
 
+        // For direct JsonElement properties, set the regular BigQueryJsonTypeMapping
+        // (CLR type lookup returns BigQueryOwnedJsonTypeMapping for EF's owned JSON support)
+        conventionSet.PropertyAddedConventions.Add(new BigQueryJsonPropertyTypeMappingConvention());
+
         var structPropertyConvention = new BigQueryStructPropertyConvention(_typeMappingSource);
         conventionSet.PropertyAddedConventions.Add(structPropertyConvention);
         conventionSet.ComplexPropertyAddedConventions.Add(structPropertyConvention);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 using System.Data.Common;
 using System.Reflection;
 using System.Text;
@@ -59,10 +60,48 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         {
             if (parameter is Ivy.Data.BigQuery.BigQueryParameter bigQueryParameter)
             {
-                bigQueryParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.String;
+                bigQueryParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.Json;
             }
 
             base.ConfigureParameter(parameter);
+        }
+
+        /// <summary>
+        /// Creates a parameter. Overridden to handle string values directly since EF Core's owned JSON
+        /// infrastructure passes serialized JSON strings, but the CLR type is JsonElement.
+        /// </summary>
+        public override DbParameter CreateParameter(DbCommand command, string name, object? value, bool? nullable, ParameterDirection direction)
+        {
+            var parameter = command.CreateParameter();
+            parameter.Direction = direction;
+            parameter.ParameterName = name;
+
+            // EF Core's owned JSON infrastructure passes serialized JSON strings
+            // Handle strings directly without trying to convert to JsonElement
+            if (value is string stringValue)
+            {
+                parameter.Value = stringValue;
+            }
+            else if (value is JsonElement jsonElement)
+            {
+                parameter.Value = jsonElement.GetRawText();
+            }
+            else if (value == null || value == DBNull.Value)
+            {
+                parameter.Value = DBNull.Value;
+            }
+            else
+            {
+                parameter.Value = JsonSerializer.Serialize(value);
+            }
+
+            if (nullable.HasValue)
+            {
+                parameter.IsNullable = nullable.Value;
+            }
+
+            ConfigureParameter(parameter);
+            return parameter;
         }
     }
 }

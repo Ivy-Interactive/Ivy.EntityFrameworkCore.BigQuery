@@ -3,6 +3,7 @@ using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Collections.Concurrent;
 using System.Text;
+using System.Text.Json;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
@@ -27,7 +28,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         private readonly BigQueryIntTypeMapping _int = new();
         private readonly BigQueryShortTypeMapping _short = new();
         private readonly BigQueryByteTypeMapping _byte = new();
-        private readonly BigQueryJsonTypeMapping _json = new("JSON", typeof(string));
+        private readonly BigQueryJsonTypeMapping _jsonString = new("JSON", typeof(string));
+        private readonly BigQueryJsonTypeMapping _jsonDocument = new("JSON", typeof(JsonDocument));
+        private readonly BigQueryJsonTypeMapping _jsonElement = new("JSON", typeof(JsonElement));
+        // BigQueryOwnedJsonTypeMapping extends JsonTypeMapping for EF Core's owned JSON entities (ToJson())
+        private readonly BigQueryOwnedJsonTypeMapping _jsonElementOwned = new("JSON");
 
         private readonly ConcurrentDictionary<string, RelationalTypeMapping> _storeTypeMappings;
         private readonly ConcurrentDictionary<Type, RelationalTypeMapping> _clrTypeMappings;
@@ -54,7 +59,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 { "BIGNUMERIC", new List<RelationalTypeMapping> { _bigNumericDefault } },
                 { "NUMERIC", new List<RelationalTypeMapping> { _numericDefault } },
                 { "BIGNUMERIC(57, 28)", new List<RelationalTypeMapping> { _decimal } },
-                { "JSON", new List<RelationalTypeMapping> { _json } },
+                { "JSON", new List<RelationalTypeMapping> { _jsonString, _jsonDocument, _jsonElementOwned } },
             };
 
             _storeTypeMappings = new ConcurrentDictionary<string, RelationalTypeMapping>(
@@ -96,6 +101,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 { typeof(short?), _short },
                 { typeof(byte), _byte },
                 { typeof(byte?), _byte },
+
+                { typeof(JsonDocument), _jsonDocument },
+                // JsonElement maps to owned JSON type mapping for EF Core's owned JSON support (ToJson())
+                // For direct JsonElement properties, BigQueryJsonElementHackConvention sets the regular mapping
+                { typeof(JsonElement), _jsonElementOwned },
             };
             _clrTypeMappings = new ConcurrentDictionary<Type, RelationalTypeMapping>(clrTypeMappings);
         }
@@ -534,11 +544,31 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 
             if (storeTypeName != null)
             {
+                // For owned JSON entities, EF Core requests mapping with store type "JSON" and no CLR type
+                // Return BigQueryOwnedJsonTypeMapping which extends JsonTypeMapping
+                if (clrType == null && storeTypeName.Equals("JSON", StringComparison.OrdinalIgnoreCase))
+                {
+                    return _jsonElementOwned;
+                }
+
                 if (_storeTypeMappings.TryGetValue(storeTypeName, out var mapping))
                 {
-                    return clrType != null && mapping.ClrType != clrType
-                        ? FindMapping(clrType)
-                        : mapping;
+                    if (clrType != null && mapping.ClrType != clrType)
+                    {
+                        var clrTypeMapping = FindMapping(clrType);
+                        if (clrTypeMapping != null)
+                        {
+                            return clrTypeMapping;
+                        }
+
+                        // For JSON store type, create a mapping for arbitrary POCOs
+                        if (storeTypeName.Equals("JSON", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return new BigQueryJsonTypeMapping("JSON", clrType);
+                        }
+                    }
+
+                    return mapping;
                 }
 
                 var storeTypeNameBase = GetStoreTypeBaseName(storeTypeName);
