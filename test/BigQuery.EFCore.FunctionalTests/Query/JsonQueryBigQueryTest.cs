@@ -90,7 +90,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`OwnedReferenceRoot`.OwnedReferenceBranch, `j`.`Id`
+SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -101,7 +101,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`OwnedReferenceRoot`.OwnedCollectionBranch, `j`.`Id`
+SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedCollectionBranch'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -112,7 +112,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`OwnedReferenceRoot`.OwnedReferenceBranch.OwnedReferenceLeaf, `j`.`Id`
+SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedReferenceLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -123,7 +123,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`OwnedReferenceRoot`.OwnedReferenceBranch.OwnedCollectionLeaf, `j`.`Id`
+SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedCollectionLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -163,9 +163,9 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`Name`, LENGTH(STRING(`j`.`OwnedReferenceRoot`.Name)) AS `JsonScalarLength`
+SELECT `j`.`Name`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE LENGTH(STRING(`j`.`OwnedReferenceRoot`.Name)) > 2
+WHERE LENGTH(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
 """);
     }
 
@@ -181,7 +181,7 @@ WHERE LENGTH(STRING(`j`.`OwnedReferenceRoot`.Name)) > 2
             """
 SELECT `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE INT64(`j`.`OwnedReferenceRoot`.OwnedReferenceBranch.Fraction) < 20.5
+WHERE (CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Fraction') AS BIGNUMERIC)) < BIGNUMERIC '20.5'
 """);
     }
 
@@ -195,7 +195,7 @@ WHERE INT64(`j`.`OwnedReferenceRoot`.OwnedReferenceBranch.Fraction) < 20.5
 
         AssertSql(
             """
-SELECT `j`.`Id`, INT64(`j`.`OwnedReferenceRoot`.OwnedReferenceBranch.Enum) AS `Enum`
+SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Enum') AS INT64) AS `Enum`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -206,8 +206,8 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`Id`, INT64(`j`.`OwnedReferenceRoot`.OwnedReferenceBranch.Enum) AS `Enum`
-FROM `JsonEntitiesBasic` AS `j`
+SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`json_reference_custom_naming`, '$.1CustomEnum') AS INT64) AS `Enum`
+FROM `JsonEntitiesCustomNaming` AS `j`
 """);
     }
 
@@ -452,6 +452,458 @@ FROM `JsonEntitiesBasic` AS `j`
     [MemberData(nameof(IsAsyncData))]
     public override Task Json_predicate_on_nullableint322(bool async)
         => base.Json_predicate_on_nullableint322(async);
+
+    #endregion
+
+    #region Unsupported LINQ over JSON collections
+
+    private const string SkipJsonCollectionReason = "BigQuery does not support composing LINQ over JSON collections";
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_SelectMany(bool async)
+        => base.Json_collection_SelectMany(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Skip(bool async)
+        => base.Json_collection_Skip(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Where_ElementAt(bool async)
+        => base.Json_collection_Where_ElementAt(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_OrderByDescending_Skip_ElementAt(bool async)
+        => base.Json_collection_OrderByDescending_Skip_ElementAt(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Distinct_Count_with_predicate(bool async)
+        => base.Json_collection_Distinct_Count_with_predicate(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Any_with_predicate(bool async)
+        => base.Json_collection_Any_with_predicate(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_distinct_in_projection(bool async)
+        => base.Json_collection_distinct_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_filter_in_projection(bool async)
+        => base.Json_collection_filter_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_skip_take_in_projection(bool async)
+        => base.Json_collection_skip_take_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_skip_take_in_projection_with_json_reference_access_as_final_operation(bool async)
+        => base.Json_collection_skip_take_in_projection_with_json_reference_access_as_final_operation(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_skip_take_in_projection_project_into_anonymous_type(bool async)
+        => base.Json_collection_skip_take_in_projection_project_into_anonymous_type(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_in_projection_with_composition_count(bool async)
+        => base.Json_collection_in_projection_with_composition_count(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_in_projection_with_anonymous_projection_of_scalars(bool async)
+        => base.Json_collection_in_projection_with_anonymous_projection_of_scalars(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_in_projection_with_composition_where_and_anonymous_projection_of_scalars(bool async)
+        => base.Json_collection_in_projection_with_composition_where_and_anonymous_projection_of_scalars(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_in_projection_with_composition_where_and_anonymous_projection_of_primitive_arrays(bool async)
+        => base.Json_collection_in_projection_with_composition_where_and_anonymous_projection_of_primitive_arrays(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_leaf_filter_in_projection(bool async)
+        => base.Json_collection_leaf_filter_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_nested_collection_filter_in_projection(bool async)
+        => base.Json_nested_collection_filter_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_nested_collection_SelectMany(bool async)
+        => base.Json_nested_collection_SelectMany(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_nested_collection_anonymous_projection_in_projection(bool async)
+        => base.Json_nested_collection_anonymous_projection_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_multiple_collection_projections(bool async)
+        => base.Json_multiple_collection_projections(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_branch_collection_distinct_and_other_collection(bool async)
+        => base.Json_branch_collection_distinct_and_other_collection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_leaf_collection_distinct_and_other_collection(bool async)
+        => base.Json_leaf_collection_distinct_and_other_collection(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_within_collection_Count(bool async)
+        => base.Json_collection_within_collection_Count(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Select_entity_with_initializer_ElementAt(bool async)
+        => base.Json_collection_Select_entity_with_initializer_ElementAt(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Select_entity_in_anonymous_object_ElementAt(bool async)
+        => base.Json_collection_Select_entity_in_anonymous_object_ElementAt(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_with_parameter_Select_ElementAt(bool async)
+        => base.Json_collection_index_with_parameter_Select_ElementAt(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_untranslatable_client_method(bool async)
+        => base.Json_collection_index_in_projection_using_untranslatable_client_method(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_untranslatable_client_method2(bool async)
+        => base.Json_collection_index_in_projection_using_untranslatable_client_method2(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_nested_collection_anonymous_projection_of_primitives_in_projection_NoTrackingWithIdentityResolution(bool async)
+        => base.Json_nested_collection_anonymous_projection_of_primitives_in_projection_NoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_with_expression_Select_ElementAt(bool async)
+        => base.Json_collection_index_with_expression_Select_ElementAt(async);
+
+    #endregion
+
+    #region Dynamic array indices not supported
+
+    private const string SkipDynamicArrayIndexReason = "BigQuery JSON paths do not support dynamic array indices";
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_parameter(bool async)
+        => base.Json_collection_index_in_projection_using_parameter(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_parameter_when_owner_is_present(bool async)
+        => base.Json_collection_index_in_projection_using_parameter_when_owner_is_present(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_parameter_when_owner_is_not_present(bool async)
+        => base.Json_collection_index_in_projection_using_parameter_when_owner_is_not_present(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_using_column(bool async)
+        => base.Json_collection_index_in_projection_using_column(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_nested(bool async)
+        => base.Json_collection_index_in_projection_nested(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_nested_project_scalar(bool async)
+        => base.Json_collection_index_in_projection_nested_project_scalar(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_nested_project_reference(bool async)
+        => base.Json_collection_index_in_projection_nested_project_reference(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_nested_project_collection(bool async)
+        => base.Json_collection_index_in_projection_nested_project_collection(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_nested_project_collection_anonymous_projection(bool async)
+        => base.Json_collection_index_in_projection_nested_project_collection_anonymous_projection(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_when_owner_is_present_misc1(bool async)
+        => base.Json_collection_index_in_projection_when_owner_is_present_misc1(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_when_owner_is_present_multiple(bool async)
+        => base.Json_collection_index_in_projection_when_owner_is_present_multiple(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_when_owner_is_not_present_misc1(bool async)
+        => base.Json_collection_index_in_projection_when_owner_is_not_present_misc1(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_projection_when_owner_is_not_present_multiple(bool async)
+        => base.Json_collection_index_in_projection_when_owner_is_not_present_multiple(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_predicate_using_variable(bool async)
+        => base.Json_collection_index_in_predicate_using_variable(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_predicate_using_column(bool async)
+        => base.Json_collection_index_in_predicate_using_column(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_predicate_using_complex_expression1(bool async)
+        => base.Json_collection_index_in_predicate_using_complex_expression1(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_predicate_using_complex_expression2(bool async)
+        => base.Json_collection_index_in_predicate_using_complex_expression2(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_index_in_predicate_nested_mix(bool async)
+        => base.Json_collection_index_in_predicate_nested_mix(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_deduplication_with_collection_indexer_in_target(bool async)
+        => base.Json_projection_deduplication_with_collection_indexer_in_target(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_deduplication_with_collection_in_original_and_collection_indexer_in_target(bool async)
+        => base.Json_projection_deduplication_with_collection_in_original_and_collection_indexer_in_target(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_nested_collection_element_using_parameter_and_the_owner_in_correct_order_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_projection_nested_collection_element_using_parameter_and_the_owner_in_correct_order_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_only_second_element_through_collection_element_parameter_projected_nested_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_projection_only_second_element_through_collection_element_parameter_projected_nested_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_second_element_through_collection_element_parameter_correctly_projected_after_owner_nested_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_projection_second_element_through_collection_element_parameter_correctly_projected_after_owner_nested_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_after_collection_index_in_projection_using_parameter_when_owner_is_present(bool async)
+        => base.Json_collection_after_collection_index_in_projection_using_parameter_when_owner_is_present(async);
+
+    [ConditionalTheory(Skip = SkipDynamicArrayIndexReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_after_collection_index_in_projection_using_parameter_when_owner_is_not_present(bool async)
+        => base.Json_collection_after_collection_index_in_projection_using_parameter_when_owner_is_not_present(async);
+
+    #endregion
+
+    #region BigQuery JSON limitations
+
+    private const string SkipJsonDistinctReason = "BigQuery does not support JSON columns in SELECT DISTINCT";
+
+    [ConditionalTheory(Skip = SkipJsonDistinctReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_subquery_reference_pushdown_property(bool async)
+        => base.Json_subquery_reference_pushdown_property(async);
+
+    [ConditionalTheory(Skip = SkipJsonDistinctReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_subquery_reference_pushdown_reference(bool async)
+        => base.Json_subquery_reference_pushdown_reference(async);
+
+    [ConditionalTheory(Skip = SkipJsonDistinctReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_subquery_reference_pushdown_reference_pushdown_reference(bool async)
+        => base.Json_subquery_reference_pushdown_reference_pushdown_reference(async);
+
+    [ConditionalTheory(Skip = SkipJsonDistinctReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_subquery_reference_pushdown_reference_pushdown_collection(bool async)
+        => base.Json_subquery_reference_pushdown_reference_pushdown_collection(async);
+
+    private const string SkipJsonUnnestReason = "BigQuery UNNEST does not support JSON type";
+
+    [ConditionalTheory(Skip = SkipJsonUnnestReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_of_primitives_SelectMany(bool async)
+        => base.Json_collection_of_primitives_SelectMany(async);
+
+    // BigQuery doesn't support OFFSET subscript access on JSON
+    private const string SkipJsonOffsetReason = "BigQuery does not support OFFSET subscript access on JSON";
+
+    [ConditionalTheory(Skip = SkipJsonOffsetReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_of_primitives_index_used_in_projection(bool async)
+        => base.Json_collection_of_primitives_index_used_in_projection(async);
+
+    [ConditionalTheory(Skip = SkipJsonOffsetReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_of_primitives_index_used_in_predicate(bool async)
+        => base.Json_collection_of_primitives_index_used_in_predicate(async);
+
+    [ConditionalTheory(Skip = SkipJsonOffsetReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_of_primitives_index_used_in_orderby(bool async)
+        => base.Json_collection_of_primitives_index_used_in_orderby(async);
+
+    [ConditionalTheory(Skip = SkipJsonOffsetReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_of_primitives_contains_in_predicate(bool async)
+        => base.Json_collection_of_primitives_contains_in_predicate(async);
+
+    // Special characters in JSON property names cause escape sequence issues
+    private const string SkipJsonEscapeReason = "Special characters in JSON property names cause BigQuery escape sequence issues";
+
+    [ConditionalTheory(Skip = SkipJsonEscapeReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Custom_naming_projection_everything(bool async)
+        => base.Custom_naming_projection_everything(async);
+
+    [ConditionalTheory(Skip = SkipJsonEscapeReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Custom_naming_projection_owned_reference(bool async)
+        => base.Custom_naming_projection_owned_reference(async);
+
+    [ConditionalTheory(Skip = SkipJsonEscapeReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Custom_naming_projection_owned_scalar(bool async)
+        => base.Custom_naming_projection_owned_scalar(async);
+
+    // AsNoTrackingWithIdentityResolution variants of skipped tests throw different exception messages
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_SelectMany_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_collection_SelectMany_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_projection_using_queryable_methods_on_top_of_JSON_collection_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_projection_using_queryable_methods_on_top_of_JSON_collection_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_branch_collection_distinct_and_other_collection_AsNoTrackingWithIdentityResolution(bool async)
+        => base.Json_branch_collection_distinct_and_other_collection_AsNoTrackingWithIdentityResolution(async);
+
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_nested_collection_anonymous_projection_in_projection_NoTrackingWithIdentityResolution(bool async)
+        => base.Json_nested_collection_anonymous_projection_in_projection_NoTrackingWithIdentityResolution(async);
+
+    // Subquery deduplication with FirstOrDefault - SQL generation issues
+    private const string SkipSubqueryDeduplicationReason = "Subquery deduplication with JSON has SQL generation issues";
+
+    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication(bool async)
+        => base.Project_json_entity_FirstOrDefault_subquery_deduplication(async);
+
+    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(bool async)
+        => base.Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(async);
+
+    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(bool async)
+        => base.Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(async);
+
+    [ConditionalTheory(Skip = "Group by with JSON scalar has aggregation issues in BigQuery")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Group_by_json_scalar_Skip_First_project_json_scalar(bool async)
+        => base.Group_by_json_scalar_Skip_First_project_json_scalar(async);
+
+    private const string SkipBoolConverterReason = "Boolean values stored as int/string have BigQuery type comparison issues";
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_int_zero_one(bool async)
+        => base.Json_predicate_on_bool_converted_to_int_zero_one(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_int_zero_one_with_explicit_comparison(bool async)
+        => base.Json_predicate_on_bool_converted_to_int_zero_one_with_explicit_comparison(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_int_zero_one_converted_to_bool(bool async)
+        => base.Json_predicate_on_int_zero_one_converted_to_bool(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_string_Y_N(bool async)
+        => base.Json_predicate_on_bool_converted_to_string_Y_N(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_string_Y_N_with_explicit_comparison(bool async)
+        => base.Json_predicate_on_bool_converted_to_string_Y_N_with_explicit_comparison(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_string_Y_N_converted_to_bool(bool async)
+        => base.Json_predicate_on_string_Y_N_converted_to_bool(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_string_True_False(bool async)
+        => base.Json_predicate_on_bool_converted_to_string_True_False(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_bool_converted_to_string_True_False_with_explicit_comparison(bool async)
+        => base.Json_predicate_on_bool_converted_to_string_True_False_with_explicit_comparison(async);
+
+    [ConditionalTheory(Skip = SkipBoolConverterReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_predicate_on_string_True_False_converted_to_bool(bool async)
+        => base.Json_predicate_on_string_True_False_converted_to_bool(async);
 
     #endregion
 
