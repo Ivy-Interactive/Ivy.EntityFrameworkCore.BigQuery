@@ -285,19 +285,68 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
             if (isScalar)
             {
+                // JSON_EXTRACT_SCALAR always returns STRING in BQ
+                // We need to cast to the appropriate type for non-string types
+                var castType = GetBigQueryCastType(jsonScalarExpression.Type);
+                if (castType != null)
+                {
+                    Sql.Append("CAST(");
+                }
+
                 Sql.Append("JSON_EXTRACT_SCALAR(");
+                Visit(jsonScalarExpression.Json);
+                Sql.Append(", ");
+                GenerateJsonPath(path);
+                Sql.Append(")");
+
+                if (castType != null)
+                {
+                    Sql.Append(" AS ").Append(castType).Append(")");
+                }
             }
             else
             {
                 Sql.Append("JSON_EXTRACT(");
+                Visit(jsonScalarExpression.Json);
+                Sql.Append(", ");
+                GenerateJsonPath(path);
+                Sql.Append(")");
             }
 
-            Visit(jsonScalarExpression.Json);
-            Sql.Append(", ");
-            GenerateJsonPath(path);
-            Sql.Append(")");
-
             return jsonScalarExpression;
+        }
+
+        private static string? GetBigQueryCastType(Type clrType)
+        {
+            var underlyingType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+
+            if (underlyingType.IsEnum)
+            {
+                underlyingType = Enum.GetUnderlyingType(underlyingType);
+            }
+
+            return underlyingType switch
+            {
+                Type t when t == typeof(int) => "INT64",
+                Type t when t == typeof(long) => "INT64",
+                Type t when t == typeof(short) => "INT64",
+                Type t when t == typeof(byte) => "INT64",
+                Type t when t == typeof(sbyte) => "INT64",
+                Type t when t == typeof(uint) => "INT64",
+                Type t when t == typeof(ulong) => "BIGNUMERIC",
+                Type t when t == typeof(ushort) => "INT64",
+                Type t when t == typeof(double) => "FLOAT64",
+                Type t when t == typeof(float) => "FLOAT64",
+                Type t when t == typeof(decimal) => "BIGNUMERIC",
+                Type t when t == typeof(bool) => "BOOL",
+                Type t when t == typeof(string) => null,
+                Type t when t == typeof(DateTime) => "DATETIME",
+                Type t when t == typeof(DateOnly) => "DATE",
+                Type t when t == typeof(TimeOnly) => "TIME",
+                Type t when t == typeof(TimeSpan) => "TIME",
+                Type t when t == typeof(Guid) => null,
+                _ => null
+            };
         }
 
         private void GenerateJsonPath(IReadOnlyList<PathSegment> path)
