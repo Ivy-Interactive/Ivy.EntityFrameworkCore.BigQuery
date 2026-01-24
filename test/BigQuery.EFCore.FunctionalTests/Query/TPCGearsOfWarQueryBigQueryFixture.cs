@@ -99,6 +99,7 @@ public class TPCBigQueryTestStore : BigQueryTestStore
         var result = builder.UseBigQuery(Connection.ConnectionString, b =>
         {
             b.IgnoreUniqueConstraints();
+            b.ApplyConfiguration();
         });
         return result;
     }
