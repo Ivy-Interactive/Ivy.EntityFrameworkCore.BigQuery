@@ -448,10 +448,31 @@ namespace Ivy.Data.BigQuery
                     case BigQueryDbType.Date or BigQueryDbType.DateTime when value is DateTime dtValue:
                         {
                             if (typeof(T) == typeof(DateTime)) return (T)(object)dtValue;
-                            if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dtValue);
+                            if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dtValue, TimeSpan.Zero);
                             if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dtValue);
                             break;
                         }
+                    case BigQueryDbType.Time when value is TimeSpan tsValue:
+                        {
+                            if (typeof(T) == typeof(TimeSpan)) return (T)(object)tsValue;
+                            if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromTimeSpan(tsValue);
+                            break;
+                        }
+                }
+
+                if (value is DateTime dtValueFallback)
+                {
+                    if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dtValueFallback, TimeSpan.Zero);
+                    if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dtValueFallback);
+                    if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromDateTime(dtValueFallback);
+                }
+                if (value is TimeSpan tsValueFallback)
+                {
+                    if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromTimeSpan(tsValueFallback);
+                }
+                if (value is DateTimeOffset dtoValueFallback)
+                {
+                    if (typeof(T) == typeof(DateTime)) return (T)(object)dtoValueFallback.DateTime;
                 }
 
                 if (value is BigQueryNumeric numericValue)
@@ -496,7 +517,7 @@ namespace Ivy.Data.BigQuery
                         return (T)value;
                     }
 
-                    // For cases like int[]
+                    // []
                     var targetArray = Array.CreateInstance(targetElementType, sourceArray.Length);
                     for (int i = 0; i < sourceArray.Length; i++)
                     {
