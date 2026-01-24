@@ -98,6 +98,18 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
                 return jsonTraversalExpression.Update((SqlExpression)visitedExpression, visitedPath);
             }
 
+            case BigQueryExtractExpression extractExpression:
+            {
+                var visitedArgument = Visit(extractExpression.Argument, allowOptimizedExpansion, out var argumentNullable);
+
+                // EXTRACT returns null if the argument is null
+                nullable = argumentNullable;
+
+                return visitedArgument != extractExpression.Argument
+                    ? new BigQueryExtractExpression(extractExpression.Part, (SqlExpression)visitedArgument, extractExpression.Type, extractExpression.TypeMapping)
+                    : extractExpression;
+            }
+
             default:
                 return base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable);
         }

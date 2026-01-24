@@ -22,6 +22,7 @@ public class BigQueryMemberTranslatorProvider : RelationalMemberTranslatorProvid
             new BigQueryStringMemberTranslator(dependencies.SqlExpressionFactory),
             new BigQueryStructMemberTranslator(dependencies.SqlExpressionFactory),
             new BigQueryArrayMemberTranslator(dependencies.SqlExpressionFactory),
+            new BigQueryDateTimeMemberTranslator(dependencies.SqlExpressionFactory, typeMappingSource),
             new BigQueryJsonDomTranslator(typeMappingSource, sqlExpressionFactory, model),
             JsonPocoTranslator
         ]);

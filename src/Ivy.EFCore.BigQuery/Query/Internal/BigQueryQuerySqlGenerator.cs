@@ -78,8 +78,20 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 //BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
                 BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
                 BigQueryJsonTraversalExpression jsonTraversalExpression => VisitBigQueryJsonTraversal(jsonTraversalExpression),
+                BigQueryExtractExpression extractExpression => VisitBigQueryExtract(extractExpression),
                 _ => base.VisitExtension(extensionExpression)
             };
+        }
+
+        protected virtual Expression VisitBigQueryExtract(BigQueryExtractExpression extractExpression)
+        {
+            Sql.Append("EXTRACT(");
+            Sql.Append(extractExpression.Part);
+            Sql.Append(" FROM ");
+            Visit(extractExpression.Argument);
+            Sql.Append(")");
+
+            return extractExpression;
         }
 
         /// <summary>
