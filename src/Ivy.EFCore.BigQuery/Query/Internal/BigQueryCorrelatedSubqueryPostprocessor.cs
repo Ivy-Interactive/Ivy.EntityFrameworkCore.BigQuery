@@ -192,7 +192,28 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             }
         }
 
-        // If we couldn't find partition columns from the predicate, try to infer from outer columns
+        // If we couldn't find partition columns from the direct predicate, try to find them in nested FROM tables
+        List<(ColumnExpression outer, SqlExpression inner)>? nestedCorrelationPreds = null;
+        SelectExpression? nestedTableWithCorrelation = null;
+        int nestedTableIndex = -1;
+
+        if (partitionColumns.Count == 0 && correlationInfo.OuterColumns.Count > 0)
+        {
+            // Look for correlation in nested FROM tables (e.g., after DISTINCT)
+            var nestedCorrelation = ExtractCorrelationFromNestedTables(subquery, correlationInfo.OuterColumns);
+            if (nestedCorrelation != null)
+            {
+                nestedCorrelationPreds = nestedCorrelation.Value.correlationPreds;
+                nestedTableWithCorrelation = nestedCorrelation.Value.nestedTable;
+                nestedTableIndex = nestedCorrelation.Value.tableIndex;
+
+                foreach (var (outerColumn, innerColumn) in nestedCorrelationPreds)
+                {
+                    partitionColumns.Add(innerColumn);
+                }
+            }
+        }
+
         if (partitionColumns.Count == 0 && correlationInfo.OuterColumns.Count > 0)
         {
             // This is a fallback - the subquery correlates but we couldn't extract clean partition columns
@@ -267,10 +288,31 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             newProjections.Add(new ProjectionExpression(rowNumberExpression, "rn"));
         }
 
+        // Prepare the tables for the inner SELECT
+        // If we have nested correlation, we need to rebuild the nested table without the correlation predicate
+        var tables = subquery.Tables.ToList();
+        if (nestedTableWithCorrelation != null && nestedTableIndex >= 0)
+        {
+            // Rebuild the nested table without the correlation predicate
+            var (_, otherPreds) = SplitPredicate(nestedTableWithCorrelation.Predicate!, correlationInfo.OuterColumns);
+            var newNestedTable = nestedTableWithCorrelation.Update(
+                nestedTableWithCorrelation.Tables,
+                otherPreds,  // Remove correlation predicates
+                nestedTableWithCorrelation.GroupBy,
+                nestedTableWithCorrelation.Having,
+                nestedTableWithCorrelation.Projection,
+                nestedTableWithCorrelation.Orderings,
+                nestedTableWithCorrelation.Offset,
+                nestedTableWithCorrelation.Limit);
+
+            // Replace the table in the list
+            tables[nestedTableIndex] = newNestedTable;
+        }
+
         // Create the inner SELECT
         var innerSelect = new SelectExpression(
             subqueryAlias,
-            subquery.Tables.ToArray(),
+            tables.ToArray(),
             remainingPredicate,
             groupByColumns.ToArray(),
             subquery.Having,
@@ -283,25 +325,25 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         // Build the join predicate: outer.col = subq.partition_col (AND subq.rn = 1 for non-aggregate)
         SqlExpression? joinPredicate = null;
 
-        if (subquery.Predicate != null)
+        // Use nested correlation predicates if available, otherwise use direct predicates
+        var correlationPredsForJoin = nestedCorrelationPreds ?? (subquery.Predicate != null
+            ? SplitPredicate(subquery.Predicate, correlationInfo.OuterColumns).Item1
+            : new List<(ColumnExpression, SqlExpression)>());
+
+        for (var i = 0; i < correlationPredsForJoin.Count; i++)
         {
-            var (correlationPreds, _) = SplitPredicate(subquery.Predicate, correlationInfo.OuterColumns);
+            var (outerColumn, _) = correlationPredsForJoin[i];
+            var partitionColumnRef = new ColumnExpression(
+                partitionColumnNames[i],
+                subqueryAlias,
+                outerColumn.Type,
+                outerColumn.TypeMapping,
+                nullable: true);
 
-            for (var i = 0; i < correlationPreds.Count; i++)
-            {
-                var (outerColumn, _) = correlationPreds[i];
-                var partitionColumnRef = new ColumnExpression(
-                    partitionColumnNames[i],
-                    subqueryAlias,
-                    outerColumn.Type,
-                    outerColumn.TypeMapping,
-                    nullable: true);
-
-                var equalityPred = _sqlExpressionFactory.Equal(outerColumn, partitionColumnRef);
-                joinPredicate = joinPredicate == null
-                    ? equalityPred
-                    : _sqlExpressionFactory.AndAlso(joinPredicate, equalityPred);
-            }
+            var equalityPred = _sqlExpressionFactory.Equal(outerColumn, partitionColumnRef);
+            joinPredicate = joinPredicate == null
+                ? equalityPred
+                : _sqlExpressionFactory.AndAlso(joinPredicate, equalityPred);
         }
 
         // Add rn = 1 condition only for non-aggregate subqueries
@@ -480,6 +522,97 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         var finder = new OuterColumnReferenceFinder(outerColumns);
         finder.Visit(expression);
         return finder.Found;
+    }
+
+    /// <summary>
+    /// Looks for correlation predicates inside nested FROM tables (SelectExpressions).
+    /// This handles cases like: SELECT ... FROM (SELECT ... FROM t WHERE outer.col = t.col) AS nested LIMIT 1
+    /// where the correlation is inside the nested SELECT rather than the outer one.
+    /// </summary>
+    private (List<(ColumnExpression outer, SqlExpression inner)> correlationPreds, SelectExpression nestedTable, int tableIndex)?
+        ExtractCorrelationFromNestedTables(SelectExpression subquery, HashSet<ColumnExpression> outerColumns)
+    {
+        for (var i = 0; i < subquery.Tables.Count; i++)
+        {
+            var table = subquery.Tables[i].UnwrapJoin();
+
+            if (table is SelectExpression nestedSelect && nestedSelect.Predicate != null)
+            {
+                var (correlationPreds, otherPreds) = SplitPredicate(nestedSelect.Predicate, outerColumns);
+
+                if (correlationPreds.Count > 0)
+                {
+                    // Check if the remaining predicate has any outer column references
+                    if (otherPreds != null && ContainsAnyOuterColumnReference(otherPreds, outerColumns))
+                    {
+                        // Complex case - skip this nested table
+                        continue;
+                    }
+
+                    // We need to remap the inner columns from the nested table to the outer subquery's perspective
+                    // For example, if nested table has alias "w" and correlation is "outer.col = w.inner_col",
+                    // we need to create a column reference to "nestedAlias.inner_col" for the outer subquery.
+                    var remappedCorrelationPreds = new List<(ColumnExpression outer, SqlExpression inner)>();
+
+                    foreach (var (outerCol, innerExpr) in correlationPreds)
+                    {
+                        if (innerExpr is ColumnExpression innerCol)
+                        {
+                            // Find the projection in the nested select that exposes this column
+                            // The nested select might project this column with the same or different name
+                            var projectedColumn = FindProjectedColumn(nestedSelect, innerCol, table.Alias!);
+                            if (projectedColumn != null)
+                            {
+                                remappedCorrelationPreds.Add((outerCol, projectedColumn));
+                            }
+                            else
+                            {
+                                // The inner column is not projected by the nested select - can't use it
+                                // This can happen if the correlation column isn't in the SELECT list
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            // Complex inner expression - not supported yet
+                            continue;
+                        }
+                    }
+
+                    if (remappedCorrelationPreds.Count > 0)
+                    {
+                        return (remappedCorrelationPreds, nestedSelect, i);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds a column in the nested select's projection that corresponds to the given column.
+    /// Returns a ColumnExpression referencing the nested table's alias.
+    /// </summary>
+    private ColumnExpression? FindProjectedColumn(SelectExpression nestedSelect, ColumnExpression innerColumn, string nestedAlias)
+    {
+        foreach (var projection in nestedSelect.Projection)
+        {
+            if (projection.Expression is ColumnExpression projectedCol &&
+                projectedCol.TableAlias == innerColumn.TableAlias &&
+                projectedCol.Name == innerColumn.Name)
+            {
+                // Found the column in the projection - create a reference to it through the nested alias
+                return new ColumnExpression(
+                    projection.Alias,
+                    nestedAlias,
+                    innerColumn.Type,
+                    innerColumn.TypeMapping,
+                    nullable: innerColumn.IsNullable);
+            }
+        }
+
+        return null;
     }
 
     private static HashSet<string> CollectTableAliases(SelectExpression select)
