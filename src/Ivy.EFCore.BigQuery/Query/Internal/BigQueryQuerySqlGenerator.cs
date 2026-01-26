@@ -79,6 +79,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
                 BigQueryJsonTraversalExpression jsonTraversalExpression => VisitBigQueryJsonTraversal(jsonTraversalExpression),
                 BigQueryExtractExpression extractExpression => VisitBigQueryExtract(extractExpression),
+                BigQueryIntervalExpression intervalExpression => VisitBigQueryInterval(intervalExpression),
                 _ => base.VisitExtension(extensionExpression)
             };
         }
@@ -92,6 +93,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             Sql.Append(")");
 
             return extractExpression;
+        }
+
+        protected virtual Expression VisitBigQueryInterval(BigQueryIntervalExpression intervalExpression)
+        {
+            Sql.Append("INTERVAL ");
+            Visit(intervalExpression.Value);
+            Sql.Append(" ");
+            Sql.Append(intervalExpression.DatePart);
+
+            return intervalExpression;
         }
 
         /// <summary>

@@ -17,7 +17,6 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
 
     private static readonly bool[] TrueArrays1 = [true];
     private static readonly bool[] TrueArrays2 = [true, true];
-    private static readonly bool[] TrueArrays3 = [true, true, true];
 
     // DateTime Add
     private static readonly MethodInfo DateTime_AddYears = typeof(DateTime).GetRuntimeMethod(nameof(DateTime.AddYears), [typeof(int)])!;
@@ -150,13 +149,19 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
                 argumentsPropagateNullability: TrueArrays1,
                 typeof(TimeOnly));
 
+        // TimeOnly.Add(TimeSpan) - convert TimeSpan to microseconds
         if (method == TimeOnly_Add)
+        {
+            // TIME_ADD(time, INTERVAL value MICROSECOND)
+            // TimeSpan is stored as INT64 microseconds in BigQuery
+            var intervalExpression = CreateIntervalExpression(arguments[0], "MICROSECOND");
             return _sqlExpressionFactory.Function(
                 "TIME_ADD",
-                [instance!, _sqlExpressionFactory.Fragment($"INTERVAL"), arguments[0]],
+                [instance!, intervalExpression],
                 nullable: true,
                 argumentsPropagateNullability: TrueArrays2,
                 typeof(TimeOnly));
+        }
 
         if (method == TimeOnly_AddHours)
             return TimeAdd(instance!, arguments[0], "HOUR", typeof(TimeOnly));
@@ -181,9 +186,11 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             ? _sqlExpressionFactory.Convert(value, typeof(long))
             : value;
 
+        var intervalExpression = CreateIntervalExpression(intValue, part);
+
         return _sqlExpressionFactory.Function(
             "DATETIME_ADD",
-            [instance, _sqlExpressionFactory.Fragment($"INTERVAL"), intValue, _sqlExpressionFactory.Fragment(part)],
+            [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
             returnType);
@@ -196,9 +203,11 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             ? _sqlExpressionFactory.Convert(value, typeof(long))
             : value;
 
+        var intervalExpression = CreateIntervalExpression(intValue, part);
+
         return _sqlExpressionFactory.Function(
             "TIMESTAMP_ADD",
-            [instance, _sqlExpressionFactory.Fragment($"INTERVAL"), intValue, _sqlExpressionFactory.Fragment(part)],
+            [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
             returnType);
@@ -211,9 +220,11 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             ? _sqlExpressionFactory.Convert(value, typeof(long))
             : value;
 
+        var intervalExpression = CreateIntervalExpression(intValue, part);
+
         return _sqlExpressionFactory.Function(
             "DATE_ADD",
-            [instance, _sqlExpressionFactory.Fragment($"INTERVAL"), intValue, _sqlExpressionFactory.Fragment(part)],
+            [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
             returnType);
@@ -226,11 +237,24 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             ? _sqlExpressionFactory.Convert(value, typeof(long))
             : value;
 
+        var intervalExpression = CreateIntervalExpression(intValue, part);
+
         return _sqlExpressionFactory.Function(
             "TIME_ADD",
-            [instance, _sqlExpressionFactory.Fragment($"INTERVAL"), intValue, _sqlExpressionFactory.Fragment(part)],
+            [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
             returnType);
+    }
+
+    private BigQueryIntervalExpression CreateIntervalExpression(SqlExpression value, string datePart)
+    {
+        var int64TypeMapping = _typeMappingSource.FindMapping(typeof(long));
+
+        var mappedValue = value.TypeMapping == null
+            ? _sqlExpressionFactory.ApplyTypeMapping(value, int64TypeMapping)
+            : value;
+
+        return new BigQueryIntervalExpression(mappedValue, datePart, int64TypeMapping);
     }
 }
