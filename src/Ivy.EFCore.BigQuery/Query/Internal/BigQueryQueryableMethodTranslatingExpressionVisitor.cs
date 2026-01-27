@@ -79,24 +79,36 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
             Nullable.GetUnderlyingType(elementClrType) ?? elementClrType,  // Unwrap nullable
             elementTypeMapping,
             isElementNullable);
-  
+
+        var offsetTypeMapping = _typeMappingSource.FindMapping(typeof(long))!;
+
+        // Create initial offset column for identifier (will be recreated with actual alias for ordering)
         var offsetColumn = new ColumnExpression(
             "offset",
             tableAlias,
             typeof(long),
-            _typeMappingSource.FindMapping(typeof(long)),
+            offsetTypeMapping,
             nullable: false);
 
-        var offsetTypeMapping = _typeMappingSource.FindMapping(typeof(long))!;
         var selectExpression = new SelectExpression(
             new List<TableExpressionBase> { unnestExpression },
             valueColumn,
             identifier: new List<(ColumnExpression, ValueComparer)> { (offsetColumn, offsetTypeMapping.Comparer) },
             _queryCompilationContext.SqlAliasManager);
 
+        // Get the actual alias from the SelectExpression - SqlAliasManager may have uniquified it
+        // This ensures the ordering column references the correct table alias for TryExtractArray to work
+        var actualAlias = selectExpression.Tables[0].Alias!;
+        var orderingOffsetColumn = new ColumnExpression(
+            "offset",
+            actualAlias,
+            typeof(long),
+            offsetTypeMapping,
+            nullable: false);
+
         // Explicit ordering by offset to preserve array order
-        selectExpression.AppendOrdering(new OrderingExpression(offsetColumn, ascending: true));
-        
+        selectExpression.AppendOrdering(new OrderingExpression(orderingOffsetColumn, ascending: true));
+
         var shaperType = elementClrType.IsValueType && Nullable.GetUnderlyingType(elementClrType) == null
             ? typeof(Nullable<>).MakeGenericType(elementClrType)
             : elementClrType;
@@ -165,4 +177,5 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
 
         return base.TranslateElementAtOrDefault(source, index, returnDefault);
     }
+
 }
