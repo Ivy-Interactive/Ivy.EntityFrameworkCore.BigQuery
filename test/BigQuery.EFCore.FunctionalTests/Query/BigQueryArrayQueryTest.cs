@@ -174,7 +174,11 @@ WHERE ARRAY_LENGTH(`a`.`StringArray`) >= 3
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(0)] = 1
+WHERE (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) = 1
 """);
     }
 
@@ -186,7 +190,11 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(0)] = 1
+WHERE COALESCE((
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1), 0) = 1
 """);
     }
 
@@ -196,7 +204,11 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`StringArray`[OFFSET(0)] AS `First`
+SELECT `a`.`Id`, (
+    SELECT `s`
+    FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) AS `First`
 FROM `ArrayEntities` AS `a`
 """);
     }
@@ -209,7 +221,11 @@ FROM `ArrayEntities` AS `a`
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntList`[OFFSET(0)] = 1
+WHERE (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntList`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) = 1
 """);
     }
 
@@ -223,7 +239,15 @@ WHERE `a`.`IntList`[OFFSET(0)] = 1
 
         AssertSql(
             """
-SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Length`, `a`.`IntArray`[OFFSET(0)] AS `First`, `a`.`IntArray`[OFFSET(1)] AS `Second`, `a`.`StringArray`[OFFSET(0)] AS `StringFirst`
+SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Length`, (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) AS `First`, `a`.`IntArray`[OFFSET(1)] AS `Second`, (
+    SELECT `s`
+    FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) AS `StringFirst`
 FROM `ArrayEntities` AS `a`
 """);
     }
@@ -236,7 +260,11 @@ FROM `ArrayEntities` AS `a`
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND `a`.`IntArray`[OFFSET(0)] < 5
+WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) < 5
 """);
     }
 
@@ -246,11 +274,11 @@ WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND `a`.`IntArray`[OFFSET(0)] < 5
 
         AssertSql(
             """
-@__offset_0='1'
+@__p_0='1'
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(0 + @__offset_0)] = 2
+WHERE `a`.`IntArray`[OFFSET(@__p_0)] = 2
 """);
     }
 
@@ -262,7 +290,11 @@ WHERE `a`.`IntArray`[OFFSET(0 + @__offset_0)] = 2
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3 AND `a`.`StringArray`[OFFSET(0)] = 'apple'
+WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3 AND (
+    SELECT `s`
+    FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1) = 'apple'
 """);
     }
 
@@ -290,7 +322,11 @@ ORDER BY ARRAY_LENGTH(`a`.`IntArray`), `a`.`Id`
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-ORDER BY `a`.`IntArray`[OFFSET(0)], `a`.`Id`
+ORDER BY (
+    SELECT `i`
+    FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
+    ORDER BY `offset`
+    LIMIT 1), `a`.`Id`
 """);
     }
 
@@ -298,21 +334,11 @@ ORDER BY `a`.`IntArray`[OFFSET(0)], `a`.`Id`
 
     #region Subqueries
 
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with UNNEST")]
+    [MemberData(nameof(IsAsyncData))]
     public override async Task Array_in_scalar_subquery(bool async)
     {
         await base.Array_in_scalar_subquery(async);
-
-        AssertSql(
-            """
-SELECT `a`.`Id`, `a`.`ArrayEntities`
-FROM `ArrayContainers` AS `a`
-WHERE (
-    SELECT ARRAY_LENGTH(`a0`.`IntArray`)
-    FROM `ArrayEntities` AS `a0`
-    WHERE `a`.`Id` = `a0`.`ContainerId`
-    ORDER BY `a0`.`Id`
-    LIMIT 1) > 0
-""");
     }
 
     #endregion Subqueries

@@ -139,7 +139,7 @@ WHERE SUBSTR(`c`.`ContactName`, 1, 5) = 'Maria'
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (STRPOS(`c`.`ContactName`, 'a') - 1) = 1
+WHERE STRPOS(`c`.`ContactName`, 'a') - 1 = 1
 """);
         }
 
@@ -209,7 +209,7 @@ WHERE LENGTH(`c`.`ContactName`) > 10
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`Region` IS NULL) OR (`c`.`Region` = '')
+WHERE `c`.`Region` IS NULL OR `c`.`Region` = ''
 """);
         }
 
@@ -223,7 +223,7 @@ WHERE (`c`.`Region` IS NULL) OR (`c`.`Region` = '')
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE (`c`.`Region` IS NULL) OR (TRIM(`c`.`Region`) = '')
+WHERE `c`.`Region` IS NULL OR TRIM(`c`.`Region`) = ''
 """);
         }
 
