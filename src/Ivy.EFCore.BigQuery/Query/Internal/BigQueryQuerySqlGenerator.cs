@@ -276,19 +276,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 Sql.AppendLine().Append("LIMIT ");
                 Visit(selectExpression.Limit);
             }
+            else if (selectExpression.Offset != null)
+            {
+                // BigQuery requires LIMIT when OFFSET is used
+                // Use max INT64 value
+                Sql.AppendLine().Append("LIMIT 9223372036854775807");
+            }
 
             if (selectExpression.Offset != null)
             {
-                if (selectExpression.Limit == null)
-                {
-                    Sql.AppendLine();
-                }
-                else
-                {
-                    Sql.Append(" ");
-                }
-
-                Sql.Append("OFFSET ");
+                Sql.Append(" OFFSET ");
                 Visit(selectExpression.Offset);
             }
         }
