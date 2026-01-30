@@ -61,6 +61,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         }
                         return base.VisitSqlBinary(binary);
                     }
+                case ExpressionType.Modulo:
+                    {
+                        Sql.Append("MOD(");
+                        Visit(binary.Left);
+                        Sql.Append(", ");
+                        Visit(binary.Right);
+                        Sql.Append(")");
+                        return binary;
+                    }
                 default:
                     return base.VisitSqlBinary(binary);
             }
