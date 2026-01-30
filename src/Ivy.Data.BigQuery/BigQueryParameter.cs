@@ -172,7 +172,7 @@ namespace Ivy.Data.BigQuery
             Google.Cloud.BigQuery.V2.BigQueryDbType.DateTime => DbType.DateTime,
             Google.Cloud.BigQuery.V2.BigQueryDbType.Numeric => DbType.Decimal,
             Google.Cloud.BigQuery.V2.BigQueryDbType.BigNumeric => DbType.VarNumeric,
-            Google.Cloud.BigQuery.V2.BigQueryDbType.Geography => DbType.String, 
+            Google.Cloud.BigQuery.V2.BigQueryDbType.Geography => DbType.Object, 
             Google.Cloud.BigQuery.V2.BigQueryDbType.Json => DbType.String, // JSON string
             Google.Cloud.BigQuery.V2.BigQueryDbType.Struct => DbType.Object, 
             Google.Cloud.BigQuery.V2.BigQueryDbType.Array => DbType.Object,

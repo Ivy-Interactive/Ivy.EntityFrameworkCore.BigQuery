@@ -65,7 +65,7 @@ public class BigQueryGeographyTypeMapping : RelationalTypeMapping
                 jsonValueReaderWriter: jsonReaderWriter),
             storeType,
             StoreTypePostfix.None,
-            System.Data.DbType.String);
+            System.Data.DbType.Object);
     }
 
     /// <inheritdoc />
