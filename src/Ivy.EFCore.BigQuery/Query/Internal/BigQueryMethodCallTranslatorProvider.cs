@@ -21,6 +21,9 @@ public class BigQueryMethodCallTranslatorProvider : RelationalMethodCallTranslat
             new BigQueryDateTimeMethodTranslator(dependencies.SqlExpressionFactory, typeMappingSource),
             new BigQueryJsonDomTranslator(typeMappingSource, sqlExpressionFactory, model),
             new BigQueryJsonPocoTranslator(typeMappingSource, sqlExpressionFactory, model),
+            new BigQueryConvertTranslator(dependencies.SqlExpressionFactory),
+            new BigQueryRegexTranslator(dependencies.SqlExpressionFactory),
+            new BigQueryGuidTranslator(dependencies.SqlExpressionFactory),
         ]);
     }
 }
