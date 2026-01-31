@@ -118,12 +118,16 @@ public class BigQueryGeographyTypeMapping : RelationalTypeMapping
         var writeCall = Expression.Call(Expression.Constant(wktWriter), writeMethod, geometryParam);
         var toProviderLambda = Expression.Lambda(writeCall, geometryParam);
 
-        // Build: (string s) => (TGeometry)wktReader.Read(s)
+        // Build: (string s) => s == null ? null : (TGeometry)wktReader.Read(s)
         var stringParam = Expression.Parameter(typeof(string), "s");
         var readMethod = typeof(WKTReader).GetMethod(nameof(WKTReader.Read), new[] { typeof(string) })!;
         var readCall = Expression.Call(Expression.Constant(wktReader), readMethod, stringParam);
         var castRead = Expression.Convert(readCall, clrType);
-        var fromProviderLambda = Expression.Lambda(castRead, stringParam);
+        var nullCheck = Expression.Condition(
+            Expression.Equal(stringParam, Expression.Constant(null, typeof(string))),
+            Expression.Constant(null, clrType),
+            castRead);
+        var fromProviderLambda = Expression.Lambda(nullCheck, stringParam);
 
         var converterType = typeof(ValueConverter<,>).MakeGenericType(clrType, typeof(string));
         return (ValueConverter)Activator.CreateInstance(

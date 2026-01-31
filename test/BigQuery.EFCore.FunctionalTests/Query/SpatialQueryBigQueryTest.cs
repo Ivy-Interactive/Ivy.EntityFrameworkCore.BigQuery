@@ -134,7 +134,7 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-SELECT `p`.`Id`, ST_BUFFER(`p`.`Polygon`, 1.0) AS `Buffer`
+SELECT `p`.`Id`, ST_BUFFER(`p`.`Polygon`, 1) AS `Buffer`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -218,7 +218,7 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((-1 -1, 2 -1, 2 2, -1 2, -1 -1))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_COVEREDBY(`p`.`Point`, @__polygon_0) AS `CoveredBy`
 FROM `PointEntity` AS `p`
@@ -248,7 +248,7 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_DIFFERENCE(`p`.`Polygon`, @__polygon_0) AS `Difference`
 FROM `PolygonEntity` AS `p`
@@ -405,7 +405,7 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-SELECT `p`.`Id`, ST_GEOMETRYTYPE(`p`.`Point`) AS `GeometryType`
+SELECT `p`.`Id`, REPLACE(ST_GEOMETRYTYPE(`p`.`Point`), 'ST_', '') AS `GeometryType`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -450,7 +450,7 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_INTERSECTION(`p`.`Polygon`, @__polygon_0) AS `Intersection`
 FROM `PolygonEntity` AS `p`
@@ -523,7 +523,7 @@ FROM `LineStringEntity` AS `l`
             """
 @__point_0='POINT (0 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DWITHIN(`p`.`Point`, @__point_0, 1.0) AS `IsWithinDistance`
+SELECT `p`.`Id`, ST_DWITHIN(`p`.`Point`, @__point_0, 1) AS `IsWithinDistance`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -595,7 +595,7 @@ FROM `LineStringEntity` AS `l`
         // BigQuery doesn't have ST_OVERLAPS, implemented as ST_INTERSECTS && !ST_TOUCHES
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_INTERSECTS(`p`.`Polygon`, @__polygon_0) AND NOT (ST_TOUCHES(`p`.`Polygon`, @__polygon_0)) AS `Overlaps`
 FROM `PolygonEntity` AS `p`
@@ -638,7 +638,7 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_SYMMETRICDIFFERENCE(`p`.`Polygon`, @__polygon_0) AS `SymmetricDifference`
 FROM `PolygonEntity` AS `p`
@@ -687,7 +687,7 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 1, 1 0, 2 1, 1 2, 0 1))' (DbType = Object)
+@__polygon_0='POLYGON ((0 1, 1 0, 1 1, 0 1))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_TOUCHES(`p`.`Polygon`, @__polygon_0) AS `Touches`
 FROM `PolygonEntity` AS `p`
@@ -700,7 +700,7 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))' (DbType = Object)
+@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
 SELECT `p`.`Id`, ST_UNION(`p`.`Polygon`, @__polygon_0) AS `Union`
 FROM `PolygonEntity` AS `p`

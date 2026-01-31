@@ -73,91 +73,58 @@ public class BigQueryGeographyMethodTranslator : IMethodCallTranslator
             return null;
 
         var geometryMapping = _typeMappingSource.FindMapping(typeof(Geometry));
+        var pointMapping = _typeMappingSource.FindMapping(typeof(Point));
 
-        // Methods that return Geometry
-        if (method == Geometry_Buffer)
-            return Function("ST_BUFFER", [instance, arguments[0]], typeof(Geometry), geometryMapping);
-
-        if (method == Geometry_ConvexHull)
-            return Function("ST_CONVEXHULL", [instance], typeof(Geometry), geometryMapping);
-
-        if (method == Geometry_Copy)
-            return instance;
-
-        if (method == Geometry_Difference)
-            return Function("ST_DIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping);
-
-        if (method == Geometry_Intersection)
-            return Function("ST_INTERSECTION", [instance, arguments[0]], typeof(Geometry), geometryMapping);
-
-        if (method == Geometry_SymmetricDifference)
-            return Function("ST_SYMMETRICDIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping);
-
-        if (method == Geometry_Union)
-            return Function("ST_UNION", [instance, arguments[0]], typeof(Geometry), geometryMapping);
-
-        // Methods that return bool
-        if (method == Geometry_Contains)
-            return Function("ST_CONTAINS", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_CoveredBy)
-            return Function("ST_COVEREDBY", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_Covers)
-            return Function("ST_COVERS", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_Disjoint)
-            return Function("ST_DISJOINT", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_EqualsTopologically)
-            return Function("ST_EQUALS", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_Intersects)
-            return Function("ST_INTERSECTS", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_Overlaps)
-            // BQdoesn't have ST_OVERLAPS; use ST_INTERSECTS && !ST_TOUCHES
-            return _sqlExpressionFactory.AndAlso(
-                Function("ST_INTERSECTS", [instance, arguments[0]], typeof(bool), null),
-                _sqlExpressionFactory.Not(Function("ST_TOUCHES", [instance, arguments[0]], typeof(bool), null)));
-
-        if (method == Geometry_Touches)
-            return Function("ST_TOUCHES", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_Within)
-            return Function("ST_WITHIN", [instance, arguments[0]], typeof(bool), null);
-
-        if (method == Geometry_IsWithinDistance)
-            return Function("ST_DWITHIN", [instance, arguments[0], arguments[1]], typeof(bool), null);
-
-        // Methods that return double
-        if (method == Geometry_Distance)
-            return Function("ST_DISTANCE", [instance, arguments[0]], typeof(double), null);
-
-        // Methods that return byte[]
-        if (method == Geometry_AsBinary)
-            return Function("ST_ASBINARY", [instance], typeof(byte[]), null);
-
-        // Methods that return string
-        if (method == Geometry_AsText)
-            return Function("ST_ASTEXT", [instance], typeof(string), null);
-
-        // LineString.GetPointN - note: NTS uses 0-based, BigQuery uses 1-based indexing
-        if (method == LineString_GetPointN)
+        // Use method.Name matching for robustness (handles derived types like MultiLineString)
+        return method.Name switch
         {
-            var pointMapping = _typeMappingSource.FindMapping(typeof(Point));
-            var oneBasedIndex = _sqlExpressionFactory.Add(arguments[0], _sqlExpressionFactory.Constant(1));
-            return Function("ST_POINTN", [instance, oneBasedIndex], typeof(Point), pointMapping);
-        }
+            // Methods that return Geometry
+            nameof(Geometry.Buffer) => Function("ST_BUFFER", [instance, arguments[0]], typeof(Geometry), geometryMapping),
+            nameof(Geometry.ConvexHull) => Function("ST_CONVEXHULL", [instance], typeof(Geometry), geometryMapping),
+            nameof(Geometry.Copy) => instance,
+            nameof(Geometry.Difference) => Function("ST_DIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping),
+            nameof(Geometry.Intersection) => Function("ST_INTERSECTION", [instance, arguments[0]], typeof(Geometry), geometryMapping),
+            nameof(Geometry.SymmetricDifference) => Function("ST_SYMMETRICDIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping),
+            nameof(Geometry.Union) when arguments.Count == 1 => Function("ST_UNION", [instance, arguments[0]], typeof(Geometry), geometryMapping),
 
-        // GeometryCollection.GetGeometryN. NTS uses 0-based, BigQuery uses 1-based indexing
-        if (method == GeometryCollection_GetGeometryN)
-        {
-            var oneBasedIndex = _sqlExpressionFactory.Add(arguments[0], _sqlExpressionFactory.Constant(1));
-            return Function("ST_GEOMETRYN", [instance, oneBasedIndex], typeof(Geometry), geometryMapping);
-        }
+            // Methods that return bool
+            nameof(Geometry.Contains) => Function("ST_CONTAINS", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.CoveredBy) => Function("ST_COVEREDBY", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.Covers) => Function("ST_COVERS", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.Disjoint) => Function("ST_DISJOINT", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.EqualsTopologically) => Function("ST_EQUALS", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.Intersects) => Function("ST_INTERSECTS", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.Overlaps) =>
+                // BigQuery doesn't have ST_OVERLAPS; use ST_INTERSECTS && !ST_TOUCHES
+                _sqlExpressionFactory.AndAlso(
+                    Function("ST_INTERSECTS", [instance, arguments[0]], typeof(bool), null),
+                    _sqlExpressionFactory.Not(Function("ST_TOUCHES", [instance, arguments[0]], typeof(bool), null))),
+            nameof(Geometry.Touches) => Function("ST_TOUCHES", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.Within) => Function("ST_WITHIN", [instance, arguments[0]], typeof(bool), null),
+            nameof(Geometry.IsWithinDistance) => Function("ST_DWITHIN", [instance, arguments[0], arguments[1]], typeof(bool), null),
 
-        return null;
+            // Methods that return double
+            nameof(Geometry.Distance) => Function("ST_DISTANCE", [instance, arguments[0]], typeof(double), null),
+
+            // Methods that return byte[]
+            nameof(Geometry.AsBinary) or nameof(Geometry.ToBinary) => Function("ST_ASBINARY", [instance], typeof(byte[]), null),
+
+            // Methods that return string
+            nameof(Geometry.AsText) or nameof(Geometry.ToText) => Function("ST_ASTEXT", [instance], typeof(string), null),
+
+            // GetPointN - NTS uses 0-based, BigQuery uses 1-based indexing
+            nameof(LineString.GetPointN) => Function("ST_POINTN", [instance, OneBased(arguments[0])], typeof(Point), pointMapping),
+
+            // GetGeometryN - NTS uses 0-based, BigQuery uses 1-based indexing
+            nameof(GeometryCollection.GetGeometryN) => Function("ST_GEOMETRYN", [instance, OneBased(arguments[0])], typeof(Geometry), geometryMapping),
+
+            _ => null
+        };
+    }
+
+    private SqlExpression OneBased(SqlExpression index)
+    {
+        return _sqlExpressionFactory.Add(index, _sqlExpressionFactory.Constant(1));
     }
 
     private SqlExpression Function(string name, SqlExpression[] args, Type returnType, RelationalTypeMapping? typeMapping)

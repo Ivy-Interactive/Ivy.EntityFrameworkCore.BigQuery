@@ -20,6 +20,7 @@ public class BigQueryGeographyMemberTranslator : IMemberTranslator
     private readonly IRelationalTypeMappingSource _typeMappingSource;
 
     private static readonly bool[] TrueArrays1 = [true];
+    private static readonly bool[] TrueArrays3 = [true, true, true];
 
     // Geometry properties
     private static readonly MemberInfo Geometry_Area = typeof(Geometry).GetProperty(nameof(Geometry.Area))!;
@@ -81,10 +82,20 @@ public class BigQueryGeographyMemberTranslator : IMemberTranslator
             return Function("ST_CENTROID", instance, typeof(Point), pointMapping);
 
         if (Equals(member, Geometry_Dimension))
-            return Function("ST_DIMENSION", instance, typeof(int), null);
+            return Function("ST_DIMENSION", instance, typeof(Dimension), null);
 
         if (Equals(member, Geometry_GeometryType))
-            return Function("ST_GEOMETRYTYPE", instance, typeof(string), null);
+        {
+            // BigQuery returns "ST_Point", "ST_LineString", etc. but NTS expects "Point", "LineString"
+            // Use REPLACE to strip the "ST_" prefix
+            var stGeometryType = Function("ST_GEOMETRYTYPE", instance, typeof(string), null);
+            return _sqlExpressionFactory.Function(
+                "REPLACE",
+                new SqlExpression[] { stGeometryType, _sqlExpressionFactory.Constant("ST_"), _sqlExpressionFactory.Constant("") },
+                nullable: true,
+                argumentsPropagateNullability: TrueArrays3,
+                typeof(string));
+        }
 
         if (Equals(member, Geometry_IsEmpty))
             return Function("ST_ISEMPTY", instance, typeof(bool), null);
