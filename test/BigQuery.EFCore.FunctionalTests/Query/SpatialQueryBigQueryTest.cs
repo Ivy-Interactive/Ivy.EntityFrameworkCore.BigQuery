@@ -416,7 +416,7 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-SELECT `m`.`Id`, ST_GEOMETRYN(`m`.`MultiLineString`, 0 + 1) AS `Geometry0`
+SELECT `m`.`Id`, ST_DUMP(`m`.`MultiLineString`)[OFFSET(0)] AS `Geometry0`
 FROM `MultiLineStringEntity` AS `m`
 """);
     }
@@ -463,7 +463,7 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__lineString_0='LINESTRING (-0.5 -0.5, 0.5 0.5)' (DbType = Object)
+@__lineString_0='LINESTRING (0.5 -0.5, 0.5 0.5)' (DbType = Object)
 
 SELECT `l`.`Id`, ST_INTERSECTS(`l`.`LineString`, @__lineString_0) AS `Intersects`
 FROM `LineStringEntity` AS `l`
@@ -568,7 +568,7 @@ FROM `MultiLineStringEntity` AS `m`
 
         AssertSql(
             """
-SELECT `p`.`Id`, ST_NUMINTERIORRING(`p`.`Polygon`) AS `NumInteriorRings`
+SELECT `p`.`Id`, ARRAY_LENGTH(ST_INTERIORRINGS(`p`.`Polygon`)) AS `NumInteriorRings`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -640,7 +640,7 @@ FROM `LineStringEntity` AS `l`
             """
 @__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_SYMMETRICDIFFERENCE(`p`.`Polygon`, @__polygon_0) AS `SymmetricDifference`
+SELECT `p`.`Id`, ST_UNION(ST_DIFFERENCE(`p`.`Polygon`, @__polygon_0), ST_DIFFERENCE(@__polygon_0, `p`.`Polygon`)) AS `SymmetricDifference`
 FROM `PolygonEntity` AS `p`
 """);
     }
