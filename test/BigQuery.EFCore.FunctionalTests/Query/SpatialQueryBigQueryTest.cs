@@ -730,7 +730,16 @@ FROM `PointEntity` AS `p`
 
     public override async Task X(bool async)
     {
-        await base.X(async);
+        // BigQuery GEOGRAPHY has floating-point precision differences (e.g., 0.99999999999999978 vs 1)
+        await AssertQuery(
+            async,
+            ss => ss.Set<PointEntity>().Select(e => new { e.Id, X = e.Point == null ? (double?)null : e.Point.X }),
+            elementSorter: e => e.Id,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.Id, a.Id);
+                Assert.Equal(e.X ?? 0, a.X ?? 0, precision: 10);
+            });
 
         AssertSql(
             """
@@ -741,7 +750,16 @@ FROM `PointEntity` AS `p`
 
     public override async Task Y(bool async)
     {
-        await base.Y(async);
+        // BigQuery GEOGRAPHY has floating-point precision differences
+        await AssertQuery(
+            async,
+            ss => ss.Set<PointEntity>().Select(e => new { e.Id, Y = e.Point == null ? (double?)null : e.Point.Y }),
+            elementSorter: e => e.Id,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.Id, a.Id);
+                Assert.Equal(e.Y ?? 0, a.Y ?? 0, precision: 10);
+            });
 
         AssertSql(
             """
