@@ -1,0 +1,28 @@
+<Project>
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <EFCoreBigQueryNetTopologySuiteFile>$(IntermediateOutputPath)EFCoreBigQueryNetTopologySuite$(DefaultLanguageSourceExtension)</EFCoreBigQueryNetTopologySuiteFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CodeFragmentItemGroup>Compile</CodeFragmentItemGroup>
+  </PropertyGroup>
+  <Target Name="AddEFCoreBigQueryNetTopologySuite"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="PrepareForBuild"
+          Condition="'$(DesignTimeBuild)' != 'True'"
+          Inputs="$(MSBuildAllProjects)"
+          Outputs="$(EFCoreBigQueryNetTopologySuiteFile)">
+    <ItemGroup>
+      <EFCoreBigQueryNetTopologySuiteServices Include="Microsoft.EntityFrameworkCore.Design.DesignTimeServicesReferenceAttribute">
+        <_Parameter1>Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Design.Internal.BigQueryNetTopologySuiteDesignTimeServices, Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite</_Parameter1>
+        <_Parameter2>Ivy.EntityFrameworkCore.BigQuery</_Parameter2>
+      </EFCoreBigQueryNetTopologySuiteServices>
+    </ItemGroup>
+    <WriteCodeFragment AssemblyAttributes="@(EFCoreBigQueryNetTopologySuiteServices)"
+                       Language="$(Language)"
+                       OutputFile="$(EFCoreBigQueryNetTopologySuiteFile)">
+      <Output TaskParameter="OutputFile" ItemName="$(CodeFragmentItemGroup)" />
+      <Output TaskParameter="OutputFile" ItemName="FileWrites" />
+    </WriteCodeFragment>
+  </Target>
+</Project>

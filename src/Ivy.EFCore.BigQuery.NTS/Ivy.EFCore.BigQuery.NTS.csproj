@@ -21,6 +21,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.2" />
 		<PackageReference Include="NetTopologySuite" Version="2.5.0" />
 	</ItemGroup>
@@ -32,5 +33,9 @@
 
 	<ItemGroup>
 		<None Include="README.md" Pack="true" PackagePath="." Condition="Exists('README.md')" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="build\**\*" Pack="true" PackagePath="build\" />
 	</ItemGroup>
 </Project>
