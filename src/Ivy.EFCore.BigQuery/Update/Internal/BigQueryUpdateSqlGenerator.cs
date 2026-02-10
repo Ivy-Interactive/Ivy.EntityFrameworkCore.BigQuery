@@ -70,7 +70,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             string? schema,
             IReadOnlyList<IColumnModification> operations)
         {
-            var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
+            var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(o.TypeMapping));
 
             commandStringBuilder.Append("UPDATE ");
             SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, name, schema);
@@ -356,7 +356,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             bool hasStructColumn)
         {
             // If ANY column is a STRUCT, use literals for ALL columns
-            if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping)
+            if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(modification.TypeMapping))
             {
                 if (modification.Value != null)
                 {
@@ -414,7 +414,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
         {
             if (operations.Count > 0)
             {
-                var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
+                var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(o.TypeMapping));
 
                 // Note: AppendValuesHeader already adds "VALUES ", so we just add "("
                 commandStringBuilder.Append("(");
@@ -428,7 +428,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     }
 
                     // If ANY column is a STRUCT, use literals for ALL columns
-                    if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping)
+                    if (hasStructColumn || modification.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(modification.TypeMapping))
                     {
                         if (modification.Value != null)
                         {
@@ -554,7 +554,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             commandStringBuilder.Append("VALUES ");
 
             var hasStructColumn = modificationCommands.Any(cmd =>
-                cmd.ColumnModifications.Any(o => o.IsWrite && o.TypeMapping is BigQueryStructTypeMapping));
+                cmd.ColumnModifications.Any(o => o.IsWrite &&
+                    (o.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(o.TypeMapping))));
 
             for (var commandIndex = 0; commandIndex < modificationCommands.Count; commandIndex++)
             {
@@ -578,7 +579,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                     var columnModification = currentWriteOperations[i];
 
                     // If ANY command has a STRUCT, use literals for ALL values
-                    if (hasStructColumn || columnModification.TypeMapping is BigQueryStructTypeMapping)
+                    if (hasStructColumn || columnModification.TypeMapping is BigQueryStructTypeMapping || IsGeographyTypeMapping(columnModification.TypeMapping))
                     {
                         if (columnModification.IsWrite && columnModification.Value != null)
                         {
@@ -615,5 +616,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             return ResultSetMapping.NoResults;
         }
 
+        private static bool IsGeographyTypeMapping(RelationalTypeMapping? typeMapping)
+        {
+            return typeMapping?.StoreType?.Equals("GEOGRAPHY", StringComparison.OrdinalIgnoreCase) == true;
+        }
     }
 }
