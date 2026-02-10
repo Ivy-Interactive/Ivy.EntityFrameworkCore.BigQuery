@@ -26,7 +26,7 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
         [nameof(Convert.ToString)] = "STRING"
     };
 
-    private static readonly List<Type> SupportedTypes =
+    private static readonly List<Type> SupportedParameterTypes =
     [
         typeof(bool),
         typeof(byte),
@@ -37,7 +37,22 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
         typeof(long),
         typeof(short),
         typeof(string),
-        typeof(object)
+        typeof(object) // Convert.ToXxx(object) overloads
+    ];
+    
+    private static readonly HashSet<Type> ConvertibleTypes =
+    [
+        typeof(bool),
+        typeof(byte),
+        typeof(decimal),
+        typeof(double),
+        typeof(float),
+        typeof(int),
+        typeof(long),
+        typeof(short),
+        typeof(string),
+        typeof(DateTime),
+        typeof(DateTimeOffset)
     ];
 
     private static readonly List<MethodInfo> SupportedMethods
@@ -46,7 +61,7 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
                 t => typeof(Convert).GetTypeInfo().GetDeclaredMethods(t)
                     .Where(
                         m => m.GetParameters().Length == 1
-                            && SupportedTypes.Contains(m.GetParameters().First().ParameterType)))
+                            && SupportedParameterTypes.Contains(m.GetParameters().First().ParameterType)))
             .ToList();
 
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
@@ -61,7 +76,24 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
-        => SupportedMethods.Contains(method)
-            ? _sqlExpressionFactory.Convert(arguments[0], method.ReturnType)
-            : null;
+    {
+        if (!SupportedMethods.Contains(method))
+        {
+            return null;
+        }
+
+        var argument = arguments[0];
+        
+        // This prevents trying to convert types like TimeSpan that BigQuery can't handle
+        if (method.GetParameters()[0].ParameterType == typeof(object))
+        {
+            var actualType = argument.Type;
+            if (!ConvertibleTypes.Contains(actualType) && !actualType.IsEnum)
+            {
+                return null;
+            }
+        }
+
+        return _sqlExpressionFactory.Convert(argument, method.ReturnType);
+    }
 }
