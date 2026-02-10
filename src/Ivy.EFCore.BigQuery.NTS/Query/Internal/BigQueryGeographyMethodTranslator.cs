@@ -1,4 +1,5 @@
 using System.Reflection;
+using Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
@@ -84,7 +85,8 @@ public class BigQueryGeographyMethodTranslator : IMethodCallTranslator
             nameof(Geometry.Copy) => instance,
             nameof(Geometry.Difference) => Function("ST_DIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping),
             nameof(Geometry.Intersection) => Function("ST_INTERSECTION", [instance, arguments[0]], typeof(Geometry), geometryMapping),
-            nameof(Geometry.SymmetricDifference) => Function("ST_SYMMETRICDIFFERENCE", [instance, arguments[0]], typeof(Geometry), geometryMapping),
+            // BigQuery doesn't have ST_SYMMETRICDIFFERENCE, use ST_UNION(ST_DIFFERENCE(a, b), ST_DIFFERENCE(b, a))
+            nameof(Geometry.SymmetricDifference) => TranslateSymmetricDifference(instance, arguments[0], geometryMapping),
             nameof(Geometry.Union) when arguments.Count == 1 => Function("ST_UNION", [instance, arguments[0]], typeof(Geometry), geometryMapping),
 
             // Methods that return bool
@@ -115,11 +117,37 @@ public class BigQueryGeographyMethodTranslator : IMethodCallTranslator
             // GetPointN - NTS uses 0-based, BigQuery uses 1-based indexing
             nameof(LineString.GetPointN) => Function("ST_POINTN", [instance, OneBased(arguments[0])], typeof(Point), pointMapping),
 
-            // GetGeometryN - NTS uses 0-based, BigQuery uses 1-based indexing
-            nameof(GeometryCollection.GetGeometryN) => Function("ST_GEOMETRYN", [instance, OneBased(arguments[0])], typeof(Geometry), geometryMapping),
+            // GetGeometryN - BigQuery doesn't have ST_GEOMETRYN, use ST_DUMP with array access
+            // NTS uses 0-based indexing, BigQuery OFFSET is 0-based
+            nameof(GeometryCollection.GetGeometryN) => TranslateGetGeometryN(instance, arguments[0], geometryMapping),
 
             _ => null
         };
+    }
+
+    private SqlExpression TranslateSymmetricDifference(SqlExpression a, SqlExpression b, RelationalTypeMapping? geometryMapping)
+    {
+        // BigQuery doesn't have ST_SYMMETRICDIFFERENCE
+        var diffAB = Function("ST_DIFFERENCE", [a, b], typeof(Geometry), geometryMapping);
+        var diffBA = Function("ST_DIFFERENCE", [b, a], typeof(Geometry), geometryMapping);
+        return Function("ST_UNION", [diffAB, diffBA], typeof(Geometry), geometryMapping);
+    }
+
+    private SqlExpression TranslateGetGeometryN(SqlExpression instance, SqlExpression index, RelationalTypeMapping? geometryMapping)
+    {
+        // BigQuery: ST_DUMP(geog)[OFFSET(index)]
+        // ST_DUMP returns an array of geographies, use BigQueryArrayIndexExpression for array access
+        var stringMapping = _typeMappingSource.FindMapping(typeof(string));
+        var intMapping = _typeMappingSource.FindMapping(typeof(int));
+        var dump = _sqlExpressionFactory.Function(
+            "ST_DUMP",
+            new[] { instance },
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays1,
+            typeof(string),
+            stringMapping);
+        var typedIndex = _sqlExpressionFactory.ApplyTypeMapping(index, intMapping);
+        return new BigQueryArrayIndexExpression(dump, typedIndex, typeof(Geometry), geometryMapping);
     }
 
     private SqlExpression OneBased(SqlExpression index)

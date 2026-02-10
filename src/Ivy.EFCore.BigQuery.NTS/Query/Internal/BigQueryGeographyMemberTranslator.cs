@@ -22,33 +22,6 @@ public class BigQueryGeographyMemberTranslator : IMemberTranslator
     private static readonly bool[] TrueArrays1 = [true];
     private static readonly bool[] TrueArrays3 = [true, true, true];
 
-    // Geometry properties
-    private static readonly MemberInfo Geometry_Area = typeof(Geometry).GetProperty(nameof(Geometry.Area))!;
-    private static readonly MemberInfo Geometry_Centroid = typeof(Geometry).GetProperty(nameof(Geometry.Centroid))!;
-    private static readonly MemberInfo Geometry_Dimension = typeof(Geometry).GetProperty(nameof(Geometry.Dimension))!;
-    private static readonly MemberInfo Geometry_GeometryType = typeof(Geometry).GetProperty(nameof(Geometry.GeometryType))!;
-    private static readonly MemberInfo Geometry_IsEmpty = typeof(Geometry).GetProperty(nameof(Geometry.IsEmpty))!;
-    private static readonly MemberInfo Geometry_Length = typeof(Geometry).GetProperty(nameof(Geometry.Length))!;
-    private static readonly MemberInfo Geometry_NumGeometries = typeof(Geometry).GetProperty(nameof(Geometry.NumGeometries))!;
-    private static readonly MemberInfo Geometry_NumPoints = typeof(Geometry).GetProperty(nameof(Geometry.NumPoints))!;
-
-    // Point properties
-    private static readonly MemberInfo Point_X = typeof(Point).GetProperty(nameof(Point.X))!;
-    private static readonly MemberInfo Point_Y = typeof(Point).GetProperty(nameof(Point.Y))!;
-    private static readonly MemberInfo Point_Z = typeof(Point).GetProperty(nameof(Point.Z))!;
-    private static readonly MemberInfo Point_M = typeof(Point).GetProperty(nameof(Point.M))!;
-
-    // LineString properties
-    private static readonly MemberInfo LineString_StartPoint = typeof(LineString).GetProperty(nameof(LineString.StartPoint))!;
-    private static readonly MemberInfo LineString_EndPoint = typeof(LineString).GetProperty(nameof(LineString.EndPoint))!;
-    private static readonly MemberInfo LineString_IsClosed = typeof(LineString).GetProperty(nameof(LineString.IsClosed))!;
-    private static readonly MemberInfo LineString_IsRing = typeof(LineString).GetProperty(nameof(LineString.IsRing))!;
-    private static readonly MemberInfo LineString_NumPoints = typeof(LineString).GetProperty(nameof(LineString.NumPoints))!;
-
-    // Polygon properties
-    private static readonly MemberInfo Polygon_ExteriorRing = typeof(Polygon).GetProperty(nameof(Polygon.ExteriorRing))!;
-    private static readonly MemberInfo Polygon_NumInteriorRings = typeof(Polygon).GetProperty(nameof(Polygon.NumInteriorRings))!;
-
     public BigQueryGeographyMemberTranslator(
         ISqlExpressionFactory sqlExpressionFactory,
         IRelationalTypeMappingSource typeMappingSource)
@@ -67,84 +40,89 @@ public class BigQueryGeographyMemberTranslator : IMemberTranslator
             return null;
 
         var declaringType = member.DeclaringType;
+
+        // The declaring type is the interface, not a Geometry type, so handle before the type check
+        if (member.Name == "Count")
+        {
+            if (IsGeometryCollectionInstance(instance))
+                return Function("ST_NUMGEOMETRIES", instance, typeof(int), null);
+            if (IsLineStringInstance(instance))
+                return Function("ST_NUMPOINTS", instance, typeof(int), null);
+        }
+
         if (declaringType == null || !typeof(Geometry).IsAssignableFrom(declaringType))
             return null;
 
         var geometryMapping = _typeMappingSource.FindMapping(typeof(Geometry));
         var pointMapping = _typeMappingSource.FindMapping(typeof(Point));
         var lineStringMapping = _typeMappingSource.FindMapping(typeof(LineString));
-
-        // Geometry properties
-        if (Equals(member, Geometry_Area))
-            return Function("ST_AREA", instance, typeof(double), null);
-
-        if (Equals(member, Geometry_Centroid))
-            return Function("ST_CENTROID", instance, typeof(Point), pointMapping);
-
-        if (Equals(member, Geometry_Dimension))
-            return Function("ST_DIMENSION", instance, typeof(Dimension), null);
-
-        if (Equals(member, Geometry_GeometryType))
+        
+        return member.Name switch
         {
-            // BigQuery returns "ST_Point", "ST_LineString", etc. but NTS expects "Point", "LineString"
-            // Use REPLACE to strip the "ST_" prefix
-            var stGeometryType = Function("ST_GEOMETRYTYPE", instance, typeof(string), null);
-            return _sqlExpressionFactory.Function(
-                "REPLACE",
-                new SqlExpression[] { stGeometryType, _sqlExpressionFactory.Constant("ST_"), _sqlExpressionFactory.Constant("") },
-                nullable: true,
-                argumentsPropagateNullability: TrueArrays3,
-                typeof(string));
-        }
+            // Geometry properties
+            nameof(Geometry.Area) => Function("ST_AREA", instance, typeof(double), null),
+            nameof(Geometry.Centroid) => Function("ST_CENTROID", instance, typeof(Point), pointMapping),
+            nameof(Geometry.Dimension) => Function("ST_DIMENSION", instance, typeof(Dimension), null),
+            nameof(Geometry.GeometryType) => TranslateGeometryType(instance),
+            nameof(Geometry.IsEmpty) => Function("ST_ISEMPTY", instance, typeof(bool), null),
+            nameof(Geometry.Length) => Function("ST_LENGTH", instance, typeof(double), null),
+            nameof(Geometry.NumGeometries) => Function("ST_NUMGEOMETRIES", instance, typeof(int), null),
+            nameof(Geometry.NumPoints) => Function("ST_NUMPOINTS", instance, typeof(int), null),
+          
+            nameof(Point.X) when typeof(Point).IsAssignableFrom(declaringType)
+                => Function("ST_X", instance, typeof(double), null),
+            nameof(Point.Y) when typeof(Point).IsAssignableFrom(declaringType)
+                => Function("ST_Y", instance, typeof(double), null),            
 
-        if (Equals(member, Geometry_IsEmpty))
-            return Function("ST_ISEMPTY", instance, typeof(bool), null);
+            nameof(LineString.StartPoint) when typeof(LineString).IsAssignableFrom(declaringType)
+                => Function("ST_STARTPOINT", instance, typeof(Point), pointMapping),
+            nameof(LineString.EndPoint) when typeof(LineString).IsAssignableFrom(declaringType)
+                => Function("ST_ENDPOINT", instance, typeof(Point), pointMapping),
+            nameof(LineString.IsClosed) when typeof(LineString).IsAssignableFrom(declaringType)
+                => Function("ST_ISCLOSED", instance, typeof(bool), null),
+            nameof(LineString.IsRing) when typeof(LineString).IsAssignableFrom(declaringType)
+                => Function("ST_ISRING", instance, typeof(bool), null),
 
-        if (Equals(member, Geometry_Length))
-            return Function("ST_LENGTH", instance, typeof(double), null);
+            nameof(Polygon.ExteriorRing) when typeof(Polygon).IsAssignableFrom(declaringType)
+                => Function("ST_EXTERIORRING", instance, typeof(LineString), lineStringMapping),
+            nameof(Polygon.NumInteriorRings) when typeof(Polygon).IsAssignableFrom(declaringType)
+                => TranslateNumInteriorRings(instance),
 
-        if (Equals(member, Geometry_NumGeometries))
-            return Function("ST_NUMGEOMETRIES", instance, typeof(int), null);
+            _ => null
+        };
+    }
 
-        if (Equals(member, Geometry_NumPoints))
-            return Function("ST_NUMPOINTS", instance, typeof(int), null);
+    private SqlExpression TranslateNumInteriorRings(SqlExpression instance)
+    {
+        // BigQuery doesn't have ST_NUMINTERIORRING, use ARRAY_LENGTH(ST_INTERIORRINGS(geog))
+        // ST_INTERIORRINGS returns ARRAY<GEOGRAPHY>, use string type mapping as placeholder
+        var stringMapping = _typeMappingSource.FindMapping(typeof(string));
+        var interiorRings = _sqlExpressionFactory.Function(
+            "ST_INTERIORRINGS",
+            new[] { instance },
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays1,
+            typeof(string),
+            stringMapping);
+        return _sqlExpressionFactory.Function(
+            "ARRAY_LENGTH",
+            new SqlExpression[] { interiorRings },
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays1,
+            typeof(int));
+    }
 
-        // Point properties
-        if (Equals(member, Point_X))
-            return Function("ST_X", instance, typeof(double), null);
-
-        if (Equals(member, Point_Y))
-            return Function("ST_Y", instance, typeof(double), null);
-
-        // BigQuery doesn't support Z and M coordinates in geography mode
-        // Return null for these to let EF Core handle them client-side
-        if (Equals(member, Point_Z) || Equals(member, Point_M))
-            return null;
-
-        // LineString properties
-        if (Equals(member, LineString_StartPoint))
-            return Function("ST_STARTPOINT", instance, typeof(Point), pointMapping);
-
-        if (Equals(member, LineString_EndPoint))
-            return Function("ST_ENDPOINT", instance, typeof(Point), pointMapping);
-
-        if (Equals(member, LineString_IsClosed))
-            return Function("ST_ISCLOSED", instance, typeof(bool), null);
-
-        if (Equals(member, LineString_IsRing))
-            return Function("ST_ISRING", instance, typeof(bool), null);
-
-        if (Equals(member, LineString_NumPoints))
-            return Function("ST_NUMPOINTS", instance, typeof(int), null);
-
-        // Polygon properties
-        if (Equals(member, Polygon_ExteriorRing))
-            return Function("ST_EXTERIORRING", instance, typeof(LineString), lineStringMapping);
-
-        if (Equals(member, Polygon_NumInteriorRings))
-            return Function("ST_NUMINTERIORRING", instance, typeof(int), null);
-
-        return null;
+    private SqlExpression TranslateGeometryType(SqlExpression instance)
+    {
+        // BigQuery returns "ST_Point", "ST_LineString", etc. but NTS expects "Point", "LineString"
+        // Use REPLACE to strip the "ST_" prefix
+        var stGeometryType = Function("ST_GEOMETRYTYPE", instance, typeof(string), null);
+        return _sqlExpressionFactory.Function(
+            "REPLACE",
+            new SqlExpression[] { stGeometryType, _sqlExpressionFactory.Constant("ST_"), _sqlExpressionFactory.Constant("") },
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays3,
+            typeof(string));
     }
 
     private SqlExpression Function(string name, SqlExpression instance, Type returnType, RelationalTypeMapping? typeMapping)
@@ -156,5 +134,17 @@ public class BigQueryGeographyMemberTranslator : IMemberTranslator
             argumentsPropagateNullability: TrueArrays1,
             returnType,
             typeMapping);
+    }
+
+    private static bool IsGeometryCollectionInstance(SqlExpression instance)
+    {
+        var clrType = instance.TypeMapping?.ClrType;
+        return clrType != null && typeof(GeometryCollection).IsAssignableFrom(clrType);
+    }
+
+    private static bool IsLineStringInstance(SqlExpression instance)
+    {
+        var clrType = instance.TypeMapping?.ClrType;
+        return clrType != null && typeof(LineString).IsAssignableFrom(clrType);
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System.Data.Common;
 using System.Data;
 using Google.Cloud.BigQuery.V2;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 
 namespace Ivy.Data.BigQuery
 {
@@ -332,6 +334,13 @@ namespace Ivy.Data.BigQuery
             else if (apiValue is System.Text.Json.JsonDocument jsonDocument)
             {
                 apiValue = jsonDocument.RootElement.ToString();
+            }
+
+            else if (apiValue is Geometry geometry)
+            {
+                var wktWriter = new WKTWriter();
+                apiValue = wktWriter.Write(geometry);
+                type = Google.Cloud.BigQuery.V2.BigQueryDbType.Geography;
             }
 
             return new Google.Cloud.BigQuery.V2.BigQueryParameter(name, type.Value, apiValue);
