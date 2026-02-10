@@ -141,13 +141,19 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
                 argumentsPropagateNullability: TrueArrays1,
                 typeof(TimeOnly));
 
+        // TimeOnly.FromTimeSpan - TimeSpan is stored as INT64 microseconds
+        // Convert to TIME using TIME_ADD(TIME '00:00:00', INTERVAL value MICROSECOND)
         if (method == TimeOnly_FromTimeSpan)
+        {
+            var baseTime = _sqlExpressionFactory.Fragment("TIME '00:00:00'");
+            var intervalExpression = CreateIntervalExpression(arguments[0], "MICROSECOND");
             return _sqlExpressionFactory.Function(
-                "TIME",
-                [arguments[0]],
+                "TIME_ADD",
+                [baseTime, intervalExpression],
                 nullable: true,
-                argumentsPropagateNullability: TrueArrays1,
+                argumentsPropagateNullability: TrueArrays2,
                 typeof(TimeOnly));
+        }
 
         // TimeOnly.Add(TimeSpan) - convert TimeSpan to microseconds
         if (method == TimeOnly_Add)

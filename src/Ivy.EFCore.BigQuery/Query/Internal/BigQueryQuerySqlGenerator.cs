@@ -372,7 +372,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 Type t when t == typeof(DateTime) => "DATETIME",
                 Type t when t == typeof(DateOnly) => "DATE",
                 Type t when t == typeof(TimeOnly) => "TIME",
-                Type t when t == typeof(TimeSpan) => "TIME",
+                Type t when t == typeof(TimeSpan) => "INT64", // Microseconds
                 Type t when t == typeof(Guid) => null,
                 _ => null
             };

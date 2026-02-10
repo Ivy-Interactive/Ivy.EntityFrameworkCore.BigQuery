@@ -18,6 +18,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         private readonly BigQueryDateTimeTypeMapping _dateTime = new();
         private readonly BigQueryDateOnlyTypeMapping _date = new();
         private readonly BigQueryTimeOnlyTypeMapping _time = new();
+        private readonly BigQueryTimeSpanTypeMapping _timeSpan = new();
         private readonly BigQueryDecimalTypeMapping _decimal = new(); // BIGNUMERIC(57, 28)
         private readonly BigQueryNumericTypeMapping _numericDefault = new("NUMERIC");
         private readonly BigQueryBigNumericTypeMapping _bigNumericDefault = new("BIGNUMERIC");
@@ -84,6 +85,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 { typeof(DateOnly?), _date },
                 { typeof(TimeOnly), _time },
                 { typeof(TimeOnly?), _time },
+                { typeof(TimeSpan), _timeSpan },
+                { typeof(TimeSpan?), _timeSpan },
                 { typeof(decimal), _decimal },
                 { typeof(decimal?), _decimal },
                 { typeof(Guid), _guid },
