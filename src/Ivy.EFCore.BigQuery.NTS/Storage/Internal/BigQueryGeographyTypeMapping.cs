@@ -139,40 +139,13 @@ public class BigQueryGeographyTypeMapping : RelationalTypeMapping
 
     /// <summary>
     /// Creates a value comparer for the specified geometry CLR type.
+    /// Uses EF Core's built-in GeometryValueComparer which uses EqualsExact (not EqualsTopologically)
+    /// because EqualsTopologically throws for GeometryCollection types.
     /// </summary>
     private static ValueComparer CreateGeometryComparer(Type clrType)
     {
-        // Build: (left, right) => left == null ? right == null : right != null && left.EqualsTopologically(right)
-        var leftParam = Expression.Parameter(clrType, "left");
-        var rightParam = Expression.Parameter(clrType, "right");
-        var equalsMethod = typeof(Geometry).GetMethod(nameof(Geometry.EqualsTopologically), new[] { typeof(Geometry) })!;
-
-        var equalsExpr = Expression.Condition(
-            Expression.Equal(leftParam, Expression.Constant(null, clrType)),
-            Expression.Equal(rightParam, Expression.Constant(null, clrType)),
-            Expression.AndAlso(
-                Expression.NotEqual(rightParam, Expression.Constant(null, clrType)),
-                Expression.Call(leftParam, equalsMethod, rightParam)));
-        var equalsLambda = Expression.Lambda(equalsExpr, leftParam, rightParam);
-
-        // Build: geometry => geometry.GetHashCode()
-        var hashParam = Expression.Parameter(clrType, "geometry");
-        var getHashCodeMethod = typeof(object).GetMethod(nameof(GetHashCode))!;
-        var hashCall = Expression.Call(hashParam, getHashCodeMethod);
-        var hashLambda = Expression.Lambda(hashCall, hashParam);
-
-        // Build: geometry => (TGeometry)geometry.Copy()
-        var snapshotParam = Expression.Parameter(clrType, "geometry");
-        var copyMethod = typeof(Geometry).GetMethod(nameof(Geometry.Copy))!;
-        var copyCall = Expression.Convert(Expression.Call(snapshotParam, copyMethod), clrType);
-        var snapshotLambda = Expression.Lambda(copyCall, snapshotParam);
-
-        var comparerType = typeof(ValueComparer<>).MakeGenericType(clrType);
-        return (ValueComparer)Activator.CreateInstance(
-            comparerType,
-            equalsLambda,
-            hashLambda,
-            snapshotLambda)!;
+        var comparerType = typeof(GeometryValueComparer<>).MakeGenericType(clrType);
+        return (ValueComparer)Activator.CreateInstance(comparerType)!;
     }
 
     /// <summary>
