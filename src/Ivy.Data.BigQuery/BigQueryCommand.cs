@@ -147,7 +147,7 @@ namespace Ivy.Data.BigQuery
             var client = GetClientAndCheckState();
             LogCommand();
             var queryOptions = CreateQueryOptions();
-            var bqParameters = Parameters.ToBigQueryParameters();
+            var bqParameters = Parameters.ToBigQueryParameters(CommandText);
 
             CancellationTokenSource internalCts;
             lock (this)
@@ -230,7 +230,7 @@ namespace Ivy.Data.BigQuery
             var client = GetClientAndCheckState();
             LogCommand();
             var queryOptions = CreateQueryOptions();
-            var bqParameters = Parameters.ToBigQueryParameters();
+            var bqParameters = Parameters.ToBigQueryParameters(CommandText);
 
             CancellationTokenSource internalCts;
             lock (this) 

@@ -334,7 +334,117 @@ namespace Ivy.Data.BigQuery
                 apiValue = jsonDocument.RootElement.ToString();
             }
 
+            // BQ client accepts List<Dictionary<string, object>>
+            else if (apiValue is System.Collections.IEnumerable enumerable
+                     && apiValue is not string
+                     && apiValue is not byte[]
+                     && apiValue is not System.Collections.IDictionary)
+            {
+                var elementType = GetEnumerableElementType(apiValue.GetType());
+                if (elementType != null && !IsPrimitiveType(elementType))
+                {
+                    var convertedList = new List<Dictionary<string, object>>();
+                    foreach (var element in enumerable)
+                    {
+                        if (element == null)
+                        {
+                            convertedList.Add(null!);
+                        }
+                        else
+                        {
+                            var dict = ConvertObjectToDict(element);
+                            convertedList.Add(dict);
+                        }
+                    }
+                    apiValue = convertedList;
+                }
+            }
+
             return new Google.Cloud.BigQuery.V2.BigQueryParameter(name, type.Value, apiValue);
+        }
+
+        private static Type? GetEnumerableElementType(Type type)
+        {
+            if (type.IsArray)
+                return type.GetElementType();
+
+            var iEnumerableType = type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            if (iEnumerableType != null)
+                return iEnumerableType.GetGenericArguments()[0];
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                return type.GetGenericArguments()[0];
+
+            return null;
+        }
+
+        private static bool IsPrimitiveType(Type type)
+        {
+            if (type == null)
+                return false;
+
+            var underlyingType = Nullable.GetUnderlyingType(type);
+            if (underlyingType != null)
+                type = underlyingType;
+
+            return type.IsPrimitive
+                   || type == typeof(string)
+                   || type == typeof(decimal)
+                   || type == typeof(DateTime)
+                   || type == typeof(DateTimeOffset)
+                   || type == typeof(DateOnly)
+                   || type == typeof(TimeOnly)
+                   || type == typeof(TimeSpan)
+                   || type == typeof(Guid)
+                   || type == typeof(byte[])
+                   || type == typeof(BigQueryNumeric);
+        }
+
+        private static Dictionary<string, object> ConvertObjectToDict(object value)
+        {
+            var dict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var valueType = value.GetType();
+
+            foreach (var property in valueType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            {
+                if (!property.CanRead)
+                    continue;
+
+                var propValue = property.GetValue(value);
+
+                if (propValue != null && !IsPrimitiveType(property.PropertyType))
+                {
+                    // Nested struct
+                    if (!typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType)
+                        || property.PropertyType == typeof(string))
+                    {
+                        propValue = ConvertObjectToDict(propValue);
+                    }
+                    // Nested arrays of structs
+                    else if (propValue is System.Collections.IEnumerable nestedEnumerable && propValue is not string)
+                    {
+                        var nestedElementType = GetEnumerableElementType(property.PropertyType);
+                        if (nestedElementType != null && !IsPrimitiveType(nestedElementType))
+                        {
+                            var nestedList = new List<Dictionary<string, object>>();
+                            foreach (var nestedElement in nestedEnumerable)
+                            {
+                                if (nestedElement == null)
+                                    nestedList.Add(null!);
+                                else
+                                    nestedList.Add(ConvertObjectToDict(nestedElement));
+                            }
+                            propValue = nestedList;
+                        }
+                    }
+                }
+
+                dict[property.Name] = propValue!;
+            }
+
+            return dict;
         }
     }
 }

@@ -211,7 +211,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             var sb = new StringBuilder();
 
             sb.Append("ARRAY<");
-            sb.Append(ElementTypeMapping.StoreType);
+            // Use base type for literal construction (BigQuery doesn't allow parameterized types in literals)
+            sb.Append(GetBaseType(ElementTypeMapping.StoreType));
             sb.Append(">[");
 
             var isFirst = true;
@@ -237,6 +238,37 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             {
                 bqParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
             }
+        }
+
+        /// <summary>
+        /// Gets the base type without precision/scale parameters.
+        /// BigQuery doesn't allow parameterized types like BIGNUMERIC(57, 28) in literal value construction.
+        /// </summary>
+        private static string GetBaseType(string storeType)
+        {
+            if (string.IsNullOrEmpty(storeType))
+                return storeType;
+
+            // Handle nested STRUCT or ARRAY types - need to recursively strip parameterized types
+            if (storeType.StartsWith("STRUCT<", StringComparison.OrdinalIgnoreCase))
+            {
+                // For STRUCT types, the struct type mapping already handles this
+                return storeType;
+            }
+
+            if (storeType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase))
+            {
+                return storeType;
+            }
+
+            // Strip precision/scale from types like BIGNUMERIC(57, 28), NUMERIC(38, 9), STRING(100)
+            var parenIndex = storeType.IndexOf('(');
+            if (parenIndex > 0)
+            {
+                return storeType.Substring(0, parenIndex);
+            }
+
+            return storeType;
         }
     }
 }
