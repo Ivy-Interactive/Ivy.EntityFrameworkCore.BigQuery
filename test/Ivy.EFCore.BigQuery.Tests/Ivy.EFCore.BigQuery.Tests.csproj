@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
+    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
     <ProjectReference Include="..\BigQuery.EFCore.FunctionalTests\Ivy.EFCore.BigQuery.FunctionalTests.csproj" />
     <ProjectReference Include="..\Ivy.EFCore.BigQuery.Conformance.Tests\Ivy.Data.BigQuery.Conformance.Tests.csproj" />
   </ItemGroup>

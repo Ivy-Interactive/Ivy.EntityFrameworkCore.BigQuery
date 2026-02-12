@@ -155,6 +155,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 return null;
             }
 
+            if (clrType != null && IsNetTopologySuiteType(clrType))
+            {
+                return null;
+            }
+
             if (clrType != null && IsOwnedEntityType(clrType))
             {
                 var fields = ExtractFieldsFromClrType(clrType);
@@ -204,9 +209,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
             }
 
             // CLR array/collection types
+            // Exclude NTS geometry types - they're handled by the NTS plugin (GeometryCollection implements IEnumerable<Geometry>)
             if (clrType != null &&
                 clrType != typeof(string) &&
-                clrType != typeof(byte[])) // byte[] is BYTES, not ARRAY<INT64>
+                clrType != typeof(byte[]) &&
+                !IsNetTopologySuiteType(clrType)) // byte[] is BYTES, not ARRAY<INT64>
             {
                 var elementType = TryGetElementType(clrType);
                 if (elementType != null)
@@ -496,6 +503,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 
             var structAttr = type.GetCustomAttributes(typeof(Metadata.BigQueryStructAttribute), true);
             return structAttr.Length > 0;
+        }
+
+        /// <summary>
+        /// Check if a type is from NetTopologySuite (geometry types).
+        /// These are handled by the NTS plugin and should not be treated as STRUCTs.
+        /// </summary>
+        private static bool IsNetTopologySuiteType(Type type)
+        {
+            var ns = type.Namespace;
+            return ns != null && ns.StartsWith("NetTopologySuite.Geometries", StringComparison.Ordinal);
         }
 
         private IReadOnlyList<BigQueryStructTypeMapping.StructFieldInfo> ExtractFieldsFromClrType(Type clrType)

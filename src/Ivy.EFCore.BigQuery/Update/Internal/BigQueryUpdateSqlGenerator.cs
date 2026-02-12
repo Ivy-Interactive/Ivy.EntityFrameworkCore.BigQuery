@@ -13,7 +13,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 
         /// <summary>
         /// Determines if a type mapping requires literal values instead of parameters.
-        /// Needed for STRUCT and ARRAY&lt;STRUCT&gt; types because the BQ SDK doesn't support STRUCT parameters
+        /// Needed for STRUCT, ARRAY&lt;STRUCT&gt;, and GEOGRAPHY types because the BQ SDK
+        /// doesn't support STRUCT parameters and GEOGRAPHY needs WKT conversion.
         /// </summary>
         private static bool RequiresLiteralValue(RelationalTypeMapping? typeMapping)
         {
@@ -23,6 +24,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             // ARRAY<STRUCT>
             if (typeMapping is BigQueryArrayTypeMapping arrayMapping
                 && arrayMapping.ElementTypeMapping is BigQueryStructTypeMapping)
+                return true;
+
+            // GEOGRAPHY types need literal WKT strings
+            if (typeMapping?.StoreType?.Equals("GEOGRAPHY", StringComparison.OrdinalIgnoreCase) == true)
                 return true;
 
             return false;
@@ -372,8 +377,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             IColumnModification modification,
             bool hasStructColumn)
         {
-            // If ANY column is a STRUCT or ARRAY<STRUCT>, use literals for ALL columns
-            // (Google BigQuery SDK doesn't support STRUCT parameters)
+            // If ANY column is a STRUCT, ARRAY<STRUCT>, or GEOGRAPHY, use literals for ALL columns
+            // (Google BigQuery SDK doesn't support STRUCT parameters, GEOGRAPHY needs WKT)
             if (hasStructColumn || RequiresLiteralValue(modification.TypeMapping))
             {
                 if (modification.Value != null)
@@ -445,8 +450,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                         commandStringBuilder.Append(", ");
                     }
 
-                    // If ANY column is a STRUCT or ARRAY<STRUCT>, use literals for ALL columns
-                    // (Google BigQuery SDK doesn't support STRUCT parameters)
+                    // If ANY column is a STRUCT, ARRAY<STRUCT>, or GEOGRAPHY, use literals for ALL columns
                     if (hasStructColumn || RequiresLiteralValue(modification.TypeMapping))
                     {
                         if (modification.Value != null)
@@ -596,8 +600,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 
                     var columnModification = currentWriteOperations[i];
 
-                    // If ANY command has a STRUCT or ARRAY<STRUCT>, use literals for ALL values
-                    // (Google BigQuery SDK doesn't support STRUCT parameters)
+                    // If ANY command has a STRUCT, ARRAY<STRUCT>, or GEOGRAPHY, use literals for ALL values
                     if (hasStructColumn || RequiresLiteralValue(columnModification.TypeMapping))
                     {
                         if (columnModification.IsWrite && columnModification.Value != null)
@@ -635,5 +638,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             return ResultSetMapping.NoResults;
         }
 
+        private static bool IsGeographyTypeMapping(RelationalTypeMapping? typeMapping)
+        {
+            return typeMapping?.StoreType?.Equals("GEOGRAPHY", StringComparison.OrdinalIgnoreCase) == true;
+        }
     }
 }

@@ -124,12 +124,13 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             {
                 _pendingBulkInsertCommands.Add(modificationCommand);
 
-                // Only add parameters if there are no STRUCT columns
-                // (SQL generator will use literals for all columns when STRUCTs are present)
-                var hasStructColumn = modificationCommand.ColumnModifications
-                    .Any(c => c.TypeMapping is BigQueryStructTypeMapping);
+                // Only add parameters if there are no STRUCT or GEOGRAPHY columns
+                // (SQL generator will use literals for all columns when these types are present)
+                var hasSpecialColumn = modificationCommand.ColumnModifications
+                    .Any(c => c.TypeMapping is BigQueryStructTypeMapping
+                              || IsGeographyTypeMapping(c.TypeMapping));
 
-                if (!hasStructColumn)
+                if (!hasSpecialColumn)
                 {
                     AddParameters(modificationCommand);
                 }
@@ -138,6 +139,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
             {
                 base.AddCommand(modificationCommand);
             }
+        }
+
+        private static bool IsGeographyTypeMapping(Microsoft.EntityFrameworkCore.Storage.RelationalTypeMapping? typeMapping)
+        {
+            return typeMapping?.StoreType?.Equals("GEOGRAPHY", StringComparison.OrdinalIgnoreCase) == true;
         }
 
         private static bool CanBeInsertedInSameStatement(

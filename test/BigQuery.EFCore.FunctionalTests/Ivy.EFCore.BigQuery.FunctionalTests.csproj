@@ -45,6 +45,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
     <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
+    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
   </ItemGroup>
 
   <ItemGroup>

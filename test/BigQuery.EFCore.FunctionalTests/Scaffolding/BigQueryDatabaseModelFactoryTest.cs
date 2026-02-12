@@ -1,5 +1,6 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.Design.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Diagnostics;
+using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Design.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NetTopologySuite.Geometries;
 using System.Diagnostics;
 
 #pragma warning disable EF1001 // Internal EF Core API usage.
@@ -380,6 +382,86 @@ CREATE TABLE JsonTable (
                 Assert.True((bool?)settingsCol["BigQuery:IsJsonColumn"] ?? false);
             },
             "DROP TABLE JsonTable;");
+
+    #endregion
+
+    #region Geography
+
+    [ConditionalFact]
+    public void Create_geography_columns()
+        => TestWithNts(
+            @"
+CREATE TABLE GeographyTable (
+    Id INT64 NOT NULL,
+    Location GEOGRAPHY,
+    Area GEOGRAPHY NOT NULL
+);",
+            Enumerable.Empty<string>(),
+            Enumerable.Empty<string>(),
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                Assert.Equal("GeographyTable", table.Name);
+                Assert.Equal(3, table.Columns.Count);
+
+                var idCol = table.Columns.Single(c => c.Name == "Id");
+                Assert.Equal("INT64", idCol.StoreType);
+                Assert.False(idCol.IsNullable);
+
+                var locationCol = table.Columns.Single(c => c.Name == "Location");
+                Assert.Equal("GEOGRAPHY", locationCol.StoreType);
+                Assert.True(locationCol.IsNullable);
+
+                var areaCol = table.Columns.Single(c => c.Name == "Area");
+                Assert.Equal("GEOGRAPHY", areaCol.StoreType);
+                Assert.False(areaCol.IsNullable);
+            },
+            "DROP TABLE GeographyTable;");
+
+    private void TestWithNts(
+        string createSql,
+        IEnumerable<string> tables,
+        IEnumerable<string> schemas,
+        Action<DatabaseModel> asserter,
+        string cleanupSql)
+    {
+        Fixture.TestStore.ExecuteNonQuery(createSql);
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<TypeMappingSourceDependencies>()
+                .AddSingleton<RelationalTypeMappingSourceDependencies>()
+                .AddSingleton<ValueConverterSelectorDependencies>()
+                .AddSingleton<DiagnosticSource>(new DiagnosticListener(DbLoggerCategory.Name))
+                .AddSingleton<ILoggingOptions, LoggingOptions>()
+                .AddSingleton<LoggingDefinitions, BigQueryLoggingDefinitions>()
+                .AddSingleton(typeof(IDiagnosticsLogger<>), typeof(DiagnosticsLogger<>))
+                .AddSingleton<IValueConverterSelector, ValueConverterSelector>()
+                .AddSingleton<ILoggerFactory>(Fixture.ListLoggerFactory)
+                .AddSingleton<IDbContextLogger, NullDbContextLogger>();
+
+            new BigQueryDesignTimeServices().ConfigureDesignTimeServices(services);
+            new BigQueryNetTopologySuiteDesignTimeServices().ConfigureDesignTimeServices(services);
+
+            var databaseModelFactory = services
+                .BuildServiceProvider()
+                .GetRequiredService<IDatabaseModelFactory>();
+
+            var databaseModel = databaseModelFactory.Create(
+                Fixture.TestStore.ConnectionString,
+                new DatabaseModelFactoryOptions(tables, schemas));
+            Assert.NotNull(databaseModel);
+            asserter(databaseModel);
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(cleanupSql))
+            {
+                Fixture.TestStore.ExecuteNonQuery(cleanupSql);
+            }
+        }
+    }
 
     #endregion
 

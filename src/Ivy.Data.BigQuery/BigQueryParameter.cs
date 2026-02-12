@@ -1,6 +1,8 @@
 ﻿using System.Data.Common;
 using System.Data;
 using Google.Cloud.BigQuery.V2;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 
 namespace Ivy.Data.BigQuery
 {
@@ -172,7 +174,7 @@ namespace Ivy.Data.BigQuery
             Google.Cloud.BigQuery.V2.BigQueryDbType.DateTime => DbType.DateTime,
             Google.Cloud.BigQuery.V2.BigQueryDbType.Numeric => DbType.Decimal,
             Google.Cloud.BigQuery.V2.BigQueryDbType.BigNumeric => DbType.VarNumeric,
-            Google.Cloud.BigQuery.V2.BigQueryDbType.Geography => DbType.String, 
+            Google.Cloud.BigQuery.V2.BigQueryDbType.Geography => DbType.Object, 
             Google.Cloud.BigQuery.V2.BigQueryDbType.Json => DbType.String, // JSON string
             Google.Cloud.BigQuery.V2.BigQueryDbType.Struct => DbType.Object, 
             Google.Cloud.BigQuery.V2.BigQueryDbType.Array => DbType.Object,
@@ -334,7 +336,17 @@ namespace Ivy.Data.BigQuery
                 apiValue = jsonDocument.RootElement.ToString();
             }
 
-            // BQ client accepts List<Dictionary<string, object>>
+            // Handle NTS Geometry types - convert to WKT string for GEOGRAPHY
+            // Note: Must come before IEnumerable check since Geometry implements IEnumerable
+            else if (apiValue is Geometry geometry)
+            {
+                var wktWriter = new WKTWriter();
+                apiValue = wktWriter.Write(geometry);
+                type = Google.Cloud.BigQuery.V2.BigQueryDbType.Geography;
+            }
+
+            // Handle arrays of custom objects (ARRAY<STRUCT>)
+            // The BigQuery SDK doesn't accept List<CustomType>, but it accepts List<Dictionary<string, object>>
             else if (apiValue is System.Collections.IEnumerable enumerable
                      && apiValue is not string
                      && apiValue is not byte[]
