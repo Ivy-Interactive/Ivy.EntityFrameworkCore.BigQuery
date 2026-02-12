@@ -1,5 +1,4 @@
 using Ivy.EntityFrameworkCore.BigQuery.TestModels.Struct;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit.Abstractions;
 
@@ -7,11 +6,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 /// <summary>
 /// Base test class for STRUCT type queries.
-/// Tests cover: STRUCT field access in filters, projections, and ordering.
-///
-/// Note: Full STRUCT materialization (reading an entire STRUCT column back to a CLR type)
-/// is not yet supported. BigQuery returns STRUCTs as Dictionary&lt;string, object&gt; but
-/// the DataReader doesn't apply the ValueConverter to convert to the target CLR type.
+/// Tests cover: STRUCT field access in filters, projections, ordering, and full STRUCT materialization.
 /// </summary>
 public abstract class StructQueryTest<TFixture> : QueryTestBase<TFixture>
     where TFixture : StructQueryFixture, new()
@@ -137,6 +132,28 @@ public abstract class StructQueryTest<TFixture> : QueryTestBase<TFixture>
     //         ss => ss.Set<CustomerEntity>()
     //             .Where(e => e.Contact != null && e.Contact.Phone == null)
     //             .Select(e => e.Id));
+
+    #endregion
+
+    #region Full STRUCT Materialization
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public virtual Task Project_entire_struct_column(bool async)
+        => AssertQuery(
+            async,
+            ss => ss.Set<PersonEntity>()
+                .Where(e => e.HomeAddress != null)
+                .Select(e => new { e.Name, e.HomeAddress }),
+            elementSorter: e => e.Name,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.Name, a.Name);
+                Assert.NotNull(a.HomeAddress);
+                Assert.Equal(e.HomeAddress!.Street, a.HomeAddress!.Street);
+                Assert.Equal(e.HomeAddress.City, a.HomeAddress.City);
+                Assert.Equal(e.HomeAddress.ZipCode, a.HomeAddress.ZipCode);
+            });
 
     #endregion
 

@@ -4,10 +4,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 /// <summary>
 /// BigQuery-specific tests for STRUCT types.
-/// Verifies SQL generation for STRUCT field access and nested STRUCTs.
-///
-/// Note: Full STRUCT materialization is not yet supported - these tests only
-/// verify projections of individual STRUCT fields, not entire STRUCT columns.
+/// Verifies SQL generation for STRUCT field access, nested STRUCTs, and full STRUCT materialization.
 /// </summary>
 public class BigQueryStructQueryTest(
     BigQueryStructQueryTest.BigQueryStructQueryFixture fixture,
@@ -100,6 +97,22 @@ WHERE `p`.`HomeAddress` IS NOT NULL AND (`p`.`HomeAddress`.`Street` LIKE '%Main%
 SELECT `p`.`Id`
 FROM `People` AS `p`
 WHERE `p`.`HomeAddress` IS NOT NULL AND (`p`.`HomeAddress`.`ZipCode` LIKE '98%')
+""");
+    }
+
+    #endregion
+
+    #region Full STRUCT Materialization
+
+    public override async Task Project_entire_struct_column(bool async)
+    {
+        await base.Project_entire_struct_column(async);
+
+        AssertSql(
+            """
+SELECT `p`.`Name`, `p`.`HomeAddress`
+FROM `People` AS `p`
+WHERE `p`.`HomeAddress` IS NOT NULL
 """);
     }
 
