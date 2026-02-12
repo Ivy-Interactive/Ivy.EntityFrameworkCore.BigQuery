@@ -132,26 +132,73 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
                     argumentsPropagateNullability: TrueArrays1,
                     typeof(DateTime)),
 
-            // TimeSpan properties
+            // TimeSpan properties - TimeSpan is stored as INT64 microseconds
+            // Hours component (0-23): (microseconds / 3600000000) MOD 24
             nameof(TimeSpan.Hours) when declaringType == typeof(TimeSpan)
-                => Extract(instance, "HOUR", returnType),
+                => _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Modulo(
+                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(3600000000L)),
+                        _sqlExpressionFactory.Constant(24L)),
+                    returnType),
+            // Minutes component (0-59): (microseconds / 60000000) MOD 60
             nameof(TimeSpan.Minutes) when declaringType == typeof(TimeSpan)
-                => Extract(instance, "MINUTE", returnType),
+                => _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Modulo(
+                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(60000000L)),
+                        _sqlExpressionFactory.Constant(60L)),
+                    returnType),
+            // Seconds component (0-59): (microseconds / 1000000) MOD 60
             nameof(TimeSpan.Seconds) when declaringType == typeof(TimeSpan)
-                => Extract(instance, "SECOND", returnType),
+                => _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Modulo(
+                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(1000000L)),
+                        _sqlExpressionFactory.Constant(60L)),
+                    returnType),
+            // Milliseconds component (0-999): (microseconds / 1000) MOD 1000
             nameof(TimeSpan.Milliseconds) when declaringType == typeof(TimeSpan)
-                => ExtractMillisecond(instance, returnType),
+                => _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Modulo(
+                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(1000L)),
+                        _sqlExpressionFactory.Constant(1000L)),
+                    returnType),
 
             // 1 tick = 100 nanoseconds, 1 microsecond = 10 ticks
+            // Ticks: microseconds * 10
             nameof(TimeSpan.Ticks) when declaringType == typeof(TimeSpan)
-                => _sqlExpressionFactory.Multiply(
-                    _sqlExpressionFactory.Function(
-                        "UNIX_MICROS",
-                        [instance],
-                        nullable: true,
-                        argumentsPropagateNullability: TrueArrays1,
-                        typeof(long)),
-                    _sqlExpressionFactory.Constant(10L)),
+                => _sqlExpressionFactory.Multiply(instance, _sqlExpressionFactory.Constant(10L)),
+
+            // Days component: microseconds / 86400000000
+            nameof(TimeSpan.Days) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(86400000000L)),
+                    returnType),
+
+            // TotalXxx properties (return double)
+            // TotalDays: microseconds / 86400000000.0
+            nameof(TimeSpan.TotalDays) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Divide(
+                    _sqlExpressionFactory.Convert(instance, typeof(double)),
+                    _sqlExpressionFactory.Constant(86400000000.0)),
+            // TotalHours: microseconds / 3600000000.0
+            nameof(TimeSpan.TotalHours) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Divide(
+                    _sqlExpressionFactory.Convert(instance, typeof(double)),
+                    _sqlExpressionFactory.Constant(3600000000.0)),
+            // TotalMinutes: microseconds / 60000000.0
+            nameof(TimeSpan.TotalMinutes) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Divide(
+                    _sqlExpressionFactory.Convert(instance, typeof(double)),
+                    _sqlExpressionFactory.Constant(60000000.0)),
+            // TotalSeconds: microseconds / 1000000.0
+            nameof(TimeSpan.TotalSeconds) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Divide(
+                    _sqlExpressionFactory.Convert(instance, typeof(double)),
+                    _sqlExpressionFactory.Constant(1000000.0)),
+            // TotalMilliseconds: microseconds / 1000.0
+            nameof(TimeSpan.TotalMilliseconds) when declaringType == typeof(TimeSpan)
+                => _sqlExpressionFactory.Divide(
+                    _sqlExpressionFactory.Convert(instance, typeof(double)),
+                    _sqlExpressionFactory.Constant(1000.0)),
 
             _ => null
         };

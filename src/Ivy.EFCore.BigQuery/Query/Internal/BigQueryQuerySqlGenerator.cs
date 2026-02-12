@@ -61,6 +61,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         }
                         return base.VisitSqlBinary(binary);
                     }
+                case ExpressionType.Modulo:
+                    {
+                        Sql.Append("MOD(");
+                        Visit(binary.Left);
+                        Sql.Append(", ");
+                        Visit(binary.Right);
+                        Sql.Append(")");
+                        return binary;
+                    }
                 default:
                     return base.VisitSqlBinary(binary);
             }
@@ -276,19 +285,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 Sql.AppendLine().Append("LIMIT ");
                 Visit(selectExpression.Limit);
             }
+            else if (selectExpression.Offset != null)
+            {
+                // BigQuery requires LIMIT when OFFSET is used
+                // Use max INT64 value
+                Sql.AppendLine().Append("LIMIT 9223372036854775807");
+            }
 
             if (selectExpression.Offset != null)
             {
-                if (selectExpression.Limit == null)
-                {
-                    Sql.AppendLine();
-                }
-                else
-                {
-                    Sql.Append(" ");
-                }
-
-                Sql.Append("OFFSET ");
+                Sql.Append(" OFFSET ");
                 Visit(selectExpression.Offset);
             }
         }
@@ -366,7 +372,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 Type t when t == typeof(DateTime) => "DATETIME",
                 Type t when t == typeof(DateOnly) => "DATE",
                 Type t when t == typeof(TimeOnly) => "TIME",
-                Type t when t == typeof(TimeSpan) => "TIME",
+                Type t when t == typeof(TimeSpan) => "INT64", // Microseconds
                 Type t when t == typeof(Guid) => null,
                 _ => null
             };

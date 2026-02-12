@@ -89,6 +89,34 @@ public class BigQueryMathMethodTranslator : IMethodCallTranslator
         { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), [typeof(sbyte)])!, "SIGN" },
         { typeof(Math).GetRuntimeMethod(nameof(Math.Sign), [typeof(short)])!, "SIGN" },
         { typeof(MathF).GetRuntimeMethod(nameof(MathF.Sign), [typeof(float)])!, "SIGN" },
+
+        // Min - https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#least
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(decimal), typeof(decimal)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(double), typeof(double)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(float), typeof(float)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(int), typeof(int)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(long), typeof(long)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(short), typeof(short)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(byte), typeof(byte)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(sbyte), typeof(sbyte)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(uint), typeof(uint)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(ulong), typeof(ulong)])!, "LEAST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Min), [typeof(ushort), typeof(ushort)])!, "LEAST" },
+        { typeof(MathF).GetRuntimeMethod(nameof(MathF.Min), [typeof(float), typeof(float)])!, "LEAST" },
+
+        // Max - https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#greatest
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(decimal), typeof(decimal)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(double), typeof(double)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(float), typeof(float)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(int), typeof(int)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(long), typeof(long)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(short), typeof(short)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(byte), typeof(byte)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(sbyte), typeof(sbyte)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(uint), typeof(uint)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(ulong), typeof(ulong)])!, "GREATEST" },
+        { typeof(Math).GetRuntimeMethod(nameof(Math.Max), [typeof(ushort), typeof(ushort)])!, "GREATEST" },
+        { typeof(MathF).GetRuntimeMethod(nameof(MathF.Max), [typeof(float), typeof(float)])!, "GREATEST" },
     };
 
     private static readonly IEnumerable<MethodInfo> TruncateMethodInfos =

@@ -217,7 +217,7 @@ public class BigQueryParameterCollection : DbParameterCollection
     public override void CopyTo(Array array, int index) => ((IList)_parameters).CopyTo(array, index);
     public void CopyTo(BigQueryParameter[] array, int index) => _parameters.CopyTo(array, index);
 
-    internal IList<Google.Cloud.BigQuery.V2.BigQueryParameter> ToBigQueryParameters()
+    internal IList<Google.Cloud.BigQuery.V2.BigQueryParameter> ToBigQueryParameters(string? commandText = null)
     {
         if (Count == 0)
         {
@@ -225,8 +225,26 @@ public class BigQueryParameterCollection : DbParameterCollection
         }
 
         var bqParams = new List<Google.Cloud.BigQuery.V2.BigQueryParameter>(Count);
-        bqParams.AddRange(_parameters.Select(param => param.ToBigQueryParameter()));
 
-        return bqParams;
+        foreach (var param in _parameters)
+        {
+            // If command text is provided, only include parameters that are actually referenced
+            // This allows us to use SQL literals for STRUCT/ARRAY<STRUCT> while still having EFCore create parameters (which we then skip)
+            if (commandText != null && !string.IsNullOrEmpty(param.ParameterName))
+            {
+                var paramName = param.ParameterName.StartsWith("@")
+                    ? param.ParameterName
+                    : "@" + param.ParameterName;
+
+                if (!commandText.Contains(paramName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+            }
+
+            bqParams.Add(param.ToBigQueryParameter());
+        }
+
+        return bqParams.Count > 0 ? bqParams : null;
     }
 }

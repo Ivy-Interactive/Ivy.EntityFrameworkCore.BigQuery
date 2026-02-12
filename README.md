@@ -1,3 +1,5 @@
+Created with ❤️ by the [Ivy](https://github.com/Ivy-Interactive/Ivy-Framework) team.
+
 # Ivy.EntityFrameworkCore.BigQuery
 
 Entity Framework Core and ADO.NET providers for Google BigQuery.
