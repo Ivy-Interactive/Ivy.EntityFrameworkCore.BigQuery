@@ -1,8 +1,9 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using System.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
@@ -10,6 +11,10 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
+
+    protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
+        => base.AddServices(serviceCollection)
+            .AddEntityFrameworkBigQueryNetTopologySuite();
 
     #region Unsupported unsigned integer types
     [ConditionalTheory(Skip = "Unsupported type")]
@@ -208,195 +213,127 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
 
     #endregion
 
-    #region Geography
+    #region Geography - WKT format tests (working)
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_point()
+        => base.Can_read_write_point();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_nullable_point()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_nullable_point()
+        => base.Can_read_write_nullable_point();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_Z()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_point_with_Z()
+        => base.Can_read_write_point_with_Z();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_M()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_point_with_M()
+        => base.Can_read_write_point_with_M();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_Z_and_M()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_point_with_Z_and_M()
+        => base.Can_read_write_point_with_Z_and_M();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_line_string()
+        => base.Can_read_write_line_string();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override Task Can_read_write_nullable_point_as_GeoJson()
-    {
-        return Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_Z_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_M_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_point_with_Z_and_M_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_line_string()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    [ConditionalFact]
     public override Task Can_read_write_nullable_line_string()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_nullable_line_string();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_line_string_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_multi_line_string()
+        => base.Can_read_write_multi_line_string();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override Task Can_read_write_nullable_line_string_as_GeoJson()
-    {
-        return Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_multi_line_string()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    [ConditionalFact]
     public override Task Can_read_write_nullable_multi_line_string()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_nullable_multi_line_string();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_multi_line_string_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_polygon()
+        => base.Can_read_write_polygon();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override Task Can_read_write_nullable_multi_line_string_as_GeoJson()
-    {
-        return Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_polygon()
-    {
-        await Task.CompletedTask;
-    }
-
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    [ConditionalFact]
     public override Task Can_read_write_nullable_polygon()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_nullable_polygon();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_polygon_typed_as_geometry()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact]
+    public override Task Can_read_write_polygon_typed_as_geometry()
+        => base.Can_read_write_polygon_typed_as_geometry();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    [ConditionalFact]
     public override Task Can_read_write_polygon_typed_as_nullable_geometry()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_polygon_typed_as_nullable_geometry();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_polygon_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
+    #endregion
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    #region Geography - GeoJson format tests (skipped due to culture bug in base test)
+
+    // The base test's JsonGeoJsonReaderWriter uses GetDecimal() without InvariantCulture,
+    // causing coordinate corruption in locales that use comma as decimal separator.
+    // See: EFCore.Specification.Tests/JsonTypesTestBase.cs line 4236
+    private const string SkipGeoJsonReason = "Base test JsonGeoJsonReaderWriter has culture-dependent decimal formatting bug";
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_point_as_GeoJson()
+        => base.Can_read_write_point_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_nullable_point_as_GeoJson()
+        => base.Can_read_write_nullable_point_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_point_with_Z_as_GeoJson()
+        => base.Can_read_write_point_with_Z_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_point_with_M_as_GeoJson()
+        => base.Can_read_write_point_with_M_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_point_with_Z_and_M_as_GeoJson()
+        => base.Can_read_write_point_with_Z_and_M_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_line_string_as_GeoJson()
+        => base.Can_read_write_line_string_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_nullable_line_string_as_GeoJson()
+        => base.Can_read_write_nullable_line_string_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_multi_line_string_as_GeoJson()
+        => base.Can_read_write_multi_line_string_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_nullable_multi_line_string_as_GeoJson()
+        => base.Can_read_write_nullable_multi_line_string_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_polygon_as_GeoJson()
+        => base.Can_read_write_polygon_as_GeoJson();
+
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
     public override Task Can_read_write_nullable_polygon_as_GeoJson()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_nullable_polygon_as_GeoJson();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
-    public override async Task Can_read_write_polygon_typed_as_geometry_as_GeoJson()
-    {
-        await Task.CompletedTask;
-    }
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
+    public override Task Can_read_write_polygon_typed_as_geometry_as_GeoJson()
+        => base.Can_read_write_polygon_typed_as_geometry_as_GeoJson();
 
-    // Todo: implement GEOGRAPHY
-    [ConditionalFact(Skip = "GEOGRAPHY type not yet implemented")]
+    [ConditionalFact(Skip = SkipGeoJsonReason)]
     public override Task Can_read_write_polygon_typed_as_nullable_geometry_as_GeoJson()
-    {
-        return Task.CompletedTask;
-    }
+        => base.Can_read_write_polygon_typed_as_nullable_geometry_as_GeoJson();
 
     #endregion
 
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
     {
         builder = base.AddOptions(builder);
+        new BigQueryDbContextOptionsBuilder(builder).UseNetTopologySuite();
         return builder;
     }
 
