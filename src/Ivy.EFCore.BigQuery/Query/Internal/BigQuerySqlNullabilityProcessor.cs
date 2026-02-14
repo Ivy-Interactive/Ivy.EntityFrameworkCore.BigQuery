@@ -12,16 +12,48 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
     {
     }
 
+    /// <summary>
+    /// Visits a join predicate with more permissive handling than the base class.
+    /// The base ProcessJoinPredicate only handles specific SqlBinaryExpression types,
+    /// but BigQuery queries can have SqlUnaryExpression and other types in join predicates.
+    /// </summary>
+    private SqlExpression VisitJoinPredicate(SqlExpression predicate)
+    {
+        // For join predicates, we visit with optimized expansion allowed
+        // This handles all expression types that the base ProcessJoinPredicate doesn't support
+        return Visit(predicate, allowOptimizedExpansion: true, out _);
+    }
+
     protected override TableExpressionBase Visit(TableExpressionBase tableExpressionBase)
     {
-        if (tableExpressionBase is BigQueryUnnestExpression unnestExpression)
+        switch (tableExpressionBase)
         {
-            // Visit the array expression inside UNNEST
-            var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
-            return unnestExpression.Update((SqlExpression)visitedArray);
-        }
+            case BigQueryUnnestExpression unnestExpression:
+            {
+                // Visit the array expression inside UNNEST
+                var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
+                return unnestExpression.Update((SqlExpression)visitedArray);
+            }
 
-        return base.Visit(tableExpressionBase);
+            case InnerJoinExpression innerJoinExpression:
+            {
+                var newTable = Visit(innerJoinExpression.Table);
+                var newJoinPredicate = VisitJoinPredicate(innerJoinExpression.JoinPredicate);
+
+                return innerJoinExpression.Update(newTable, newJoinPredicate);
+            }
+
+            case LeftJoinExpression leftJoinExpression:
+            {
+                var newTable = Visit(leftJoinExpression.Table);
+                var newJoinPredicate = VisitJoinPredicate(leftJoinExpression.JoinPredicate);
+
+                return leftJoinExpression.Update(newTable, newJoinPredicate);
+            }
+
+            default:
+                return base.Visit(tableExpressionBase);
+        }
     }
 
     protected override SqlExpression VisitCustomSqlExpression(
@@ -108,6 +140,40 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
                 return visitedArgument != extractExpression.Argument
                     ? new BigQueryExtractExpression(extractExpression.Part, (SqlExpression)visitedArgument, extractExpression.Type, extractExpression.TypeMapping)
                     : extractExpression;
+            }
+
+            case BigQueryIntervalExpression intervalExpression:
+            {
+                var visitedValue = Visit(intervalExpression.Value, allowOptimizedExpansion, out var valueNullable);
+
+                // INTERVAL returns null if the value is null
+                nullable = valueNullable;
+
+                return visitedValue != intervalExpression.Value
+                    ? new BigQueryIntervalExpression((SqlExpression)visitedValue, intervalExpression.DatePart, intervalExpression.TypeMapping)
+                    : intervalExpression;
+            }
+
+            case BigQueryArrayLiteralExpression arrayLiteralExpression:
+            {
+                var visitedElements = new List<SqlExpression>();
+                var changed = false;
+
+                foreach (var element in arrayLiteralExpression.Elements)
+                {
+                    var visitedElement = Visit(element, allowOptimizedExpansion, out _);
+                    visitedElements.Add((SqlExpression)visitedElement);
+                    if (visitedElement != element)
+                    {
+                        changed = true;
+                    }
+                }
+
+                nullable = false;
+
+                return changed
+                    ? arrayLiteralExpression.Update(visitedElements)
+                    : arrayLiteralExpression;
             }
 
             default:
