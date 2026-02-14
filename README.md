@@ -140,3 +140,49 @@ Run with your own BigQuery project by setting `BQ_ADO_CONN_STRING` environment v
 ## EFCore provider tests
 
 Set a `BQ_EFCORE_TEST_CONN_STRING` environment variable to your connection string.
+
+---
+
+## Type Mapping
+
+The provider automatically maps between BigQuery and .NET types. Reading INT64 into smaller types (`int`/`short`/`byte`) throws an overflow exception if the value exceeds the target type's range.
+
+All value types support their nullable equivalents (e.g., `long?`, `bool?`).
+
+| BigQuery Type    | Default CLR Type   | Other Possible CLR Types                   |
+|------------------|--------------------|--------------------------------------------|
+| BOOL             | bool               |                                            |
+| BYTES            | byte[]             |                                            |
+| STRING           | string             | Guid                                       |
+| INT64            | long               | int, short, byte                           |
+| FLOAT64          | double             | float                                      |
+| NUMERIC          | [BigQueryNumeric](https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.BigQuery.V2/latest/Google.Cloud.BigQuery.V2.BigQueryNumeric)    |                                            |
+| BIGNUMERIC       | [BigQueryBigNumeric](https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.BigQuery.V2/latest/Google.Cloud.BigQuery.V2.BigQueryBigNumeric) | decimal                                    |
+| DATE             | DateOnly           |                                            |
+| DATETIME         | DateTime           |                                            |
+| TIME             | TimeOnly           |                                            |
+| TIMESTAMP        | DateTimeOffset     |                                            |
+| JSON             | string             | JsonDocument, JsonElement                  |
+
+BigQuery `ARRAY` types can be mapped to .NET arrays, `List<T>`, or other `IEnumerable<T>` implementations.
+
+| Array Type           | Default CLR Type     | Other Possible CLR Types                         |
+|----------------------|----------------------|--------------------------------------------------|
+| ARRAY\<BOOL\>        | bool[]               | List\<bool\>, IList\<bool\>                      |
+| ARRAY\<BYTES\>       | byte[][]             | List\<byte[]\>                                   |
+| ARRAY\<STRING\>      | string[]             | List\<string\>                                   |
+| ARRAY\<INT64\>       | long[]               | List\<long\>, int[], List\<int\>                 |
+| ARRAY\<FLOAT64\>     | double[]             | List\<double\>, float[], List\<float\>           |
+| ARRAY\<NUMERIC\>     | [BigQueryNumeric](https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.BigQuery.V2/latest/Google.Cloud.BigQuery.V2.BigQueryNumeric)[]    | List\<BigQueryNumeric\>                          |
+| ARRAY\<BIGNUMERIC\>  | [BigQueryBigNumeric](https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.BigQuery.V2/latest/Google.Cloud.BigQuery.V2.BigQueryBigNumeric)[] | List\<BigQueryBigNumeric\>                       |
+| ARRAY\<DATE\>        | DateOnly[]           | List\<DateOnly\>                                 |
+| ARRAY\<DATETIME\>    | DateTime[]           | List\<DateTime\>                                 |
+| ARRAY\<TIME\>        | TimeOnly[]           | List\<TimeOnly\>                                 |
+| ARRAY\<TIMESTAMP\>   | DateTimeOffset[]     | List\<DateTimeOffset\>                           |
+
+### Special Type Notes
+
+- **TimeSpan**: Mapped to `INT64` (stored as total microseconds)
+- **Guid**: Mapped to `STRING` (stored as UUID string representation)
+- **Enums**: Mapped to their underlying numeric type (typically `INT64`)
+- **STRUCT**: Classes decorated with `[BigQueryStruct]` (or `.HasColumnType("STRUCT<...>")`) are mapped to BigQuery STRUCT types
