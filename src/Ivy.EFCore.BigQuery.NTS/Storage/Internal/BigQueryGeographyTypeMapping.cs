@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Linq.Expressions;
 using Ivy.Data.BigQuery;
+using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Storage.Json;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
@@ -150,12 +151,10 @@ public class BigQueryGeographyTypeMapping : RelationalTypeMapping
 
     /// <summary>
     /// Creates a JSON reader/writer for the specified geometry CLR type.
-    /// For now, returns null since JSON columns with geography are uncommon in BigQuery.
+    /// Uses WKT format for JSON serialization of geometry values.
     /// </summary>
     private static JsonValueReaderWriter? CreateGeometryJsonReaderWriter(Type clrType, WKTReader wktReader, WKTWriter wktWriter)
     {
-        // JSON reader/writer is optional - return null for now
-        // BigQuery geography columns are typically not stored inside JSON
-        return null;
+        return BigQueryJsonGeometryWktReaderWriter.Instance;
     }
 }
