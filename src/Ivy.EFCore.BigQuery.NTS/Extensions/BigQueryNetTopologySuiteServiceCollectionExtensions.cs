@@ -1,3 +1,4 @@
+using Ivy.Data.BigQuery;
 using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Infrastructure.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Query.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Storage.Internal;
@@ -23,6 +24,8 @@ public static class BigQueryNetTopologySuiteServiceCollectionExtensions
     public static IServiceCollection AddEntityFrameworkBigQueryNetTopologySuite(
         this IServiceCollection serviceCollection)
     {
+        BigQueryNtsExtensions.UseNetTopologySuite();
+
         serviceCollection.TryAddSingleton(_ => NtsGeometryServices.Instance);
 
         new EntityFrameworkRelationalServicesBuilder(serviceCollection)

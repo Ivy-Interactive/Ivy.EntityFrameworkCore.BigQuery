@@ -1,8 +1,6 @@
 ﻿using System.Data.Common;
 using System.Data;
 using Google.Cloud.BigQuery.V2;
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
 
 namespace Ivy.Data.BigQuery
 {
@@ -336,12 +334,10 @@ namespace Ivy.Data.BigQuery
                 apiValue = jsonDocument.RootElement.ToString();
             }
 
-            // Handle NTS Geometry types - convert to WKT string for GEOGRAPHY
-            // Note: Must come before IEnumerable check since Geometry implements IEnumerable
-            else if (apiValue is Geometry geometry)
+            // Must come before IEnumerable check since Geometry implements IEnumerable
+            else if (BigQueryTypeHandlers.GeographyHandler?.TryConvertToGeography(apiValue, out var geoValue) == true)
             {
-                var wktWriter = new WKTWriter();
-                apiValue = wktWriter.Write(geometry);
+                apiValue = geoValue;
                 type = Google.Cloud.BigQuery.V2.BigQueryDbType.Geography;
             }
 
