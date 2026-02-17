@@ -24,7 +24,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         public override void Create()
         {
             var datasetId = GetRequiredDatasetId();
-            var operations = new[] { new BigQueryCreateDatasetOperation { Name = datasetId } };
+            var location = GetLocation();
+            var operations = new[] { new BigQueryCreateDatasetOperation { Name = datasetId, Location = location } };
             var commands = Dependencies.MigrationsSqlGenerator.Generate(operations);
 
             Dependencies.MigrationCommandExecutor.ExecuteNonQuery(commands, _connection);
@@ -34,7 +35,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         public override async Task CreateAsync(CancellationToken cancellationToken = default)
         {
             var datasetId = GetRequiredDatasetId();
-            var operations = new[] { new BigQueryCreateDatasetOperation { Name = datasetId } };
+            var location = GetLocation();
+            var operations = new[] { new BigQueryCreateDatasetOperation { Name = datasetId, Location = location } };
             var commands = Dependencies.MigrationsSqlGenerator.Generate(operations);
 
             await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(commands, _connection, cancellationToken: cancellationToken)
@@ -194,6 +196,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 throw new InvalidOperationException("A 'DefaultProjectId' must be specified in the connection string to create or delete the database.");
             }
             return projectId;
+        }
+
+        private string? GetLocation()
+        {
+            return (_connection.DbConnection as BigQueryConnection)?.Location;
         }
 
         private static bool IsDoesNotExist(GoogleApiException exception)

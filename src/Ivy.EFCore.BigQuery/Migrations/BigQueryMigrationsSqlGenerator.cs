@@ -1,4 +1,5 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
+﻿using Ivy.Data.BigQuery;
+using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -158,9 +159,17 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                     .Append(".");
             }
 
-            builder
-                .Append(DelimitIdentifier(operation.Name))
-                .EndCommand();
+            builder.Append(DelimitIdentifier(operation.Name));
+
+            if (!string.IsNullOrWhiteSpace(operation.Location))
+            {
+                builder
+                    .Append(" OPTIONS(location='")
+                    .Append(operation.Location)
+                    .Append("')");
+            }
+
+            builder.EndCommand();
         }
 
         /// <inheritdoc/>
@@ -189,11 +198,34 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
         private string DelimitIdentifier(string identifier)
             => Dependencies.SqlGenerationHelper.DelimitIdentifier(identifier);
 
+        private string? GetLocationFromConnectionString()
+        {
+            var connectionString = _contextOptions?.FindExtension<BigQueryOptionsExtension>()?.ConnectionString;
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return null;
+            }
+
+            var builder = new BigQueryConnectionStringBuilder(connectionString);
+            return builder.Location;
+        }
+
         protected override void Generate(EnsureSchemaOperation operation, IModel? model, MigrationCommandListBuilder builder)
         {
             builder
                 .Append("CREATE SCHEMA IF NOT EXISTS ")
-                .Append(DelimitIdentifier(operation.Name))
+                .Append(DelimitIdentifier(operation.Name));
+
+            var location = GetLocationFromConnectionString();
+            if (!string.IsNullOrWhiteSpace(location))
+            {
+                builder
+                    .Append(" OPTIONS(location='")
+                    .Append(location)
+                    .Append("')");
+            }
+
+            builder
                 .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator)
                 .EndCommand();
         }

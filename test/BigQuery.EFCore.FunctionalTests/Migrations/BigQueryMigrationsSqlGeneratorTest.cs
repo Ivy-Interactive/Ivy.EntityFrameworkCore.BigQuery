@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 #pragma warning disable EF1001 // Internal EF Core API usage.
@@ -29,6 +30,44 @@ public class BigQueryMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBa
         AssertSql(
             """
 CREATE SCHEMA IF NOT EXISTS `sales`;
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateDataset_generates_create_schema()
+    {
+        Generate(new BigQueryCreateDatasetOperation { Name = "analytics" });
+
+        AssertSql(
+            """
+CREATE SCHEMA IF NOT EXISTS `analytics`
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateDataset_with_location_generates_create_schema_with_options()
+    {
+        Generate(new BigQueryCreateDatasetOperation { Name = "analytics", Location = "EU" });
+
+        AssertSql(
+            """
+CREATE SCHEMA IF NOT EXISTS `analytics` OPTIONS(location='EU')
+""");
+    }
+
+    [ConditionalFact]
+    public void CreateDataset_with_project_and_location_generates_correct_sql()
+    {
+        Generate(new BigQueryCreateDatasetOperation
+        {
+            Name = "analytics",
+            ProjectId = "my-project",
+            Location = "us-central1"
+        });
+
+        AssertSql(
+            """
+CREATE SCHEMA IF NOT EXISTS `my-project`.`analytics` OPTIONS(location='us-central1')
 """);
     }
 
