@@ -26,6 +26,11 @@ FROM `Missions` AS m
 """);
     }
 
+    [MemberData(nameof(IsAsyncData))]
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
+    public override Task Correlated_collections_with_Distinct(bool async) 
+        => base.Correlated_collections_with_Distinct(async);
+
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }

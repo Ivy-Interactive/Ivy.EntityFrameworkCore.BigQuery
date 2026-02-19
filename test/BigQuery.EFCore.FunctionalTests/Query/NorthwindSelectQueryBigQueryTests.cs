@@ -18,4 +18,23 @@ public class NorthwindSelectQueryBigQueryTests : NorthwindSelectQueryRelationalT
 
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
+
+    #region Unsupported: Correlated subqueries with LIMIT/OFFSET
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault_2(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_on_correlated_collection_in_first(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_on_top_level_and_on_collection_projection_with_outer_apply(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 }

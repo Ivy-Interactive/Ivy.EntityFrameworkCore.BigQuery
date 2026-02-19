@@ -275,10 +275,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     DebugLog($"  Successfully extracted, returning InnerJoinExpression");
                     return new InnerJoinExpression(result.TransformedSelect, result.JoinPredicate);
                 }
-                else
-                {
-                    DebugLog($"  Failed to extract correlations");
-                }
+
+                // Extraction failed but we have correlations - this query pattern is not supported
+                DebugLog($"  Extraction failed with correlations present - throwing exception");
+                throw new InvalidOperationException(
+                    "BigQuery does not support this correlated subquery pattern. " +
+                    "The query contains a correlated subquery with LIMIT/OFFSET that cannot be automatically transformed. " +
+                    "Consider rewriting the query to avoid correlated subqueries with Take/Skip inside collection projections.");
             }
         }
 
@@ -323,6 +326,14 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     DebugLog($"  Successfully extracted, returning LeftJoinExpression");
                     return new LeftJoinExpression(result.TransformedSelect, result.JoinPredicate);
                 }
+
+                // Extraction failed but we have correlations - this query pattern is not supported
+                // Common cases: LIMIT/OFFSET with correlated predicates (needs ROW_NUMBER transformation)
+                DebugLog($"  Extraction failed with correlations present - throwing exception");
+                throw new InvalidOperationException(
+                    "BigQuery does not support this correlated subquery pattern. " +
+                    "The query contains a correlated subquery with LIMIT/OFFSET that cannot be automatically transformed. " +
+                    "Consider rewriting the query to avoid correlated subqueries with Take/Skip inside collection projections.");
             }
         }
 
@@ -390,7 +401,14 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         }
 
         // Process nested tables to extract their correlated predicates
-        var (transformedTables, nestedCorrelations) = ExtractNestedCorrelations(innerSelect.Tables);
+        var nestedResult = ExtractNestedCorrelations(innerSelect.Tables);
+        if (nestedResult == null)
+        {
+            // Nested extraction failed (e.g., LIMIT with correlation) - we can't transform
+            DebugLog($"    ExtractNestedCorrelations returned null, cannot transform");
+            return (null, remappings);
+        }
+        var (transformedTables, nestedCorrelations) = nestedResult.Value;
 
         // Process the main predicate to extract correlated parts
         var (correlatedParts, nonCorrelatedParts, complexCorrelatedParts) = innerSelect.Predicate != null
@@ -858,7 +876,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         DebugLog($"    GroupBy count: {innerSelect.GroupBy.Count}");
 
         // Process nested tables to extract their correlated predicates
-        var (transformedTables, nestedCorrelations) = ExtractNestedCorrelations(innerSelect.Tables);
+        var nestedResult = ExtractNestedCorrelations(innerSelect.Tables);
+        if (nestedResult == null)
+        {
+            DebugLog($"    ExtractNestedCorrelations returned null, cannot transform");
+            return null;
+        }
+        var (transformedTables, nestedCorrelations) = nestedResult.Value;
         DebugLog($"    Nested correlations extracted: {nestedCorrelations.Count}");
 
         // Process the main predicate to extract correlated parts
@@ -1041,8 +1065,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
     /// <summary>
     /// Extracts correlations from nested tables.
+    /// Returns null if any table cannot be transformed (e.g., LIMIT with correlation).
     /// </summary>
-    private (IReadOnlyList<TableExpressionBase>? transformedTables, List<(ColumnExpression outer, SqlExpression inner)> correlations)
+    private (IReadOnlyList<TableExpressionBase>? transformedTables, List<(ColumnExpression outer, SqlExpression inner)> correlations)?
         ExtractNestedCorrelations(IReadOnlyList<TableExpressionBase> tables)
     {
         var correlations = new List<(ColumnExpression outer, SqlExpression inner)>();
@@ -1051,7 +1076,16 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         for (var i = 0; i < tables.Count; i++)
         {
             var table = tables[i];
-            var (newTable, tableCorrelations) = ExtractCorrelationsFromTable(table);
+            var extractResult = ExtractCorrelationsFromTable(table);
+
+            // If extraction returns null, it means we can't transform this table
+            if (extractResult == null)
+            {
+                DebugLog($"    ExtractNestedCorrelations: table {i} ({table.GetType().Name}) cannot be transformed");
+                return null;
+            }
+
+            var (newTable, tableCorrelations) = extractResult.Value;
 
             if (newTable != table)
             {
@@ -1068,7 +1102,7 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         return (newTables, correlations);
     }
 
-    private (TableExpressionBase table, List<(ColumnExpression outer, SqlExpression inner)> correlations)
+    private (TableExpressionBase table, List<(ColumnExpression outer, SqlExpression inner)> correlations)?
         ExtractCorrelationsFromTable(TableExpressionBase table)
     {
         var correlations = new List<(ColumnExpression outer, SqlExpression inner)>();
@@ -1120,11 +1154,19 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                         // This is a simplification; a proper fix would thread directPredicates through the entire chain
                         return (result.Value.transformedSelect, allCorrelations);
                     }
+                    else
+                    {
+                        // ExtractCorrelationsFromNestedSelectDeep returned null, meaning it can't handle
+                        // this case (e.g., LIMIT with correlated predicate needs ROW_NUMBER).
+                        // Return null to signal that we can't transform.
+                        DebugLog($"        Returning null: cannot extract correlations from nested SELECT");
+                        return null;
+                    }
                 }
                 break;
         }
 
-        return (table, correlations);
+        return ((TableExpressionBase, List<(ColumnExpression, SqlExpression)>)?)(table, correlations);
     }
 
     /// <summary>
@@ -1320,13 +1362,19 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         return finder.OuterColumns.Count > 0;
     }
 
-    private (TableExpressionBase table, List<(ColumnExpression outer, SqlExpression inner)> correlations)
+    private (TableExpressionBase table, List<(ColumnExpression outer, SqlExpression inner)> correlations)?
         ExtractCorrelationsFromJoinedSelect(PredicateJoinExpressionBase join, SelectExpression nestedSelect, bool isLeftJoin)
     {
         var correlations = new List<(ColumnExpression outer, SqlExpression inner)>();
 
         // Process nested tables recursively to extract correlations at all levels
-        var (transformedNestedTables, nestedCorrelations) = ExtractNestedCorrelations(nestedSelect.Tables);
+        var nestedResult = ExtractNestedCorrelations(nestedSelect.Tables);
+        if (nestedResult == null)
+        {
+            DebugLog($"    ExtractCorrelationsFromJoinedSelect: ExtractNestedCorrelations returned null");
+            return null;
+        }
+        var (transformedNestedTables, nestedCorrelations) = nestedResult.Value;
 
         // Build lists for tracking additional projections and correlations to lift
         var additionalProjections = new List<ProjectionExpression>();
@@ -1514,13 +1562,32 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         DebugLog($"          OuterAliases: [{string.Join(",", _outerTableAliases)}]");
         DebugLog($"          AncestorAliases: [{string.Join(",", _ancestorAliases)}]");
         DebugLog($"          Tables: {string.Join(", ", nestedSelect.Tables.Select(t => t.GetType().Name + ":" + t.Alias))}");
+        DebugLog($"          Limit: {(nestedSelect.Limit != null ? "yes" : "no")}, Offset: {(nestedSelect.Offset != null ? "yes" : "no")}");
+
+        // CRITICAL: If this SELECT has LIMIT/OFFSET with correlated predicates, we CANNOT safely transform it.
+        // The LIMIT is meant to apply per-outer-row, not globally.
+        // For example: "SELECT TOP 1 ... WHERE outer.id = inner.id ORDER BY ..." takes the first matching row
+        // per outer row. If we move the correlation to outer JOIN ON, the LIMIT now takes first row globally.
+        // These queries need ROW_NUMBER() PARTITION BY transformation (handled by BigQueryCorrelatedSubqueryPostprocessor).
+        if ((nestedSelect.Limit != null || nestedSelect.Offset != null) &&
+            nestedSelect.Predicate != null && ContainsOuterReference(nestedSelect.Predicate))
+        {
+            DebugLog($"          Bailing out: LIMIT/OFFSET with correlated predicate requires ROW_NUMBER transformation");
+            return null;
+        }
 
         var correlations = new List<(ColumnExpression outer, SqlExpression inner)>();
         var additionalProjections = new List<ProjectionExpression>();
         var projectionMapping = new Dictionary<ColumnExpression, ColumnExpression>();
 
         // First, recursively extract correlations from nested tables
-        var (transformedTables, nestedCorrelations) = ExtractNestedCorrelations(nestedSelect.Tables);
+        var nestedResult = ExtractNestedCorrelations(nestedSelect.Tables);
+        if (nestedResult == null)
+        {
+            DebugLog($"          ExtractNestedCorrelations returned null");
+            return null;
+        }
+        var (transformedTables, nestedCorrelations) = nestedResult.Value;
         DebugLog($"          Nested correlations from tables: {nestedCorrelations.Count}");
 
         // Project nested correlations through this SELECT
