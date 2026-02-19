@@ -74,30 +74,151 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         _joinsToAdd = null;
         _outerTableAliases = CollectTableAliases(select);
 
-        // Visit all parts of the select - scalar subqueries will be replaced inline
-        var visitedSelect = (SelectExpression)base.VisitExtension(select);
+        // Process tables one by one, inserting any new JOINs before the table that references them
+        var newTables = new List<TableExpressionBase>();
+        var tablesChanged = false;
 
-        // If we found correlated scalar subqueries, add the JOINs
+        foreach (var table in select.Tables)
+        {
+            // Clear _joinsToAdd before processing each table
+            _joinsToAdd = null;
+
+            // Visit the table (this will find scalar subqueries in ON clauses)
+            var visitedTable = VisitTableExpression(table);
+
+            // If we found scalar subqueries in this table's ON clause, insert their JOINs BEFORE this table
+            if (_joinsToAdd is not null && _joinsToAdd.Count > 0)
+            {
+                newTables.AddRange(_joinsToAdd);
+                tablesChanged = true;
+            }
+
+            newTables.Add(visitedTable);
+            if (visitedTable != table)
+            {
+                tablesChanged = true;
+            }
+
+            // Add this table's alias to outer aliases for subsequent processing
+            var tableAlias = visitedTable.UnwrapJoin().Alias;
+            if (tableAlias != null)
+            {
+                _outerTableAliases!.Add(tableAlias);
+            }
+            // Also add any new JOIN aliases
+            if (_joinsToAdd is not null)
+            {
+                foreach (var join in _joinsToAdd)
+                {
+                    var joinAlias = join.UnwrapJoin().Alias;
+                    if (joinAlias != null)
+                    {
+                        _outerTableAliases!.Add(joinAlias);
+                    }
+                }
+            }
+        }
+
+        // Clear _joinsToAdd and process non-table parts of the SELECT
+        _joinsToAdd = null;
+
+        // Visit projections, predicate, orderings, etc.
+        var newProjections = select.Projection.Select(p => (ProjectionExpression)Visit(p)).ToList();
+        var newPredicate = select.Predicate is not null ? (SqlExpression?)Visit(select.Predicate) : null;
+        var newGroupBy = select.GroupBy.Select(g => (SqlExpression)Visit(g)).ToList();
+        var newHaving = select.Having is not null ? (SqlExpression?)Visit(select.Having) : null;
+        var newOrderings = select.Orderings.Select(o =>
+            new OrderingExpression((SqlExpression)Visit(o.Expression), o.IsAscending)).ToList();
+        var newOffset = select.Offset is not null ? (SqlExpression?)Visit(select.Offset) : null;
+        var newLimit = select.Limit is not null ? (SqlExpression?)Visit(select.Limit) : null;
+
+        // Check for any additional JOINs from non-table parts (projections, predicate, etc.)
         if (_joinsToAdd is not null && _joinsToAdd.Count > 0)
         {
-            var newTables = visitedSelect.Tables.ToList();
+            // Add these at the end since they came from projections/predicates, not table ON clauses
             newTables.AddRange(_joinsToAdd);
+            tablesChanged = true;
+        }
 
-            visitedSelect = visitedSelect.Update(
-                newTables,
-                visitedSelect.Predicate,
-                visitedSelect.GroupBy,
-                visitedSelect.Having,
-                visitedSelect.Projection,
-                visitedSelect.Orderings,
-                visitedSelect.Offset,
-                visitedSelect.Limit);
+        // Determine if anything changed
+        var projectionsChanged = !select.Projection.SequenceEqual(newProjections);
+        var predicateChanged = select.Predicate != newPredicate;
+        var groupByChanged = !select.GroupBy.SequenceEqual(newGroupBy);
+        var havingChanged = select.Having != newHaving;
+        var orderingsChanged = !select.Orderings.SequenceEqual(newOrderings);
+        var offsetChanged = select.Offset != newOffset;
+        var limitChanged = select.Limit != newLimit;
+
+        SelectExpression visitedSelect;
+        if (tablesChanged || projectionsChanged || predicateChanged || groupByChanged ||
+            havingChanged || orderingsChanged || offsetChanged || limitChanged)
+        {
+            visitedSelect = select.Update(
+                tablesChanged ? newTables : select.Tables,
+                predicateChanged ? newPredicate : select.Predicate,
+                groupByChanged ? newGroupBy : select.GroupBy,
+                havingChanged ? newHaving : select.Having,
+                projectionsChanged ? newProjections : select.Projection,
+                orderingsChanged ? newOrderings : select.Orderings,
+                offsetChanged ? newOffset : select.Offset,
+                limitChanged ? newLimit : select.Limit);
+        }
+        else
+        {
+            visitedSelect = select;
         }
 
         (_currentSelect, _joinsToAdd, _outerTableAliases) =
             (parentSelect, parentJoinsToAdd, parentOuterAliases);
 
         return visitedSelect;
+    }
+
+    private TableExpressionBase VisitTableExpression(TableExpressionBase table)
+    {
+        return table switch
+        {
+            LeftJoinExpression leftJoin => VisitLeftJoin(leftJoin),
+            InnerJoinExpression innerJoin => VisitInnerJoin(innerJoin),
+            CrossJoinExpression crossJoin => VisitCrossJoin(crossJoin),
+            SelectExpression nestedSelect => (TableExpressionBase)VisitSelect(nestedSelect),
+            _ => table
+        };
+    }
+
+    private LeftJoinExpression VisitLeftJoin(LeftJoinExpression leftJoin)
+    {
+        var visitedTable = VisitTableExpression(leftJoin.Table);
+        var visitedPredicate = (SqlExpression)Visit(leftJoin.JoinPredicate);
+
+        if (visitedTable != leftJoin.Table || visitedPredicate != leftJoin.JoinPredicate)
+        {
+            return new LeftJoinExpression(visitedTable, visitedPredicate, leftJoin.IsPrunable);
+        }
+        return leftJoin;
+    }
+
+    private InnerJoinExpression VisitInnerJoin(InnerJoinExpression innerJoin)
+    {
+        var visitedTable = VisitTableExpression(innerJoin.Table);
+        var visitedPredicate = (SqlExpression)Visit(innerJoin.JoinPredicate);
+
+        if (visitedTable != innerJoin.Table || visitedPredicate != innerJoin.JoinPredicate)
+        {
+            return new InnerJoinExpression(visitedTable, visitedPredicate, innerJoin.IsPrunable);
+        }
+        return innerJoin;
+    }
+
+    private CrossJoinExpression VisitCrossJoin(CrossJoinExpression crossJoin)
+    {
+        var visitedTable = VisitTableExpression(crossJoin.Table);
+
+        if (visitedTable != crossJoin.Table)
+        {
+            return new CrossJoinExpression(visitedTable);
+        }
+        return crossJoin;
     }
 
     private Expression VisitScalarSubquery(ScalarSubqueryExpression scalarSubquery)
