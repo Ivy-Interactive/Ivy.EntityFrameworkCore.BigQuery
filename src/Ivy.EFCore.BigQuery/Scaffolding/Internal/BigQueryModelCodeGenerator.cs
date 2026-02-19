@@ -41,6 +41,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
 
             PostProcessDbContext(scaffoldedModel, model);
 
+            AddLocationToConnectionString(scaffoldedModel);
+
             return scaffoldedModel;
         }
 
@@ -227,6 +229,39 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
             }
 
             return modifiedCode;
+        }
+
+        /// <summary>
+        /// Add location to connection string if discovered during scaffolding
+        /// </summary>
+        private void AddLocationToConnectionString(ScaffoldedModel scaffoldedModel)
+        {
+            var location = BigQueryDatabaseModelFactory.LastScaffoldedLocation;
+            if (string.IsNullOrWhiteSpace(location))
+            {
+                return;
+            }
+
+            var code = scaffoldedModel.ContextFile.Code;
+
+            // Find UseBigQuery( and check if Location is already present
+            var useBigQueryPattern = @"\.UseBigQuery\s*\(\s*""([^""]+)""";
+            var match = System.Text.RegularExpressions.Regex.Match(code, useBigQueryPattern);
+
+            if (match.Success)
+            {
+                var connectionString = match.Groups[1].Value;
+
+                // Only add location if not already present
+                if (!connectionString.Contains("Location=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var newConnectionString = connectionString.TrimEnd(';') + $";Location={location}";
+                    code = code.Replace($"\"{connectionString}\"", $"\"{newConnectionString}\"");
+                    scaffoldedModel.ContextFile = new ScaffoldedFile(
+                        scaffoldedModel.ContextFile.Path,
+                        code);
+                }
+            }
         }
 
         /// <summary>

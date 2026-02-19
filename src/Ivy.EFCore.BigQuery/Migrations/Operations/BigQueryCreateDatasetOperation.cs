@@ -25,7 +25,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations
         /// </summary>
         public string? ProjectId { get; set; }
 
-        //todo: OPTIONS
+        /// <summary>
+        /// The geographic location where the dataset will be stored (e.g., "US", "EU", "us-central1").
+        /// Once set, a dataset's location cannot be changed.
+        /// </summary>
+        public string? Location { get; set; }
 
         /// <summary>
         /// If any dataset exists with the same name, the CREATE statement has no effect.

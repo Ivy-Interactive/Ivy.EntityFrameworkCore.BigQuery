@@ -75,6 +75,43 @@ public class BigQueryDatabaseModelFactoryTest : IClassFixture<BigQueryDatabaseMo
         }
     }
 
+    #region Location
+
+    [ConditionalFact]
+    public void Scaffolding_captures_dataset_location()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<TypeMappingSourceDependencies>()
+            .AddSingleton<RelationalTypeMappingSourceDependencies>()
+            .AddSingleton<ValueConverterSelectorDependencies>()
+            .AddSingleton<DiagnosticSource>(new DiagnosticListener(DbLoggerCategory.Name))
+            .AddSingleton<ILoggingOptions, LoggingOptions>()
+            .AddSingleton<LoggingDefinitions, BigQueryLoggingDefinitions>()
+            .AddSingleton(typeof(IDiagnosticsLogger<>), typeof(DiagnosticsLogger<>))
+            .AddSingleton<IValueConverterSelector, ValueConverterSelector>()
+            .AddSingleton<ILoggerFactory>(Fixture.ListLoggerFactory)
+            .AddSingleton<IDbContextLogger, NullDbContextLogger>();
+
+        new BigQueryDesignTimeServices().ConfigureDesignTimeServices(services);
+
+        var databaseModelFactory = services
+            .BuildServiceProvider()
+            .GetRequiredService<IDatabaseModelFactory>();
+
+        var databaseModel = databaseModelFactory.Create(
+            Fixture.TestStore.ConnectionString,
+            new DatabaseModelFactoryOptions([], []));
+
+        Assert.NotNull(databaseModel);
+
+        // Location should be captured from INFORMATION_SCHEMA.SCHEMATA
+        var location = databaseModel["BigQuery:Location"] as string;
+        Assert.NotNull(location);
+        Assert.NotEmpty(location);
+    }
+
+    #endregion
+
     #region Table
 
     [ConditionalFact]

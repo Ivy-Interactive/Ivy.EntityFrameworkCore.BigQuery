@@ -115,6 +115,7 @@ AuthMethod=ApplicationDefaultCredentials;ProjectId=your-project-id;DefaultDatase
 - `AuthMethod`: `ApplicationDefaultCredentials` (required)
 - `ProjectId`: Google Cloud project ID (required)
 - `DefaultDatasetId`: Default BigQuery dataset (optional)
+- `Location`: Geographic location for job execution and dataset creation, e.g., `US`, `EU`, `us-central1` (optional)
 - `Timeout`: Connection timeout in seconds (optional, default: 15)
 - `CredentialsFile` (Required if AuthMethod=JsonCredentials and JsonCredentials not provided): Path to the JSON service account key file.
 - `JsonCredentials` (Required if AuthMethod=JsonCredentials and CredentialsFile not provided): JSON service account credentials as a string.
@@ -186,3 +187,10 @@ BigQuery `ARRAY` types can be mapped to .NET arrays, `List<T>`, or other `IEnume
 - **Guid**: Mapped to `STRING` (stored as UUID string representation)
 - **Enums**: Mapped to their underlying numeric type (typically `INT64`)
 - **STRUCT**: Classes decorated with `[BigQueryStruct]` (or `.HasColumnType("STRUCT<...>")`) are mapped to BigQuery STRUCT types
+
+---
+
+## Documentation
+
+- [BigQuery-Specific Features](docs/bigquery-features.md) - Dataset location/region, dataset options, and other BigQuery-specific functionality
+- [Correlated Subqueries](docs/correlated-subqueries.md) - Limitations and workarounds for correlated subqueries
