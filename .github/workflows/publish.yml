@@ -41,6 +41,9 @@ jobs:
       - name: Build ADO.NET Project
         run: dotnet build src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION
 
+      - name: Build ADO.NET NTS Project
+        run: dotnet build src/Ivy.Data.BigQuery.NTS/Ivy.Data.BigQuery.NTS.csproj --configuration Release --no-restore /p:Version=$VERSION
+
       - name: Build EF Core Project
         run: dotnet build src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION
 
@@ -49,6 +52,9 @@ jobs:
 
       - name: Pack ADO.NET Project
         run: dotnet pack src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+
+      - name: Pack ADO.NET NTS Project
+        run: dotnet pack src/Ivy.Data.BigQuery.NTS/Ivy.Data.BigQuery.NTS.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
 
       - name: Pack EF Core Project
         run: dotnet pack src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION

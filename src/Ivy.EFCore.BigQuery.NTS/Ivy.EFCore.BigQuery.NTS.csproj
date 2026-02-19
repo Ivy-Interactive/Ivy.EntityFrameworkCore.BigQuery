@@ -28,7 +28,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
-		<ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
+		<ProjectReference Include="..\Ivy.Data.BigQuery.NTS\Ivy.Data.BigQuery.NTS.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AssemblyName>Ivy.Data.BigQuery.NetTopologySuite</AssemblyName>
+		<RootNamespace>Ivy.Data.BigQuery.NetTopologySuite</RootNamespace>
+		<PackageId>Ivy.Data.BigQuery.NetTopologySuite</PackageId>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<Title>Ivy.Data.BigQuery.NetTopologySuite</Title>
+		<Description>NetTopologySuite spatial support for the BigQuery ADO.NET provider</Description>
+		<Authors>Ivy Interactive AB</Authors>
+		<Company>Ivy Interactive AB</Company>
+		<PackageTags>BigQuery ADO.NET NetTopologySuite NTS Geography Spatial</PackageTags>
+		<RepositoryUrl>https://github.com/Ivy-Interactive/Ivy.EntityFrameworkCore.BigQuery</RepositoryUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
+		<PackageReference Include="NetTopologySuite" Version="2.5.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="." Condition="Exists('README.md')" />
+	</ItemGroup>
+
+</Project>
