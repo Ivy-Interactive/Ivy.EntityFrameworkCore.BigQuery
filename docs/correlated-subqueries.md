@@ -74,6 +74,27 @@ LEFT JOIN (
 ) AS s ON c.CustomerID = s._partition0
 ```
 
+### SelectMany with correlated predicates
+
+```csharp
+// Correlated SelectMany
+from c in customers
+from o in orders.Where(o => o.CustomerID == c.CustomerID)
+select new { c.CustomerID, o.OrderID }
+
+// With additional joins
+from g in gears
+from t in tags
+join g2 in gears on g.FullName equals g2.Nickname  // Both reference outer 'g'
+select new { g, t, g2 }
+```
+
+These patterns generate OUTER APPLY or CROSS APPLY, which BigQuery doesn't support.
+The provider transforms them to LEFT/INNER JOINs by:
+- Extracting correlated predicates from inner subqueries to outer JOIN ON clauses
+- Removing correlated projections and remapping outer references
+- Handling "both-sides-outer" correlations where both sides reference ancestor tables
+
 ## Unsupported Patterns
 
 ### Deeply nested correlated subqueries
@@ -90,6 +111,19 @@ customers.Select(c => new {
         .FirstOrDefault()
 })
 ```
+
+### EXISTS/IN subqueries in JOIN predicates
+
+BigQuery doesn't support EXISTS or IN subqueries inside JOIN ON clauses:
+
+```csharp
+// NOT SUPPORTED - EXISTS in JOIN predicate
+from g in gears
+join l in locustLeaders on !locustLeaders.Any(x => x.ThreatLevel == g.ThreatLevel)
+select g
+```
+
+This generates SQL like `JOIN ... ON NOT EXISTS (...)` which BigQuery rejects.
 
 ### Correlated subqueries in WHERE clauses
 
