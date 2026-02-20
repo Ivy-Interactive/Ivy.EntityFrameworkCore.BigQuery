@@ -628,6 +628,7 @@ Write-Host "══════════════════════�
 Write-Host "Test Execution Complete" -ForegroundColor Cyan
 Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Finished:   $($endTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Yellow
 Write-Host "Total Time: $($elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Yellow
 Write-Host ""
 

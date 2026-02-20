@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Generates an HTML dashboard from one or more TRX files.
 // Usage:
-//   node build-dashboard.js --merged TestResults\\TestResults.trx --history TestResults\\history.json --out TestResults\\dashboard.html
-//   node build-dashboard.js --dir TestResults --history TestResults\\history.json --out TestResults\\dashboard.html
+//   node build-dashboard.js --file TestResults\\trx\\TestResults.trx --history TestResults\\history.json --out TestResults\\reports\\dashboard.html
+//   node build-dashboard.js --dir TestResults\\trx --history TestResults\\history.json --out TestResults\\reports\\dashboard.html
 
 const fs = require("fs");
 const path = require("path");
@@ -336,7 +336,7 @@ function buildModel(files) {
     return { parents, totals, files, testRunDate: earliestStart };
 }
 
-function renderHtml(model, previous = null, prevTests = new Map(), currentGitInfo = null, prevGitInfo = null) {
+function renderHtml(model, previous = null, prevTests = new Map(), currentGitInfo = null, prevGitInfo = null, currentRunId = null, prevRunId = null) {
     const dataJson = JSON.stringify(model);
     const prevJson = previous ? JSON.stringify(previous) : "null";
     // Convert Map to object for JSON serialization
@@ -361,14 +361,22 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "const model = JSON.parse(document.getElementById('data').textContent);",
         "const previous = " + prevJson + ";",
         "const prevTests = " + prevTestsJson + ";",
-        "const getTestDelta = (fullTestName, currentStatus) => {",
+        "const getTestDeltaType = (fullTestName, currentStatus) => {",
         "  const prevStatus = prevTests[fullTestName];",
         "  if (!prevStatus) return '';",
         "  if (prevStatus === currentStatus) return '';",
-        "  if (currentStatus === 'Passed' && prevStatus !== 'Passed') return '<span class=\"delta-indicator delta-improved\" title=\"Was ' + prevStatus + '\">Δ</span>';",
-        "  if (currentStatus === 'Failed' && prevStatus === 'Passed') return '<span class=\"delta-indicator delta-regressed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
-        "  if (currentStatus === 'Skipped' && prevStatus === 'Passed') return '<span class=\"delta-indicator delta-regressed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
-        "  if (currentStatus === 'Skipped' && prevStatus === 'Failed') return '<span class=\"delta-indicator delta-improved\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  if (currentStatus === 'Passed' && prevStatus !== 'Passed') return 'improved';",
+        "  if (currentStatus === 'Failed' && prevStatus === 'Passed') return 'regressed';",
+        "  if (currentStatus === 'Skipped' && prevStatus === 'Passed') return 'regressed';",
+        "  if (currentStatus === 'Skipped' && prevStatus === 'Failed') return 'improved';",
+        "  return 'changed';",
+        "};",
+        "const getTestDelta = (fullTestName, currentStatus) => {",
+        "  const deltaType = getTestDeltaType(fullTestName, currentStatus);",
+        "  if (!deltaType) return '';",
+        "  const prevStatus = prevTests[fullTestName];",
+        "  if (deltaType === 'improved') return '<span class=\"delta-indicator delta-improved\" title=\"Was ' + prevStatus + '\">Δ</span>';",
+        "  if (deltaType === 'regressed') return '<span class=\"delta-indicator delta-regressed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
         "  return '<span class=\"delta-indicator delta-changed\" title=\"Was ' + prevStatus + '\">Δ</span>';",
         "};",
         "const copyIcon = '<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\"><path fill=\"currentColor\" d=\"M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z\"/></svg>';",
@@ -379,6 +387,16 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  });",
         "}",
         "const formatPct = (part, total) => total ? Math.round((part / total) * 100) : 0;",
+        "const formatDelta = (value, isFailure) => {",
+        "  if (value === 0) return '<span style=\"color: var(--muted)\">0</span>';",
+        "  if (isFailure) {",
+        "    if (value > 0) return '<span style=\"color: var(--fail)\">▲' + value + '</span>';",
+        "    return '<span style=\"color: var(--pass)\">▼' + Math.abs(value) + '</span>';",
+        "  } else {",
+        "    if (value > 0) return '<span style=\"color: var(--pass)\">▲' + value + '</span>';",
+        "    return '<span style=\"color: var(--fail)\">▼' + Math.abs(value) + '</span>';",
+        "  }",
+        "};",
         "const trimPrefix = (name) => {",
         "  const trimmed = name.replace(/^Ivy\\.EntityFrameworkCore\\.BigQuery\\.?/, '');",
         "  if (!trimmed) return name;",
@@ -439,8 +457,8 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  if (!detailsPanel) return;",
         "  // Mark selected test item",
         "  container.querySelectorAll('.test-item').forEach(item => item.classList.remove('selected'));",
-        "  const testItems = container.querySelectorAll('.test-item');",
-        "  if (testItems[testIndex]) testItems[testIndex].classList.add('selected');",
+        "  const selectedItem = container.querySelector('.test-item[data-testname=\"' + CSS.escape(test.fullTestName) + '\"]');",
+        "  if (selectedItem) selectedItem.classList.add('selected');",
         "  const testNameId = 'copy-testname-' + containerId + '-' + testIndex;",
         "  const classNameId = 'copy-classname-' + containerId + '-' + testIndex;",
         "  const errorId = 'copy-error-' + containerId + '-' + testIndex;",
@@ -529,8 +547,99 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "    else if (filter === 'passed' && item.classList.contains('status-passed')) { item.style.display = 'flex'; }",
         "    else if (filter === 'failed' && item.classList.contains('status-failed')) { item.style.display = 'flex'; }",
         "    else if (filter === 'skipped' && item.classList.contains('status-skipped')) { item.style.display = 'flex'; }",
+        "    else if (filter === 'new-failed' && item.dataset.delta === 'regressed') { item.style.display = 'flex'; }",
+        "    else if (filter === 'new-passed' && item.dataset.delta === 'improved') { item.style.display = 'flex'; }",
         "    else { item.style.display = 'none'; }",
         "  });",
+        "}",
+        "// Build a map of test full names to their error messages for searching",
+        "const testErrorMap = new Map();",
+        "model.parents.forEach(p => {",
+        "  p.tests.forEach(t => {",
+        "    if (t.errorMessage) {",
+        "      testErrorMap.set(t.fullTestName, t.errorMessage.toLowerCase());",
+        "    }",
+        "  });",
+        "});",
+        "let currentSearchQuery = '';",
+        "function searchErrors(query) {",
+        "  currentSearchQuery = query.toLowerCase().trim();",
+        "  const statusEl = document.getElementById('search-status');",
+        "  const cards = document.querySelectorAll('.card[data-group]');",
+        "  ",
+        "  if (!currentSearchQuery) {",
+        "    // Clear search - show all",
+        "    statusEl.textContent = '';",
+        "    cards.forEach(card => {",
+        "      card.classList.remove('search-hidden');",
+        "      const countEl = card.querySelector('.group-match-count');",
+        "      if (countEl) countEl.remove();",
+        "      // Reset test item visibility",
+        "      card.querySelectorAll('.test-item').forEach(item => item.style.display = 'flex');",
+        "      // Reset child group visibility",
+        "      card.querySelectorAll('.child').forEach(child => child.style.display = '');",
+        "    });",
+        "    return;",
+        "  }",
+        "  ",
+        "  let totalMatches = 0;",
+        "  let groupsWithMatches = 0;",
+        "  ",
+        "  cards.forEach(card => {",
+        "    const groupName = card.dataset.group;",
+        "    const parent = model.parents.find(p => p.name === groupName);",
+        "    if (!parent) return;",
+        "    ",
+        "    // Find matching tests in this group",
+        "    const matchingTests = new Set();",
+        "    parent.tests.forEach(t => {",
+        "      const errorMsg = testErrorMap.get(t.fullTestName);",
+        "      if (errorMsg && errorMsg.includes(currentSearchQuery)) {",
+        "        matchingTests.add(t.fullTestName);",
+        "      }",
+        "    });",
+        "    ",
+        "    // Update group visibility and match count",
+        "    let countEl = card.querySelector('.group-match-count');",
+        "    if (matchingTests.size === 0) {",
+        "      card.classList.add('search-hidden');",
+        "      if (countEl) countEl.remove();",
+        "    } else {",
+        "      card.classList.remove('search-hidden');",
+        "      groupsWithMatches++;",
+        "      totalMatches += matchingTests.size;",
+        "      ",
+        "      // Add or update match count badge",
+        "      const titleEl = card.querySelector('.card-title');",
+        "      if (!countEl && titleEl) {",
+        "        countEl = document.createElement('span');",
+        "        countEl.className = 'group-match-count';",
+        "        titleEl.parentNode.insertBefore(countEl, titleEl.nextSibling);",
+        "      }",
+        "      if (countEl) countEl.textContent = '(' + matchingTests.size + ' match' + (matchingTests.size === 1 ? '' : 'es') + ')';",
+        "      ",
+        "      // Filter test items in all containers within this card",
+        "      card.querySelectorAll('.test-item').forEach(item => {",
+        "        const testName = item.dataset.testname;",
+        "        item.style.display = matchingTests.has(testName) ? 'flex' : 'none';",
+        "      });",
+        "      ",
+        "      // Hide child groups that have no matching tests",
+        "      card.querySelectorAll('.child').forEach(childEl => {",
+        "        const childName = childEl.dataset.child;",
+        "        const childObj = parent.children.find(c => c.name === childName);",
+        "        if (!childObj) return;",
+        "        const hasMatchingTest = childObj.tests.some(t => matchingTests.has(t.fullTestName));",
+        "        childEl.style.display = hasMatchingTest ? '' : 'none';",
+        "      });",
+        "    }",
+        "  });",
+        "  ",
+        "  statusEl.innerHTML = 'Found <span class=\"match-count\">' + totalMatches + '</span> test' + (totalMatches === 1 ? '' : 's') + ' in ' + groupsWithMatches + ' group' + (groupsWithMatches === 1 ? '' : 's');",
+        "}",
+        "function clearSearch() {",
+        "  document.getElementById('error-search').value = '';",
+        "  searchErrors('');",
         "}",
         "const summaryEl = document.getElementById('summary');",
         "const prevTotals = previous ? (previous.Totals || {}) : {};",
@@ -559,7 +668,7 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "totalBarHtml += '<span>Total: ' + model.totals.total + '</span>';",
         "totalBarHtml += '<span>Time: ' + formatSec(model.totals.durationSec) + '</span>';",
         "if (previous) {",
-        "  totalBarHtml += '<span>Δ Passed ' + deltaTotalPass + ', Failed ' + deltaTotalFail + '</span>';",
+        "  totalBarHtml += '<span>' + formatDelta(deltaTotalPass, false) + ' / ' + formatDelta(deltaTotalFail, true) + '</span>';",
         "}",
         "totalBarHtml += '</div></div>';",
         "totalBarHtml += '<div class=\"bar\">';",
@@ -632,7 +741,7 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  const passPct = formatPct(parent.passed, parent.total);",
         "  const failPct = formatPct(parent.failed, parent.total);",
         "  const skipPct = 100 - passPct - failPct;",
-        "  const deltaLabel = prevParent ? ('Δ Passed ' + (parent.passed - prevPPass) + ', Failed ' + (parent.failed - prevPFail)) : '';",
+        "  const deltaLabel = prevParent ? (formatDelta(deltaPPass, false) + ' / ' + formatDelta(deltaPFail, true)) : '';",
         "  const childResults = parent.children.map(child => {",
         "    let displayName = child.name.replace(/\\+/g, '.');",
         "    const parentName = trimPrefix(parent.name);",
@@ -662,8 +771,11 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "    const childTestItemsHtml = child.tests.map((test, idx) => {",
         "      const statusClass = 'status-' + test.status.toLowerCase();",
         "      const childIdx = parent.tests.findIndex(t => t.fullTestName === test.fullTestName);",
+        "      const deltaType = getTestDeltaType(test.fullTestName, test.status);",
         "      const deltaHtml = getTestDelta(test.fullTestName, test.status);",
-        "      return '<div class=\"test-item ' + statusClass + '\" onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + childIdx + ', \\'' + childContainerId + '\\')\">' +",
+        "      const deltaAttr = deltaType ? ' data-delta=\"' + deltaType + '\"' : '';",
+        "      const testNameAttr = ' data-testname=\"' + escapeHtml(test.fullTestName) + '\"';",
+        "      return '<div class=\"test-item ' + statusClass + '\"' + deltaAttr + testNameAttr + ' onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + childIdx + ', \\'' + childContainerId + '\\')\">' +",
         "        '<span class=\"test-icon\"></span>' +",
         "        '<span class=\"test-name\">' + escapeHtml(test.testName) + '</span>' +",
         "        deltaHtml +",
@@ -673,7 +785,7 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "    ",
         "    let left = 0;",
         "    let html = '';",
-        "    html += '<div class=\"child\">';",
+        "    html += '<div class=\"child\" data-child=\"' + child.name + '\">';",
         "    html += '<div class=\"eye-icon\" onclick=\"toggleTests(\\'' + child.name.replace(/'/g, '\\\\\\'') + '\\')\"><svg viewBox=\"0 0 24 24\"><path d=\"M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z\"/></svg></div>';",
         "    html += '<div class=\"title\">' + displayName + '</div>';",
         "    html += '<div class=\"bar\">';",
@@ -706,7 +818,7 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "    html += '<div class=\"meta\">';",
         "    html += '<span>' + child.passed + '/' + child.failed + '/' + child.skipped + ' (' + formatSec(child.durationSec) + ')</span>';",
         "    if (prevChild) {",
-        "      html += '<span>Δ ' + (child.passed - prevPass) + '/' + (child.failed - prevFail) + '</span>';",
+        "      html += '<span>' + formatDelta(deltaPass, false) + ' / ' + formatDelta(deltaFail, true) + '</span>';",
         "    }",
         "    html += '</div>';",
         "    html += '</div>';",
@@ -717,6 +829,8 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "    testsContainer += '<button class=\"filter-btn\" data-filter=\"passed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'passed\\')\">Passed</button>';",
         "    testsContainer += '<button class=\"filter-btn\" data-filter=\"failed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'failed\\')\">Failed</button>';",
         "    testsContainer += '<button class=\"filter-btn\" data-filter=\"skipped\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'skipped\\')\">Skipped</button>';",
+        "    testsContainer += '<button class=\"filter-btn filter-btn-delta\" data-filter=\"new-failed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'new-failed\\')\">New Failed</button>';",
+        "    testsContainer += '<button class=\"filter-btn filter-btn-delta\" data-filter=\"new-passed\" onclick=\"filterTests(\\'' + childContainerId + '\\', \\'new-passed\\')\">New Passed</button>';",
         "    testsContainer += '</div>';",
         "    testsContainer += '<div class=\"test-items-list\">' + childTestItemsHtml + '</div>';",
         "    testsContainer += '</div>';",
@@ -732,8 +846,11 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  const parentContainerId = 'tests-' + safeParentId;",
         "  const testsItemsHtml = parent.tests.map((test, idx) => {",
         "    const statusClass = 'status-' + test.status.toLowerCase();",
+        "    const deltaType = getTestDeltaType(test.fullTestName, test.status);",
         "    const deltaHtml = getTestDelta(test.fullTestName, test.status);",
-        "    return '<div class=\"test-item ' + statusClass + '\" onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + idx + ', \\'' + parentContainerId + '\\')\">' +",
+        "    const deltaAttr = deltaType ? ' data-delta=\"' + deltaType + '\"' : '';",
+        "    const testNameAttr = ' data-testname=\"' + escapeHtml(test.fullTestName) + '\"';",
+        "    return '<div class=\"test-item ' + statusClass + '\"' + deltaAttr + testNameAttr + ' onclick=\"showTestDetails(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\', ' + idx + ', \\'' + parentContainerId + '\\')\">' +",
         "      '<span class=\"test-icon\"></span>' +",
         "      '<span class=\"test-name\">' + escapeHtml(test.testName) + '</span>' +",
         "      deltaHtml +",
@@ -742,7 +859,7 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  }).join('');",
         "  ",
         "  let card = '';",
-        "  card += '<div class=\"card\">';",
+        "  card += '<div class=\"card\" data-group=\"' + parent.name + '\">';",
         "  card += '<div class=\"eye-icon\" onclick=\"toggleTests(\\'' + parent.name.replace(/'/g, '\\\\\\'') + '\\')\"><svg viewBox=\"0 0 24 24\"><path d=\"M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z\"/></svg></div>';",
         "  card += '<div class=\"card-header\">';",
         "  card += '<div class=\"card-title\">' + trimPrefix(parent.name) + '</div>';",
@@ -789,6 +906,8 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
         "  card += '<button class=\"filter-btn\" data-filter=\"passed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'passed\\')\">Passed</button>';",
         "  card += '<button class=\"filter-btn\" data-filter=\"failed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'failed\\')\">Failed</button>';",
         "  card += '<button class=\"filter-btn\" data-filter=\"skipped\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'skipped\\')\">Skipped</button>';",
+        "  card += '<button class=\"filter-btn filter-btn-delta\" data-filter=\"new-failed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'new-failed\\')\">New Failed</button>';",
+        "  card += '<button class=\"filter-btn filter-btn-delta\" data-filter=\"new-passed\" onclick=\"filterTests(\\'' + parentContainerId + '\\', \\'new-passed\\')\">New Passed</button>';",
         "  card += '</div>';",
         "  card += '<div class=\"test-items-list\">' + testsItemsHtml + '</div>';",
         "  card += '</div>';",
@@ -830,6 +949,26 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
     htmlParts.push("      color: var(--text);");
     htmlParts.push("    }");
     htmlParts.push("    h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.4px; font-weight: 500; }");
+    htmlParts.push("    .header-container { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }");
+    htmlParts.push("    .run-ids { display: inline-flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.2s; margin-left: 12px; }");
+    htmlParts.push("    .header-container:hover .run-ids { opacity: 1; }");
+    htmlParts.push("    .run-id-item { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }");
+    htmlParts.push("    .run-id-item .run-id-value { font-family: monospace; color: var(--accent-2); }");
+    htmlParts.push("    .run-id-item.comparison .run-id-value { color: #a78bfa; }");
+    htmlParts.push("    .run-id-copy { background: transparent; border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; cursor: pointer; color: var(--muted); transition: all 0.15s; display: inline-flex; align-items: center; }");
+    htmlParts.push("    .run-id-copy:hover { border-color: var(--accent); color: var(--accent); }");
+    htmlParts.push("    .run-id-copy.copied { border-color: var(--pass); color: var(--pass); }");
+    htmlParts.push("    .search-container { display: inline-flex; align-items: center; gap: 8px; margin-left: 16px; opacity: 0; transition: opacity 0.2s; }");
+    htmlParts.push("    .header-container:hover .search-container { opacity: 1; }");
+    htmlParts.push("    .search-input { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 14px; width: 300px; outline: none; transition: border-color 0.2s; }");
+    htmlParts.push("    .search-input:focus { border-color: var(--accent); }");
+    htmlParts.push("    .search-input::placeholder { color: var(--muted); }");
+    htmlParts.push("    .search-clear { background: transparent; border: 1px solid var(--border); border-radius: 4px; padding: 6px 12px; color: var(--muted); font-size: 12px; cursor: pointer; transition: all 0.15s; }");
+    htmlParts.push("    .search-clear:hover { border-color: var(--accent); color: var(--text); }");
+    htmlParts.push("    .search-status { color: var(--muted); font-size: 13px; margin-left: 8px; }");
+    htmlParts.push("    .search-status .match-count { color: var(--accent); font-weight: 600; }");
+    htmlParts.push("    .group-match-count { font-size: 12px; color: var(--accent); margin-left: 8px; font-weight: 600; }");
+    htmlParts.push("    .card.search-hidden { display: none; }");
     htmlParts.push("    .summary {");
     htmlParts.push("      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));");
     htmlParts.push("      gap: 12px; margin-bottom: 16px;");
@@ -885,6 +1024,13 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
     htmlParts.push("    }");
     htmlParts.push("    .filter-btn:hover { border-color: var(--accent); color: var(--text); }");
     htmlParts.push("    .filter-btn.active { background: var(--accent); color: #0a0f0d; border-color: var(--accent); }");
+    htmlParts.push("    .filter-btn-delta { border-style: dashed; }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-failed'] { border-color: var(--fail); color: var(--fail); }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-failed']:hover { background: rgba(239,68,68,0.15); }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-failed'].active { background: var(--fail); color: white; border-style: solid; }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-passed'] { border-color: var(--pass); color: var(--pass); }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-passed']:hover { background: rgba(0,209,142,0.15); }");
+    htmlParts.push("    .filter-btn-delta[data-filter='new-passed'].active { background: var(--pass); color: #0a0f0d; border-style: solid; }");
     htmlParts.push("    .test-items-list { overflow-y: auto; flex: 1; }");
     htmlParts.push("    .split-divider {");
     htmlParts.push("      width: 6px; background: var(--border); cursor: col-resize; flex-shrink: 0;");
@@ -987,7 +1133,19 @@ function renderHtml(model, previous = null, prevTests = new Map(), currentGitInf
             gitInfoHtml += `<span style="font-size: 14px; color: #a78bfa; font-weight: 500; margin-left: 4px;" title="Comparison commit">${prevGitShort}</span>`;
         }
     }
-    htmlParts.push("  <h1>Ivy.EntityFrameworkCore.BigQuery tests <span style=\"font-size: 16px; color: var(--muted); font-weight: 400; margin-left: 12px;\">" + generatedAt + "</span>" + gitInfoHtml + "</h1>");
+    // Build run IDs display string (visible on hover)
+    const copyIconSmall = '<svg viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+    let runIdsHtml = "";
+    if (currentRunId) {
+        runIdsHtml = `<span class="run-ids">`;
+        runIdsHtml += `<span class="run-id-item"><span class="run-id-value">${currentRunId}</span><button class="run-id-copy" onclick="navigator.clipboard.writeText('${currentRunId}').then(() => { this.classList.add('copied'); setTimeout(() => this.classList.remove('copied'), 1500); })" title="Copy run ID">${copyIconSmall}</button></span>`;
+        if (prevRunId && previous) {
+            runIdsHtml += `<span style="color: var(--muted);">vs</span>`;
+            runIdsHtml += `<span class="run-id-item comparison"><span class="run-id-value">${prevRunId}</span><button class="run-id-copy" onclick="navigator.clipboard.writeText('${prevRunId}').then(() => { this.classList.add('copied'); setTimeout(() => this.classList.remove('copied'), 1500); })" title="Copy run ID">${copyIconSmall}</button></span>`;
+        }
+        runIdsHtml += `</span>`;
+    }
+    htmlParts.push("  <div class=\"header-container\"><h1>Ivy.EntityFrameworkCore.BigQuery tests <span style=\"font-size: 16px; color: var(--muted); font-weight: 400; margin-left: 12px;\">" + generatedAt + "</span>" + gitInfoHtml + "</h1>" + runIdsHtml + "<div class=\"search-container\"><input type=\"text\" id=\"error-search\" class=\"search-input\" placeholder=\"Search error messages...\" onkeyup=\"if(event.key==='Enter')searchErrors(this.value)\"><button class=\"search-clear\" onclick=\"clearSearch()\">Clear</button><span id=\"search-status\" class=\"search-status\"></span></div></div>");
     htmlParts.push("  <div class=\"legend\">");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--pass)\"></span> Passed");
     htmlParts.push("    <span class=\"dot\" style=\"background: var(--fail)\"></span> Failed");
@@ -1054,7 +1212,11 @@ function main() {
         shortCommit: prev.GitCommitShort || null
     } : null;
 
-    const html = renderHtml(model, prev, prevTests, currentGitInfo, prevGitInfo);
+    // Compute run IDs
+    const currentRunId = model.testRunDate ? timestampToRunId(model.testRunDate.toISOString()) : null;
+    const prevRunId = prev?.Timestamp ? timestampToRunId(prev.Timestamp) : null;
+
+    const html = renderHtml(model, prev, prevTests, currentGitInfo, prevGitInfo, currentRunId, prevRunId);
     fs.writeFileSync(args.out, html, "utf8");
     console.log(`Dashboard written to ${args.out} (files: ${files.length})`);
 }
