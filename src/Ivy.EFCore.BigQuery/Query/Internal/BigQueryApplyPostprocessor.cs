@@ -222,16 +222,11 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
 
     private TableExpressionBase TransformOuterApply(OuterApplyExpression outerApply)
     {
-        DebugLog($"TransformOuterApply called, outerAliases=[{string.Join(",", _outerTableAliases)}]");
-
         if (outerApply.Table is not SelectExpression innerSelect)
         {
-            DebugLog("  Inner table is not SelectExpression, returning as-is");
             // If not a SelectExpression, just return as-is (SQL generator will handle it)
             return outerApply;
         }
-
-        DebugLog($"  Inner SELECT has {innerSelect.Projection.Count} projections");
 
         // Identify correlated projections - these need special handling
         // Same logic as TransformCrossApply
@@ -245,13 +240,11 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
                 // This projection is a direct outer column reference (e.g., c.ContactName)
                 // We'll remap references to this from the outer SELECT
                 correlatedProjections.Add((projection, column));
-                DebugLog($"    Correlated projection: {projection.Alias} -> {column.TableAlias}.{column.Name}");
             }
             else if (ContainsOuterReference(projection.Expression))
             {
                 // Complex correlated projection (expression involving outer columns)
                 // We can't handle this - bail out
-                DebugLog($"    Complex correlated projection, bailing out");
                 return outerApply;
             }
             else
@@ -280,7 +273,6 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             foreach (var (projection, outerColumn) in correlatedProjections)
             {
                 _correlatedProjectionRemappings[(joinAlias, projection.Alias)] = outerColumn;
-                DebugLog($"    Registered remapping: ({joinAlias}, {projection.Alias}) -> {outerColumn.TableAlias}.{outerColumn.Name}");
             }
 
             // Rebuild inner SELECT with only non-correlated projections
@@ -310,41 +302,22 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             {
                 // Create a simple TRUE predicate for the join
                 var truePredicate = _sqlExpressionFactory.Constant(true);
-                DebugLog($"  No correlated predicates, but has correlated projections. Creating LEFT JOIN ON TRUE");
                 return new LeftJoinExpression(processedInnerSelect, truePredicate, prunable: false);
             }
             // No correlated predicates and no correlated projections - return original
-            DebugLog($"  No correlations found, returning original");
             return outerApply;
         }
 
-        DebugLog($"  Successfully transformed to LeftJoinExpression");
         return new LeftJoinExpression(result.TransformedSelect, result.JoinPredicate, prunable: false);
-    }
-
-    private static void DebugLog(string msg)
-    {
-        try
-        {
-            var dir = System.IO.Path.GetTempPath();
-            var path = System.IO.Path.Combine(dir, "bq_apply_debug.txt");
-            System.IO.File.AppendAllText(path, msg + "\n");
-        }
-        catch { }
     }
 
     private TableExpressionBase TransformCrossApply(CrossApplyExpression crossApply)
     {
-        DebugLog($"TransformCrossApply called, outerAliases=[{string.Join(",", _outerTableAliases)}]");
-
         if (crossApply.Table is not SelectExpression innerSelect)
         {
-            DebugLog("  Inner table is not SelectExpression, returning as-is");
             // If not a SelectExpression, return as-is (SQL generator will handle it)
             return crossApply;
         }
-
-        DebugLog($"  Inner SELECT has {innerSelect.Projection.Count} projections");
 
         // Identify correlated projections - these need special handling
         var correlatedProjections = new List<(ProjectionExpression projection, ColumnExpression outerColumn)>();

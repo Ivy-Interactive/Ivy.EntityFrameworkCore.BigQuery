@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -54,7 +54,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
     protected override Expression VisitExtension(Expression node)
     {
-        DebugLog($"VisitExtension: {node.GetType().Name}");
         return node switch
         {
             ShapedQueryExpression shapedQuery => shapedQuery
@@ -115,14 +114,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
         if (remapper != null)
         {
-            DebugLog($"  Applying {_correlatedProjectionRemappings.Count} remappings to outer SELECT");
 
             newProjections = select.Projection.Select(p =>
             {
                 var remapped = (ProjectionExpression)remapper.Visit(p);
-                if (remapped != p)
-                    DebugLog($"    Remapped projection: {p.Alias}");
-                return remapped;
+                return remapped != p ? remapped : p;
             }).ToList();
 
             if (newPredicate != null)
@@ -190,36 +186,8 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         }
     }
 
-    private static readonly object _logLock = new object();
-    private static void DebugLog(string msg)
-    {
-        try
-        {
-            lock (_logLock)
-            {
-                System.IO.File.AppendAllText(@"D:\Repos\Ivy.EntityFrameworkCore.BigQuery\bq_debug.txt", $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
-            }
-        }
-        catch { }
-    }
-
-    private static string DebugPrintExpression(Expression? expr, int depth = 0)
-    {
-        if (expr == null) return "null";
-        var indent = new string(' ', depth * 2);
-        return expr switch
-        {
-            SqlBinaryExpression bin => $"{bin.OperatorType}(\n{indent}  L: {DebugPrintExpression(bin.Left, depth + 1)}\n{indent}  R: {DebugPrintExpression(bin.Right, depth + 1)})",
-            ColumnExpression col => $"Column({col.TableAlias}.{col.Name})",
-            SqlConstantExpression c => $"Const({c.Value})",
-            SqlUnaryExpression un => $"{un.OperatorType}({DebugPrintExpression(un.Operand, depth + 1)})",
-            _ => $"{expr.GetType().Name}"
-        };
-    }
-
     private TableExpressionBase VisitTableExpression(TableExpressionBase table)
     {
-        DebugLog($"VisitTableExpression: {table.GetType().Name}, alias={table.UnwrapJoin().Alias}");
         return table switch
         {
             LeftJoinExpression leftJoin => VisitLeftJoin(leftJoin),
@@ -234,8 +202,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
     private TableExpressionBase VisitCrossApply(CrossApplyExpression crossApply)
     {
-        DebugLog($"VisitCrossApply: inner table type = {crossApply.Table.GetType().Name}");
-
         // Save current outer aliases - these become ancestors for the nested select
         var ancestorsForNested = new HashSet<string>(_outerTableAliases);
 
@@ -244,15 +210,8 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         // Check if the applied table is a subquery with correlated predicates or projections
         if (newTable is SelectExpression innerSelect)
         {
-            DebugLog($"  Inner SELECT has predicate: {innerSelect.Predicate != null}");
-            if (innerSelect.Predicate != null)
-            {
-                DebugLog($"  Contains outer ref in predicate: {ContainsOuterReference(innerSelect.Predicate)}");
-            }
-
             // Check for correlated projections
             var hasCorrelatedProjections = innerSelect.Projection.Any(p => ContainsOuterReference(p.Expression));
-            DebugLog($"  Has correlated projections: {hasCorrelatedProjections}");
 
             if (ContainsCorrelatedPredicates(innerSelect) || hasCorrelatedProjections)
             {
@@ -269,15 +228,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     foreach (var kvp in correlatedProjectionRemappings)
                     {
                         _correlatedProjectionRemappings[kvp.Key] = kvp.Value;
-                        DebugLog($"  Stored remapping: {kvp.Key} -> {DebugPrintExpression(kvp.Value)}");
                     }
-
-                    DebugLog($"  Successfully extracted, returning InnerJoinExpression");
                     return new InnerJoinExpression(result.TransformedSelect, result.JoinPredicate);
                 }
 
                 // Extraction failed but we have correlations - this query pattern is not supported
-                DebugLog($"  Extraction failed with correlations present - throwing exception");
                 throw new InvalidOperationException(
                     "BigQuery does not support this correlated subquery pattern. " +
                     "The query contains a correlated subquery with LIMIT/OFFSET that cannot be automatically transformed. " +
@@ -295,8 +250,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
     private TableExpressionBase VisitOuterApply(OuterApplyExpression outerApply)
     {
-        DebugLog($"VisitOuterApply: inner table type = {outerApply.Table.GetType().Name}");
-
         var ancestorsForNested = new HashSet<string>(_outerTableAliases);
 
         var newTable = VisitTableExpression(outerApply.Table);
@@ -320,16 +273,12 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     foreach (var kvp in correlatedProjectionRemappings)
                     {
                         _correlatedProjectionRemappings[kvp.Key] = kvp.Value;
-                        DebugLog($"  Stored remapping: {kvp.Key} -> {DebugPrintExpression(kvp.Value)}");
                     }
-
-                    DebugLog($"  Successfully extracted, returning LeftJoinExpression");
                     return new LeftJoinExpression(result.TransformedSelect, result.JoinPredicate);
                 }
 
                 // Extraction failed but we have correlations - this query pattern is not supported
                 // Common cases: LIMIT/OFFSET with correlated predicates (needs ROW_NUMBER transformation)
-                DebugLog($"  Extraction failed with correlations present - throwing exception");
                 throw new InvalidOperationException(
                     "BigQuery does not support this correlated subquery pattern. " +
                     "The query contains a correlated subquery with LIMIT/OFFSET that cannot be automatically transformed. " +
@@ -368,7 +317,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             {
                 // Simple correlated projection: just an outer column reference
                 correlatedProjections.Add((projection, col));
-                DebugLog($"    Simple correlated projection: {projection.Alias} -> {col.TableAlias}.{col.Name}");
             }
             else if (ContainsOuterReference(projection.Expression))
             {
@@ -377,12 +325,10 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 if (ContainsOnlyOuterReferences(projection.Expression))
                 {
                     correlatedProjections.Add((projection, projection.Expression));
-                    DebugLog($"    Complex correlated projection (outer-only): {projection.Alias} -> {DebugPrintExpression(projection.Expression)}");
                 }
                 else
                 {
                     // Mixed inner and outer references - can't handle
-                    DebugLog($"    Mixed inner/outer correlated projection, bailing out: {DebugPrintExpression(projection.Expression)}");
                     return (null, remappings);
                 }
             }
@@ -405,7 +351,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         if (nestedResult == null)
         {
             // Nested extraction failed (e.g., LIMIT with correlation) - we can't transform
-            DebugLog($"    ExtractNestedCorrelations returned null, cannot transform");
             return (null, remappings);
         }
         var (transformedTables, nestedCorrelations) = nestedResult.Value;
@@ -419,16 +364,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         // where the "inner" expression is actually an ancestor column
         var allCorrelations = correlatedParts.ToList();
         var bothSidesOuterPredicates = new List<SqlExpression>();
-        DebugLog($"    nestedCorrelations count: {nestedCorrelations.Count}, _ancestorAliases: [{string.Join(",", _ancestorAliases)}]");
         foreach (var (outerCol, innerExpr) in nestedCorrelations)
         {
-            DebugLog($"      Checking correlation: outer={outerCol.TableAlias}.{outerCol.Name}, inner={DebugPrintExpression(innerExpr)}");
             // Check if the "inner" expression is actually an ancestor column (both sides are outer)
             if (innerExpr is ColumnExpression innerCol && _ancestorAliases.Contains(innerCol.TableAlias))
             {
                 // Both sides are ancestor columns - this predicate should be passed to the outer
                 // JOIN ON clause directly without projection. We'll handle it separately.
-                DebugLog($"    Both-sides-outer nested correlation: {outerCol.TableAlias}.{outerCol.Name} = {innerCol.TableAlias}.{innerCol.Name}");
                 bothSidesOuterPredicates.Add(_sqlExpressionFactory.Equal(outerCol, innerCol));
             }
             else
@@ -447,7 +389,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         if (hasMixedOrderings)
         {
             // Mixed ordering (references both inner and outer) - cannot handle
-            DebugLog($"    Cannot handle mixed outer/inner ordering in orderings");
             return (null, remappings);
         }
 
@@ -455,18 +396,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         var newOrderings = new List<OrderingExpression>();
         foreach (var ordering in innerSelect.Orderings)
         {
-            if (ContainsOuterReference(ordering.Expression))
-            {
-                // Outer-only ordering - remove it
-                DebugLog($"    Removing outer-only ordering: {DebugPrintExpression(ordering.Expression)}");
-            }
-            else
+            if (!ContainsOuterReference(ordering.Expression))
             {
                 newOrderings.Add(ordering);
             }
         }
-
-        DebugLog($"    Correlation count: {allCorrelations.Count}, complex: {complexCorrelatedParts.Count}, correlated orderings: {hasCorrelatedOrderings}, bothSidesOuter: {bothSidesOuterPredicates.Count}");
 
         if (allCorrelations.Count == 0 && complexCorrelatedParts.Count == 0)
         {
@@ -516,7 +450,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     joinPred = _sqlExpressionFactory.Constant(true, _typeMappingSource.FindMapping(typeof(bool)));
                 }
 
-                DebugLog($"    Transform successful (no-projection path), join predicate: {(joinPred != null ? DebugPrintExpression(joinPred) : "null")}");
                 return (new TransformResult(newInner, joinPred), remappings);
             }
             return (null, remappings);
@@ -603,13 +536,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         var newGroupBy = innerSelect.GroupBy.ToList();
         if (innerSelect.GroupBy.Count > 0 && additionalProjections.Count > 0)
         {
-            DebugLog($"    Adding {additionalProjections.Count} correlation projections to GROUP BY");
             foreach (var addedProj in additionalProjections)
             {
                 // Add the column to GROUP BY (the actual expression, not the projection)
                 if (addedProj.Expression is ColumnExpression col)
                 {
-                    DebugLog($"      Adding to GROUP BY: {col.TableAlias}.{col.Name}");
                     newGroupBy.Add(col);
                 }
             }
@@ -630,16 +561,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             innerSelect.Offset,
             innerSelect.Limit);
 
-        DebugLog($"    Transform successful, join predicate created");
-
         return (new TransformResult(transformedSelect, joinPredicate), remappings);
     }
 
     private TableExpressionBase VisitLeftJoin(LeftJoinExpression leftJoin)
     {
-        DebugLog($"VisitLeftJoin: table={leftJoin.Table.GetType().Name}, alias={leftJoin.Table.Alias}");
-        DebugLog($"  Outer aliases: [{string.Join(",", _outerTableAliases)}]");
-
         // Save current outer aliases - these become ancestors for the nested select
         var ancestorsForNested = new HashSet<string>(_outerTableAliases);
 
@@ -650,7 +576,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         {
             var hasCorrelatedPredicates = ContainsCorrelatedPredicates(innerSelect);
             var hasCorrelatedProjections = innerSelect.Projection.Any(p => ContainsOuterReference(p.Expression));
-            DebugLog($"  Inner SELECT alias={innerSelect.Alias}, has correlated predicates={hasCorrelatedPredicates}, has correlated projections={hasCorrelatedProjections}");
 
             if (hasCorrelatedPredicates || hasCorrelatedProjections)
             {
@@ -658,12 +583,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 var savedAncestorAliases = _ancestorAliases;
                 _ancestorAliases = ancestorsForNested;
 
-                DebugLog($"  Calling ExtractCorrelatedPredicatesFromSelectWithProjections, ancestors=[{string.Join(",", _ancestorAliases)}]");
                 var (result, correlatedProjectionRemappings) = ExtractCorrelatedPredicatesFromSelectWithProjections(innerSelect);
 
                 _ancestorAliases = savedAncestorAliases;
-
-                DebugLog($"  ExtractCorrelatedPredicatesFromSelectWithProjections result: {(result != null ? "success" : "null")}");
 
                 if (result != null)
                 {
@@ -671,13 +593,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     foreach (var kvp in correlatedProjectionRemappings)
                     {
                         _correlatedProjectionRemappings[kvp.Key] = kvp.Value;
-                        DebugLog($"  Stored remapping: {kvp.Key} -> {DebugPrintExpression(kvp.Value)}");
                     }
 
                     var combinedPredicate = result.JoinPredicate != null
                         ? _sqlExpressionFactory.AndAlso(leftJoin.JoinPredicate, result.JoinPredicate)
                         : leftJoin.JoinPredicate;
-                    DebugLog($"  Returning transformed LeftJoinExpression");
                     return new LeftJoinExpression(result.TransformedSelect, combinedPredicate, leftJoin.IsPrunable);
                 }
             }
@@ -693,9 +613,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
     private TableExpressionBase VisitInnerJoin(InnerJoinExpression innerJoin)
     {
-        DebugLog($"VisitInnerJoin: table={innerJoin.Table.GetType().Name}, alias={innerJoin.Table.Alias}");
-        DebugLog($"  Outer aliases: [{string.Join(",", _outerTableAliases)}]");
-
         // Save current outer aliases - these become ancestors for the nested select
         var ancestorsForNested = new HashSet<string>(_outerTableAliases);
 
@@ -706,7 +623,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         {
             var hasCorrelatedPredicates = ContainsCorrelatedPredicates(innerSelect);
             var hasCorrelatedProjections = innerSelect.Projection.Any(p => ContainsOuterReference(p.Expression));
-            DebugLog($"  Inner SELECT alias={innerSelect.Alias}, has correlated predicates={hasCorrelatedPredicates}, has correlated projections={hasCorrelatedProjections}");
 
             if (hasCorrelatedPredicates || hasCorrelatedProjections)
             {
@@ -714,12 +630,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 var savedAncestorAliases = _ancestorAliases;
                 _ancestorAliases = ancestorsForNested;
 
-                DebugLog($"  Calling ExtractCorrelatedPredicatesFromSelectWithProjections, ancestors=[{string.Join(",", _ancestorAliases)}]");
                 var (result, correlatedProjectionRemappings) = ExtractCorrelatedPredicatesFromSelectWithProjections(innerSelect);
 
                 _ancestorAliases = savedAncestorAliases;
-
-                DebugLog($"  ExtractCorrelatedPredicatesFromSelectWithProjections result: {(result != null ? "success" : "null")}");
 
                 if (result != null)
                 {
@@ -727,13 +640,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                     foreach (var kvp in correlatedProjectionRemappings)
                     {
                         _correlatedProjectionRemappings[kvp.Key] = kvp.Value;
-                        DebugLog($"  Stored remapping: {kvp.Key} -> {DebugPrintExpression(kvp.Value)}");
                     }
 
                     var combinedPredicate = result.JoinPredicate != null
                         ? _sqlExpressionFactory.AndAlso(innerJoin.JoinPredicate, result.JoinPredicate)
                         : innerJoin.JoinPredicate;
-                    DebugLog($"  Returning transformed InnerJoinExpression");
                     return new InnerJoinExpression(result.TransformedSelect, combinedPredicate, innerJoin.IsPrunable);
                 }
             }
@@ -787,9 +698,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
     /// </summary>
     private bool ContainsCorrelatedPredicates(SelectExpression select)
     {
-        DebugLog($"  ContainsCorrelatedPredicates: SELECT alias={select.Alias}, OuterAliases=[{string.Join(",", _outerTableAliases)}]");
-        DebugLog($"    Tables: {string.Join(", ", select.Tables.Select(t => t.GetType().Name + ":" + t.UnwrapJoin().Alias))}");
-
         // Check the main predicate
         if (select.Predicate != null && ContainsOuterReference(select.Predicate))
             return true;
@@ -826,12 +734,8 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 return ContainsCorrelatedPredicates(nested);
 
             case PredicateJoinExpressionBase predicateJoin:
-                var hasOuterRef = ContainsOuterReference(predicateJoin.JoinPredicate);
-                if (hasOuterRef)
+                if (ContainsOuterReference(predicateJoin.JoinPredicate))
                 {
-                    DebugLog($"    Found correlated JOIN predicate in {predicateJoin.GetType().Name}, alias={predicateJoin.Table.Alias}");
-                    DebugLog($"      Predicate: {DebugPrintExpression(predicateJoin.JoinPredicate)}");
-                    DebugLog($"      OuterAliases: [{string.Join(",", _outerTableAliases)}]");
                     return true;
                 }
                 return ContainsCorrelatedPredicatesInTable(predicateJoin.Table);
@@ -870,20 +774,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
     /// </summary>
     private TransformResult? ExtractCorrelatedPredicatesFromSelect(SelectExpression innerSelect)
     {
-        DebugLog($"  ExtractCorrelatedPredicatesFromSelect: SELECT alias={innerSelect.Alias}");
-        DebugLog($"    Tables: {string.Join(", ", innerSelect.Tables.Select(t => t.GetType().Name + ":" + t.Alias))}");
-        DebugLog($"    Predicate: {innerSelect.Predicate?.ToString() ?? "null"}");
-        DebugLog($"    GroupBy count: {innerSelect.GroupBy.Count}");
-
         // Process nested tables to extract their correlated predicates
         var nestedResult = ExtractNestedCorrelations(innerSelect.Tables);
         if (nestedResult == null)
         {
-            DebugLog($"    ExtractNestedCorrelations returned null, cannot transform");
             return null;
         }
         var (transformedTables, nestedCorrelations) = nestedResult.Value;
-        DebugLog($"    Nested correlations extracted: {nestedCorrelations.Count}");
 
         // Process the main predicate to extract correlated parts
         var (correlatedParts, nonCorrelatedParts, complexCorrelatedParts) = innerSelect.Predicate != null
@@ -900,7 +797,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             if (innerExpr is ColumnExpression innerCol && _ancestorAliases.Contains(innerCol.TableAlias))
             {
                 // Both sides are ancestor columns - pass directly to join predicate without projection
-                DebugLog($"    Both-sides-outer nested correlation: {outerCol.TableAlias}.{outerCol.Name} = {innerCol.TableAlias}.{innerCol.Name}");
                 bothSidesOuterPredicates.Add(_sqlExpressionFactory.Equal(outerCol, innerCol));
             }
             else
@@ -920,7 +816,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         if (hasMixedOrderings)
         {
             // Mixed ordering - cannot handle
-            DebugLog($"    Cannot handle mixed outer/inner ordering in orderings");
             return null;
         }
 
@@ -1031,13 +926,11 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 if (ContainsOnlyOuterReferences(ordering.Expression))
                 {
                     // Pure outer ordering - can be safely removed, it's constant in JOIN context
-                    DebugLog($"    Removing outer-only ordering: {DebugPrintExpression(ordering.Expression)}");
                     continue;
                 }
                 else
                 {
                     // Mixed ordering - cannot handle, bail out
-                    DebugLog($"    Cannot handle mixed outer/inner ordering: {DebugPrintExpression(ordering.Expression)}");
                     return null;
                 }
             }
@@ -1081,7 +974,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             // If extraction returns null, it means we can't transform this table
             if (extractResult == null)
             {
-                DebugLog($"    ExtractNestedCorrelations: table {i} ({table.GetType().Name}) cannot be transformed");
                 return null;
             }
 
@@ -1137,14 +1029,10 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
             case SelectExpression nestedSelect:
                 // Check if this SELECT or any of its nested tables have correlations
-                DebugLog($"      ExtractCorrelationsFromTable: SelectExpression alias={nestedSelect.Alias}");
                 var hasCorr = ContainsCorrelatedPredicates(nestedSelect);
-                DebugLog($"        ContainsCorrelatedPredicates: {hasCorr}");
                 if (hasCorr)
                 {
-                    DebugLog($"        Calling ExtractCorrelationsFromNestedSelectDeep");
                     var result = ExtractCorrelationsFromNestedSelectDeep(nestedSelect);
-                    DebugLog($"        Result: {(result != null ? $"{result.Value.correlations.Count} correlations, {result.Value.directPredicates.Count} direct" : "null")}");
                     if (result != null)
                     {
                         // TODO: Handle directPredicates - for now, combine with correlations by converting direct predicates
@@ -1159,7 +1047,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                         // ExtractCorrelationsFromNestedSelectDeep returned null, meaning it can't handle
                         // this case (e.g., LIMIT with correlated predicate needs ROW_NUMBER).
                         // Return null to signal that we can't transform.
-                        DebugLog($"        Returning null: cannot extract correlations from nested SELECT");
                         return null;
                     }
                 }
@@ -1374,7 +1261,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         var nestedResult = ExtractNestedCorrelations(nestedSelect.Tables);
         if (nestedResult == null)
         {
-            DebugLog($"    ExtractCorrelationsFromJoinedSelect: ExtractNestedCorrelations returned null");
             return null;
         }
         var (transformedNestedTables, nestedCorrelations) = nestedResult.Value;
@@ -1395,7 +1281,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 // try to project it - just pass the correlation through unchanged.
                 if (_ancestorAliases.Contains(innerColumn.TableAlias))
                 {
-                    DebugLog($"    Both-sides-outer correlation: {outerCol.TableAlias}.{outerCol.Name} = {innerColumn.TableAlias}.{innerColumn.Name}, passing through");
                     correlations.Add((outerCol, innerColumn));
                     continue;
                 }
@@ -1569,13 +1454,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
     private (SelectExpression transformedSelect, List<(ColumnExpression outer, SqlExpression inner)> correlations, List<SqlExpression> directPredicates)?
         ExtractCorrelationsFromNestedSelectDeep(SelectExpression nestedSelect)
     {
-        DebugLog($"        ExtractCorrelationsFromNestedSelectDeep: alias={nestedSelect.Alias}");
-        DebugLog($"          Predicate: {DebugPrintExpression(nestedSelect.Predicate)}");
-        DebugLog($"          OuterAliases: [{string.Join(",", _outerTableAliases)}]");
-        DebugLog($"          AncestorAliases: [{string.Join(",", _ancestorAliases)}]");
-        DebugLog($"          Tables: {string.Join(", ", nestedSelect.Tables.Select(t => t.GetType().Name + ":" + t.Alias))}");
-        DebugLog($"          Limit: {(nestedSelect.Limit != null ? "yes" : "no")}, Offset: {(nestedSelect.Offset != null ? "yes" : "no")}");
-
         // CRITICAL: If this SELECT has LIMIT/OFFSET with correlated predicates, we CANNOT safely transform it.
         // The LIMIT is meant to apply per-outer-row, not globally.
         // For example: "SELECT TOP 1 ... WHERE outer.id = inner.id ORDER BY ..." takes the first matching row
@@ -1584,7 +1462,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         if ((nestedSelect.Limit != null || nestedSelect.Offset != null) &&
             nestedSelect.Predicate != null && ContainsOuterReference(nestedSelect.Predicate))
         {
-            DebugLog($"          Bailing out: LIMIT/OFFSET with correlated predicate requires ROW_NUMBER transformation");
             return null;
         }
 
@@ -1596,11 +1473,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         var nestedResult = ExtractNestedCorrelations(nestedSelect.Tables);
         if (nestedResult == null)
         {
-            DebugLog($"          ExtractNestedCorrelations returned null");
             return null;
         }
         var (transformedTables, nestedCorrelations) = nestedResult.Value;
-        DebugLog($"          Nested correlations from tables: {nestedCorrelations.Count}");
 
         // Project nested correlations through this SELECT
         foreach (var (outerCol, innerExpr) in nestedCorrelations)
@@ -1619,11 +1494,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
         // Then handle direct predicates in this SELECT
         var hasOuterRef = nestedSelect.Predicate != null && ContainsOuterReference(nestedSelect.Predicate);
-        DebugLog($"          Predicate contains outer reference: {hasOuterRef}");
         if (nestedSelect.Predicate != null && hasOuterRef)
         {
             var (correlatedParts, nonCorrelatedParts, complexCorrelatedParts) = SplitPredicate(nestedSelect.Predicate);
-            DebugLog($"          SplitPredicate: correlated={correlatedParts.Count}, nonCorr={nonCorrelatedParts.Count}, complex={complexCorrelatedParts.Count}");
 
             // Separate outer-only predicates (like `outer_col <> NULL`) from truly complex predicates
             var outerOnlyPredicates = new List<SqlExpression>();
@@ -1641,12 +1514,9 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 }
             }
 
-            DebugLog($"          Outer-only predicates: {outerOnlyPredicates.Count}, truly complex: {trulyComplexPredicates.Count}");
-
             // Can't handle truly complex correlated predicates
             if (trulyComplexPredicates.Count > 0)
             {
-                DebugLog($"          Returning null due to truly complex correlated predicates");
                 return null;
             }
 
@@ -1655,20 +1525,16 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
             foreach (var correlation in correlatedParts)
             {
-                DebugLog($"          Processing correlation: outer={correlation.OuterCol}, inner type={correlation.InnerExpr.GetType().Name}");
                 if (correlation.InnerExpr is ColumnExpression innerCol)
                 {
-                    DebugLog($"            Inner column: {innerCol.TableAlias}.{innerCol.Name}");
                     EnsureColumnProjected(nestedSelect, innerCol, additionalProjections, projectionMapping);
 
                     if (projectionMapping.TryGetValue(innerCol, out var projectedCol))
                     {
-                        DebugLog($"            Added correlation to {projectedCol.TableAlias}.{projectedCol.Name}");
                         correlations.Add((correlation.OuterCol, projectedCol));
                     }
                     else
                     {
-                        DebugLog($"          Returning null: projection mapping not found for {innerCol}");
                         return null;
                     }
                 }
@@ -1676,12 +1542,10 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 {
                     // Inner expression is a constant (e.g., NULL from nullability processor)
                     // This correlation (like `outer_col <> NULL`) should be added directly to join condition
-                    DebugLog($"            Inner is constant, adding to direct join predicates");
                     directJoinPredicates.Add(correlation.OriginalPredicate);
                 }
                 else
                 {
-                    DebugLog($"          Returning null: inner expr not a column or constant, type={correlation.InnerExpr.GetType().Name}");
                     return null;
                 }
             }
@@ -1720,8 +1584,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 nestedSelect.Orderings,
                 nestedSelect.Offset,
                 nestedSelect.Limit);
-
-            DebugLog($"          Returning: {correlations.Count} correlations, {directJoinPredicates.Count} direct predicates");
             return (transformedSelect, correlations, directJoinPredicates.Cast<SqlExpression>().ToList());
         }
 
@@ -1950,7 +1812,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
                 }
             }
             // If not found, this is an error - we're trying to reference output that doesn't exist
-            DebugLog($"    WARNING: Self-reference to {column.TableAlias}.{column.Name} not found in projections");
             return;
         }
 
@@ -2027,7 +1888,6 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
 
                     if (!alreadyInGroupBy)
                     {
-                        DebugLog($"      Adding to GROUP BY: {col.TableAlias}.{col.Name}");
                         newGroupBy.Add(col);
                     }
                 }
