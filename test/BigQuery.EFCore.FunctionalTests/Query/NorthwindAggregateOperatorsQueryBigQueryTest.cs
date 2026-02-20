@@ -21,4 +21,18 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
 
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
+
+    #region Unsupported: Deeply nested correlated subqueries
+
+    [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Multiple_collection_navigation_with_FirstOrDefault_chained(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Multiple_collection_navigation_with_FirstOrDefault_chained_projecting_scalar(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 }

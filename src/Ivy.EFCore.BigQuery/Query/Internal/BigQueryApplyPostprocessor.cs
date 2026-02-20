@@ -36,6 +36,11 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
     // Track outer table aliases at each level of nesting
     private HashSet<string> _outerTableAliases = new();
 
+    // Track correlated projection remappings: maps (joinAlias, columnName) to the outer column expression
+    // When a CROSS APPLY inner SELECT has correlated projections like c.ContactName,
+    // we need to remap outer references from o0.ContactName to c.ContactName
+    private Dictionary<(string tableAlias, string columnName), ColumnExpression> _correlatedProjectionRemappings = new();
+
     public BigQueryApplyPostprocessor(
         ISqlExpressionFactory sqlExpressionFactory,
         IRelationalTypeMappingSource typeMappingSource)
@@ -99,14 +104,44 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             }
         }
 
-        // Visit other parts of the select
+        // Apply correlated projection remappings to other parts of the select
+        // These remappings are populated when transforming CROSS/OUTER APPLY with correlated projections
+        var remapper = _correlatedProjectionRemappings.Count > 0
+            ? new CorrelatedColumnRemapper(_correlatedProjectionRemappings)
+            : null;
+
+        // Visit and potentially remap other parts of the select
         var newPredicate = select.Predicate != null ? (SqlExpression?)Visit(select.Predicate) : null;
+        if (newPredicate != null && remapper != null)
+            newPredicate = (SqlExpression)remapper.Visit(newPredicate);
+
         var newHaving = select.Having != null ? (SqlExpression?)Visit(select.Having) : null;
-        var newProjections = select.Projection.Select(p => (ProjectionExpression)Visit(p)).ToList();
-        var newGroupBy = select.GroupBy.Select(g => (SqlExpression)Visit(g)).ToList();
-        var newOrderings = select.Orderings.Select(o => (OrderingExpression)Visit(o)).ToList();
+        if (newHaving != null && remapper != null)
+            newHaving = (SqlExpression)remapper.Visit(newHaving);
+
+        var newProjections = select.Projection.Select(p =>
+        {
+            var visited = (ProjectionExpression)Visit(p);
+            return remapper != null ? (ProjectionExpression)remapper.Visit(visited) : visited;
+        }).ToList();
+
+        var newGroupBy = select.GroupBy.Select(g =>
+        {
+            var visited = (SqlExpression)Visit(g);
+            return remapper != null ? (SqlExpression)remapper.Visit(visited) : visited;
+        }).ToList();
+
+        var newOrderings = select.Orderings.Select(o =>
+        {
+            var visited = (OrderingExpression)Visit(o);
+            return remapper != null ? (OrderingExpression)remapper.Visit(visited) : visited;
+        }).ToList();
+
         var newOffset = select.Offset != null ? (SqlExpression?)Visit(select.Offset) : null;
         var newLimit = select.Limit != null ? (SqlExpression?)Visit(select.Limit) : null;
+
+        // Clear remappings for this level
+        _correlatedProjectionRemappings.Clear();
 
         _outerTableAliases = previousOuterAliases;
 
@@ -193,13 +228,28 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             return outerApply;
         }
 
-        // Check upfront if projections contain outer references - if so, we can't transform
+        // Identify correlated projections - these need special handling
+        // Same logic as TransformCrossApply
+        var correlatedProjections = new List<(ProjectionExpression projection, ColumnExpression outerColumn)>();
+        var nonCorrelatedProjections = new List<ProjectionExpression>();
+
         foreach (var projection in innerSelect.Projection)
         {
-            if (ContainsOuterReference(projection.Expression))
+            if (projection.Expression is ColumnExpression column && _outerTableAliases.Contains(column.TableAlias))
             {
-                // Can't transform - return original (SQL generator will handle OUTER APPLY)
+                // This projection is a direct outer column reference (e.g., c.ContactName)
+                // We'll remap references to this from the outer SELECT
+                correlatedProjections.Add((projection, column));
+            }
+            else if (ContainsOuterReference(projection.Expression))
+            {
+                // Complex correlated projection (expression involving outer columns)
+                // We can't handle this - bail out
                 return outerApply;
+            }
+            else
+            {
+                nonCorrelatedProjections.Add(projection);
             }
         }
 
@@ -212,12 +262,49 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             return outerApply;
         }
 
+        // If we have correlated projections, rebuild the inner SELECT without them
+        // and set up remappings for the outer SELECT
+        if (correlatedProjections.Count > 0)
+        {
+            // Get the join alias (this will be the alias of the transformed join result)
+            var joinAlias = innerSelect.Alias!;
+
+            // Register remappings: outer SELECT references to joinAlias.columnName -> outerColumn
+            foreach (var (projection, outerColumn) in correlatedProjections)
+            {
+                _correlatedProjectionRemappings[(joinAlias, projection.Alias)] = outerColumn;
+            }
+
+            // Rebuild inner SELECT with only non-correlated projections
+            // If all projections are correlated, we need to add a dummy projection
+            var projectionsToUse = nonCorrelatedProjections.Count > 0
+                ? nonCorrelatedProjections
+                : [new ProjectionExpression(_sqlExpressionFactory.Constant(1, _typeMappingSource.FindMapping(typeof(int))), "_dummy")];
+
+            processedInnerSelect = processedInnerSelect.Update(
+                processedInnerSelect.Tables.ToList(),
+                processedInnerSelect.Predicate,
+                processedInnerSelect.GroupBy.ToList(),
+                processedInnerSelect.Having,
+                projectionsToUse,
+                processedInnerSelect.Orderings.ToList(),
+                processedInnerSelect.Offset,
+                processedInnerSelect.Limit);
+        }
+
         // Analyze for correlated predicates
         var result = ExtractCorrelatedPredicates(processedInnerSelect);
 
         if (result == null || result.JoinPredicate == null)
         {
-            // No correlated predicates found or couldn't extract - return original
+            // No correlated predicates found - but if we had correlated projections, we still need to transform
+            if (correlatedProjections.Count > 0)
+            {
+                // Create a simple TRUE predicate for the join
+                var truePredicate = _sqlExpressionFactory.Constant(true);
+                return new LeftJoinExpression(processedInnerSelect, truePredicate, prunable: false);
+            }
+            // No correlated predicates and no correlated projections - return original
             return outerApply;
         }
 
@@ -232,13 +319,27 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             return crossApply;
         }
 
-        // Check upfront if projections contain outer references - if so, we can't transform
+        // Identify correlated projections - these need special handling
+        var correlatedProjections = new List<(ProjectionExpression projection, ColumnExpression outerColumn)>();
+        var nonCorrelatedProjections = new List<ProjectionExpression>();
+
         foreach (var projection in innerSelect.Projection)
         {
-            if (ContainsOuterReference(projection.Expression))
+            if (projection.Expression is ColumnExpression column && _outerTableAliases.Contains(column.TableAlias))
             {
-                // Can't transform - return original (SQL generator will handle CROSS APPLY)
+                // This projection is a direct outer column reference (e.g., c.ContactName)
+                // We'll remap references to this from the outer SELECT
+                correlatedProjections.Add((projection, column));
+            }
+            else if (ContainsOuterReference(projection.Expression))
+            {
+                // Complex correlated projection (expression involving outer columns)
+                // We can't handle this - bail out
                 return crossApply;
+            }
+            else
+            {
+                nonCorrelatedProjections.Add(projection);
             }
         }
 
@@ -251,12 +352,49 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             return crossApply;
         }
 
+        // If we have correlated projections, rebuild the inner SELECT without them
+        // and set up remappings for the outer SELECT
+        if (correlatedProjections.Count > 0)
+        {
+            // Get the join alias (this will be the alias of the transformed join result)
+            var joinAlias = innerSelect.Alias!;
+
+            // Register remappings: outer SELECT references to joinAlias.columnName -> outerColumn
+            foreach (var (projection, outerColumn) in correlatedProjections)
+            {
+                _correlatedProjectionRemappings[(joinAlias, projection.Alias)] = outerColumn;
+            }
+
+            // Rebuild inner SELECT with only non-correlated projections
+            // If all projections are correlated, we need to add a dummy projection
+            var projectionsToUse = nonCorrelatedProjections.Count > 0
+                ? nonCorrelatedProjections
+                : [new ProjectionExpression(_sqlExpressionFactory.Constant(1, _typeMappingSource.FindMapping(typeof(int))), "_dummy")];
+
+            processedInnerSelect = processedInnerSelect.Update(
+                processedInnerSelect.Tables.ToList(),
+                processedInnerSelect.Predicate,
+                processedInnerSelect.GroupBy.ToList(),
+                processedInnerSelect.Having,
+                projectionsToUse,
+                processedInnerSelect.Orderings.ToList(),
+                processedInnerSelect.Offset,
+                processedInnerSelect.Limit);
+        }
+
         // Analyze for correlated predicates
         var result = ExtractCorrelatedPredicates(processedInnerSelect);
 
         if (result == null || result.JoinPredicate == null)
         {
-            // No correlated predicates found - return original
+            // No correlated predicates found - but if we had correlated projections, we still need to transform
+            if (correlatedProjections.Count > 0)
+            {
+                // Create a simple TRUE predicate for the join
+                var truePredicate = _sqlExpressionFactory.Constant(true);
+                return new InnerJoinExpression(processedInnerSelect, truePredicate, prunable: false);
+            }
+            // No correlated predicates and no correlated projections - return original
             return crossApply;
         }
 
@@ -358,10 +496,32 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
 
             var tablesToUse = transformedTables ?? innerSelect.Tables;
 
+            // If this SELECT has GROUP BY and we added correlation projections,
+            // we need to also add those columns to the GROUP BY clause
+            var newGroupBy = innerSelect.GroupBy.ToList();
+            if (innerSelect.GroupBy.Count > 0 && additionalProjections.Count > 0)
+            {
+                foreach (var addedProj in additionalProjections)
+                {
+                    if (addedProj.Expression is ColumnExpression col)
+                    {
+                        // Check if not already in GROUP BY
+                        var alreadyInGroupBy = newGroupBy.Any(g =>
+                            g is ColumnExpression gc &&
+                            gc.TableAlias == col.TableAlias &&
+                            gc.Name == col.Name);
+                        if (!alreadyInGroupBy)
+                        {
+                            newGroupBy.Add(col);
+                        }
+                    }
+                }
+            }
+
             newInnerSelect = innerSelect.Update(
                 tablesToUse,
                 newPredicate,
-                innerSelect.GroupBy,
+                newGroupBy,
                 innerSelect.Having,
                 newProjections,
                 innerSelect.Orderings,
@@ -597,11 +757,33 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         var newProjections = nestedSelect.Projection.ToList();
         newProjections.AddRange(additionalProjections);
 
+        // If this SELECT has GROUP BY and we added correlation projections,
+        // we need to also add those columns to the GROUP BY clause
+        var newGroupBy = nestedSelect.GroupBy.ToList();
+        if (nestedSelect.GroupBy.Count > 0 && additionalProjections.Count > 0)
+        {
+            foreach (var addedProj in additionalProjections)
+            {
+                if (addedProj.Expression is ColumnExpression col)
+                {
+                    // Check if not already in GROUP BY
+                    var alreadyInGroupBy = newGroupBy.Any(g =>
+                        g is ColumnExpression gc &&
+                        gc.TableAlias == col.TableAlias &&
+                        gc.Name == col.Name);
+                    if (!alreadyInGroupBy)
+                    {
+                        newGroupBy.Add(col);
+                    }
+                }
+            }
+        }
+
         // Create the transformed select
         var transformedSelect = nestedSelect.Update(
             nestedSelect.Tables,
             newPredicate,
-            nestedSelect.GroupBy,
+            newGroupBy,
             nestedSelect.Having,
             newProjections,
             nestedSelect.Orderings,
@@ -620,6 +802,24 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         if (projectionMapping.ContainsKey(column))
         {
             return; // Already handled
+        }
+
+        // Verify the column is NOT from an outer table
+        // If it's from an outer table, we shouldn't try to project it from this SELECT
+        if (_outerTableAliases.Contains(column.TableAlias))
+        {
+            // Column is from an outer table, not from this SELECT's tables
+            // Don't add it as a projection - this would create invalid SQL
+            return;
+        }
+
+        // Also verify the column's table is actually in this SELECT's FROM clause
+        // This prevents adding projections for columns from nested subqueries
+        var selectTableAliases = CollectSelectTableAliases(select);
+        if (!selectTableAliases.Contains(column.TableAlias))
+        {
+            // Column is from a nested subquery or other scope, not from this SELECT
+            return;
         }
 
         // Check if column is already projected
@@ -830,6 +1030,36 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
     }
 
     /// <summary>
+    /// Collects all table aliases from a SELECT's FROM clause (non-recursive, only direct tables).
+    /// </summary>
+    private static HashSet<string> CollectSelectTableAliases(SelectExpression select)
+    {
+        var aliases = new HashSet<string>();
+        foreach (var table in select.Tables)
+        {
+            CollectTableAliasesFromTable(table, aliases);
+        }
+        return aliases;
+    }
+
+    private static void CollectTableAliasesFromTable(TableExpressionBase table, HashSet<string> aliases)
+    {
+        // Get the base table (unwrap joins)
+        var baseTable = table.UnwrapJoin();
+
+        if (baseTable.Alias != null)
+        {
+            aliases.Add(baseTable.Alias);
+        }
+
+        // For join expressions, also get the joined table
+        if (table is JoinExpressionBase join)
+        {
+            CollectTableAliasesFromTable(join.Table, aliases);
+        }
+    }
+
+    /// <summary>
     /// Finds column references to outer tables.
     /// </summary>
     private class OuterColumnFinder : ExpressionVisitor
@@ -928,6 +1158,35 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
                             column.TypeMapping,
                             column.IsNullable);
                     }
+                }
+            }
+
+            return base.VisitExtension(node);
+        }
+    }
+
+    /// <summary>
+    /// Remaps column references from join table aliases to outer table columns.
+    /// Used when APPLY expressions have correlated projections that need to be
+    /// resolved from the outer table instead of through the join.
+    /// </summary>
+    private class CorrelatedColumnRemapper : ExpressionVisitor
+    {
+        private readonly Dictionary<(string tableAlias, string columnName), ColumnExpression> _remappings;
+
+        public CorrelatedColumnRemapper(Dictionary<(string tableAlias, string columnName), ColumnExpression> remappings)
+        {
+            _remappings = remappings;
+        }
+
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (node is ColumnExpression column)
+            {
+                var key = (column.TableAlias, column.Name);
+                if (_remappings.TryGetValue(key, out var remappedColumn))
+                {
+                    return remappedColumn;
                 }
             }
 

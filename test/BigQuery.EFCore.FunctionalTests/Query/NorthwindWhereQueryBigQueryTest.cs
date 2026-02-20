@@ -30,4 +30,27 @@ END
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
+    #region Unsupported: Correlated subqueries with OFFSET
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task ElementAtOrDefault_over_custom_projection_compared_to_null(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task ElementAt_over_custom_projection_compared_to_not_null(bool async)
+        => Task.CompletedTask;
+
+    #endregion
+
+    #region Unsupported: Deeply nested correlated subqueries
+
+    [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries (EXISTS with nested IN)")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Where_contains_on_navigation(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 }
