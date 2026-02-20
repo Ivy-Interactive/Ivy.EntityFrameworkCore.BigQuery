@@ -73,23 +73,41 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                     typeof(long));
 
             // BigQuery AVG behavior:
-            // - INT64 input -> FLOAT64 output (matches .NET int→double)
+            // - INT64 input -> FLOAT64 output (but with precision loss!)
             // - FLOAT64 input -> FLOAT64 output
-            // - NUMERIC/BIGNUMERIC input -> same type output
+            // - NUMERIC/BIGNUMERIC input -> same type output (exact)
+            //
+            // To avoid precision loss for integer types, we cast to NUMERIC first,
+            // compute AVG (which returns exact NUMERIC), then cast back to FLOAT64.
+            // This ensures exact computation while returning the expected double type.
             case nameof(Queryable.Average)
                 when (QueryableMethods.IsAverageWithoutSelector(methodInfo)
                     || QueryableMethods.IsAverageWithSelector(methodInfo))
                 && source.Selector is SqlExpression averageSqlExpression:
                 var averageInputType = averageSqlExpression.Type;
 
-                // For int and long, BigQuery returns FLOAT64, which matches .NET's double expectation
+                // For int and long, cast to NUMERIC first for exact computation,
+                // then cast result back to FLOAT64 to match .NET's double expectation
                 if (averageInputType == typeof(int) || averageInputType == typeof(long))
                 {
-                    return _sqlExpressionFactory.Function(
+                    // Cast input to NUMERIC for exact arithmetic
+                    var numericInput = _sqlExpressionFactory.Convert(
+                        averageSqlExpression,
+                        typeof(decimal),
+                        _typeMappingSource.FindMapping(typeof(decimal)));
+
+                    // AVG on NUMERIC returns NUMERIC (exact)
+                    var avgNumeric = _sqlExpressionFactory.Function(
                         "AVG",
-                        [averageSqlExpression],
+                        [numericInput],
                         nullable: true,
                         argumentsPropagateNullability: FalseArrays1,
+                        typeof(decimal),
+                        _typeMappingSource.FindMapping(typeof(decimal)));
+
+                    // Cast back to FLOAT64 to match expected return type
+                    return _sqlExpressionFactory.Convert(
+                        avgNumeric,
                         typeof(double),
                         _typeMappingSource.FindMapping(typeof(double)));
                 }
@@ -108,7 +126,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                         averageSqlExpression.TypeMapping);
                 }
 
-                // For decimal, NUMERIC, BIGNUMERIC - preserve type
+                // For decimal, NUMERIC, BIGNUMERIC - preserve type (already exact)
                 return _sqlExpressionFactory.Function(
                     "AVG",
                     [averageSqlExpression],
