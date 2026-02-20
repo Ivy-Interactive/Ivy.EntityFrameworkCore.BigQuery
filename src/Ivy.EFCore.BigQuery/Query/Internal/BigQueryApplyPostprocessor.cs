@@ -523,10 +523,32 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
 
             var tablesToUse = transformedTables ?? innerSelect.Tables;
 
+            // If this SELECT has GROUP BY and we added correlation projections,
+            // we need to also add those columns to the GROUP BY clause
+            var newGroupBy = innerSelect.GroupBy.ToList();
+            if (innerSelect.GroupBy.Count > 0 && additionalProjections.Count > 0)
+            {
+                foreach (var addedProj in additionalProjections)
+                {
+                    if (addedProj.Expression is ColumnExpression col)
+                    {
+                        // Check if not already in GROUP BY
+                        var alreadyInGroupBy = newGroupBy.Any(g =>
+                            g is ColumnExpression gc &&
+                            gc.TableAlias == col.TableAlias &&
+                            gc.Name == col.Name);
+                        if (!alreadyInGroupBy)
+                        {
+                            newGroupBy.Add(col);
+                        }
+                    }
+                }
+            }
+
             newInnerSelect = innerSelect.Update(
                 tablesToUse,
                 newPredicate,
-                innerSelect.GroupBy,
+                newGroupBy,
                 innerSelect.Having,
                 newProjections,
                 innerSelect.Orderings,
@@ -762,11 +784,33 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         var newProjections = nestedSelect.Projection.ToList();
         newProjections.AddRange(additionalProjections);
 
+        // If this SELECT has GROUP BY and we added correlation projections,
+        // we need to also add those columns to the GROUP BY clause
+        var newGroupBy = nestedSelect.GroupBy.ToList();
+        if (nestedSelect.GroupBy.Count > 0 && additionalProjections.Count > 0)
+        {
+            foreach (var addedProj in additionalProjections)
+            {
+                if (addedProj.Expression is ColumnExpression col)
+                {
+                    // Check if not already in GROUP BY
+                    var alreadyInGroupBy = newGroupBy.Any(g =>
+                        g is ColumnExpression gc &&
+                        gc.TableAlias == col.TableAlias &&
+                        gc.Name == col.Name);
+                    if (!alreadyInGroupBy)
+                    {
+                        newGroupBy.Add(col);
+                    }
+                }
+            }
+        }
+
         // Create the transformed select
         var transformedSelect = nestedSelect.Update(
             nestedSelect.Tables,
             newPredicate,
-            nestedSelect.GroupBy,
+            newGroupBy,
             nestedSelect.Having,
             newProjections,
             nestedSelect.Orderings,

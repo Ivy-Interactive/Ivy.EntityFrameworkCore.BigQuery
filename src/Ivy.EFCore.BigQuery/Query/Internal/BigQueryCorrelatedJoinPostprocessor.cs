@@ -1243,10 +1243,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             var newProjections = joinedSelect.Projection.ToList();
             newProjections.AddRange(additionalProjections);
 
+            // If SELECT has GROUP BY and we added projections, add them to GROUP BY too
+            var newGroupBy = UpdateGroupByWithCorrelationProjections(joinedSelect, additionalProjections);
+
             var transformedSelect = joinedSelect.Update(
                 joinedSelect.Tables,
                 joinedSelect.Predicate,
-                joinedSelect.GroupBy,
+                newGroupBy,
                 joinedSelect.Having,
                 newProjections,
                 joinedSelect.Orderings,
@@ -1436,10 +1439,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             var newProjections = nestedSelect.Projection.ToList();
             newProjections.AddRange(additionalProjections);
 
+            // If SELECT has GROUP BY and we added projections, add them to GROUP BY too
+            var newGroupBy = UpdateGroupByWithCorrelationProjections(nestedSelect, additionalProjections);
+
             var transformedSelect = nestedSelect.Update(
                 transformedNestedTables ?? nestedSelect.Tables,
                 newPredicate,
-                nestedSelect.GroupBy,
+                newGroupBy,
                 nestedSelect.Having,
                 newProjections,
                 nestedSelect.Orderings,
@@ -1459,10 +1465,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             var newProjections = nestedSelect.Projection.ToList();
             newProjections.AddRange(additionalProjections);
 
+            // If SELECT has GROUP BY and we added projections, add them to GROUP BY too
+            var newGroupBy = UpdateGroupByWithCorrelationProjections(nestedSelect, additionalProjections);
+
             var transformedSelect = nestedSelect.Update(
                 transformedNestedTables ?? nestedSelect.Tables,
                 nestedSelect.Predicate,
-                nestedSelect.GroupBy,
+                newGroupBy,
                 nestedSelect.Having,
                 newProjections,
                 nestedSelect.Orderings,
@@ -1531,10 +1540,13 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
         var newProjections = nestedSelect.Projection.ToList();
         newProjections.AddRange(additionalProjections);
 
+        // If SELECT has GROUP BY and we added projections, add them to GROUP BY too
+        var newGroupBy = UpdateGroupByWithCorrelationProjections(nestedSelect, additionalProjections);
+
         var transformedSelect = nestedSelect.Update(
             nestedSelect.Tables,
             newPredicate,
-            nestedSelect.GroupBy,
+            newGroupBy,
             nestedSelect.Having,
             newProjections,
             nestedSelect.Orderings,
@@ -1990,6 +2002,38 @@ public class BigQueryCorrelatedJoinPostprocessor : ExpressionVisitor
             column.TypeMapping,
             column.IsNullable);
         projectionMapping[column] = newProjectedColumn;
+    }
+
+    /// <summary>
+    /// If a SELECT has GROUP BY and we're adding correlation projections,
+    /// we need to also add those columns to the GROUP BY clause.
+    /// </summary>
+    private List<SqlExpression> UpdateGroupByWithCorrelationProjections(
+        SelectExpression select,
+        List<ProjectionExpression> additionalProjections)
+    {
+        var newGroupBy = select.GroupBy.ToList();
+        if (select.GroupBy.Count > 0 && additionalProjections.Count > 0)
+        {
+            foreach (var addedProj in additionalProjections)
+            {
+                if (addedProj.Expression is ColumnExpression col)
+                {
+                    // Check if this column is already in GROUP BY
+                    var alreadyInGroupBy = newGroupBy.Any(g =>
+                        g is ColumnExpression gc &&
+                        gc.TableAlias == col.TableAlias &&
+                        gc.Name == col.Name);
+
+                    if (!alreadyInGroupBy)
+                    {
+                        DebugLog($"      Adding to GROUP BY: {col.TableAlias}.{col.Name}");
+                        newGroupBy.Add(col);
+                    }
+                }
+            }
+        }
+        return newGroupBy;
     }
 
     private ColumnExpression RemapColumnToSelectAlias(ColumnExpression column, SelectExpression select)
