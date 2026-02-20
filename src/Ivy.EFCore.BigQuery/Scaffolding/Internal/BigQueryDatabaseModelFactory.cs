@@ -20,6 +20,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
         private readonly IPluralizer? _pluralizer;
         private readonly Dictionary<string, StructTypeInfo> _structTypes = new();
 
+        /// <summary>
+        /// Stores the location from the last scaffolded dataset for use by the code generator.
+        /// </summary>
+        internal static string? LastScaffoldedLocation { get; private set; }
+
         public BigQueryDatabaseModelFactory(
             IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger,
             IRelationalTypeMappingSource typeMappingSource,
@@ -71,6 +76,17 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                 };
 
                 databaseModel.DatabaseName = connection.Database;
+
+                var location = GetDatasetLocation(connection);
+                if (!string.IsNullOrWhiteSpace(location))
+                {
+                    databaseModel["BigQuery:Location"] = location;
+                    LastScaffoldedLocation = location;
+                }
+                else
+                {
+                    LastScaffoldedLocation = null;
+                }
 
                 var tables = GetTables(connection, databaseModel, options.Tables.ToList(), options.Schemas.ToList());
 
@@ -125,6 +141,27 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     connection.Close();
                 }
             }
+        }
+
+        private string? GetDatasetLocation(BigQueryConnection connection)
+        {
+            var datasetId = connection.Database;
+            var projectId = connection.DefaultProjectId;
+            if (string.IsNullOrWhiteSpace(datasetId) || string.IsNullOrWhiteSpace(projectId))
+            {
+                return null;
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT location FROM `{projectId}`.INFORMATION_SCHEMA.SCHEMATA WHERE schema_name = '{datasetId}'";
+
+            using var reader = command.ExecuteReader();
+            if (reader.Read() && !reader.IsDBNull(0))
+            {
+                return reader.GetString(0);
+            }
+
+            return null;
         }
 
         private List<DatabaseTable> GetTables(DbConnection connection, DatabaseModel databaseModel, IReadOnlyList<string> tableFilters, IReadOnlyList<string> schemaFilters)
