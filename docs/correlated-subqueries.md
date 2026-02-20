@@ -97,6 +97,38 @@ The provider transforms them to LEFT/INNER JOINs by:
 
 ## Unsupported Patterns
 
+### Take/Skip with correlated subqueries
+
+Queries that use `Take()` or `Skip()` inside correlated collection projections:
+
+```csharp
+// NOT SUPPORTED - Take inside correlated collection projection
+customers.Select(c => new {
+    c.CustomerID,
+    TopOrders = c.Orders.Take(5).ToList()
+})
+
+// NOT SUPPORTED - Take in collection projection with FirstOrDefault on top
+customers.Take(10).Select(c => new {
+    c.CustomerID,
+    FirstOrder = c.Orders.Take(2).FirstOrDefault()
+})
+```
+
+The provider cannot transform LIMIT/OFFSET combined with correlated predicates.
+
+**Workaround:** Use explicit aggregation with ROW_NUMBER:
+
+```csharp
+// Load all orders and filter in memory
+var orders = context.Orders.ToList();
+var customers = context.Customers
+    .Select(c => new {
+        c.CustomerID,
+        TopOrders = orders.Where(o => o.CustomerID == c.CustomerID).Take(5).ToList()
+    });
+```
+
 ### Deeply nested correlated subqueries
 
 Queries where an inner subquery references a table from multiple levels up:
@@ -110,6 +142,9 @@ customers.Select(c => new {
             .Count(od => od.ProductID > c.CustomerID.Length))  // References 'c'
         .FirstOrDefault()
 })
+
+// NOT SUPPORTED - chained navigation with FirstOrDefault
+customers.Select(c => c.Orders.FirstOrDefault().OrderDetails.FirstOrDefault())
 ```
 
 ### EXISTS/IN subqueries in JOIN predicates
