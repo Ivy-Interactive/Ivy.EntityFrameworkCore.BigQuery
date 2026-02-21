@@ -99,7 +99,26 @@ The provider transforms them to LEFT/INNER JOINs by:
 
 ### Take/Skip with correlated subqueries
 
-Queries that use `Take()` or `Skip()` inside correlated collection projections:
+**Take with FirstOrDefault** - SUPPORTED:
+
+```csharp
+// SUPPORTED - Take(1).FirstOrDefault() is transformed to ROW_NUMBER
+customers.Select(c => new {
+    c.CustomerID,
+    FirstOrderCustomerId = c.Orders.OrderBy(o => o.OrderID).Take(1).FirstOrDefault()
+})
+```
+
+The provider transforms this to a LEFT JOIN with `ROW_NUMBER() OVER(PARTITION BY ...)` and `rn = 1`.
+
+**Skip** - NOT YET SUPPORTED:
+
+```csharp
+// NOT SUPPORTED - Skip requires special ROW_NUMBER handling
+customers.Select(c => c.Orders.OrderBy(o => o.OrderID).Skip(1).FirstOrDefault())
+```
+
+**Collection projections with Take** - NOT SUPPORTED:
 
 ```csharp
 // NOT SUPPORTED - Take inside correlated collection projection
@@ -107,17 +126,11 @@ customers.Select(c => new {
     c.CustomerID,
     TopOrders = c.Orders.Take(5).ToList()
 })
-
-// NOT SUPPORTED - Take in collection projection with FirstOrDefault on top
-customers.Take(10).Select(c => new {
-    c.CustomerID,
-    FirstOrder = c.Orders.Take(2).FirstOrDefault()
-})
 ```
 
-The provider cannot transform LIMIT/OFFSET combined with correlated predicates.
+The provider cannot transform LIMIT/OFFSET for collection projections.
 
-**Workaround:** Use explicit aggregation with ROW_NUMBER:
+**Workaround:** Load related data separately:
 
 ```csharp
 // Load all orders and filter in memory

@@ -26,6 +26,11 @@ public class NorthwindSelectQueryBigQueryTests : NorthwindSelectQueryRelationalT
     public override Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault_2(bool async)
         => Task.CompletedTask;
 
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with Skip (OFFSET requires special ROW_NUMBER handling)")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(bool async)
+        => Task.CompletedTask;
+
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Take_on_correlated_collection_in_first(bool async)

@@ -380,9 +380,24 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             useRowNumber = true;
 
             // Create the ROW_NUMBER expression
-            var orderings = subquery.Orderings.Count > 0
-                ? subquery.Orderings.ToList()
-                : partitionColumns.Select(p => new OrderingExpression(p, ascending: true)).ToList();
+            // Try orderings from: 1) main subquery, 2) nested table with correlation, 3) partition columns
+            List<OrderingExpression> orderings;
+            if (subquery.Orderings.Count > 0)
+            {
+                orderings = subquery.Orderings.ToList();
+            }
+            else if (nestedTableWithCorrelation?.Orderings.Count > 0)
+            {
+                // The orderings are in the nested table - we need to remap column references
+                // to point to the nested table's alias (since they'll be in the outer SELECT now)
+                orderings = nestedTableWithCorrelation.Orderings
+                    .Select(o => RemapOrderingToNestedAlias(o, nestedTableWithCorrelation))
+                    .ToList();
+            }
+            else
+            {
+                orderings = partitionColumns.Select(p => new OrderingExpression(p, ascending: true)).ToList();
+            }
 
             if (orderings.Count == 0)
             {
@@ -410,21 +425,32 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         }
 
         // Prepare the tables for the inner SELECT
-        // If we have nested correlation, we need to rebuild the nested table without the correlation predicate
+        // When using ROW_NUMBER, we need to clear LIMIT/OFFSET/Orderings from nested tables:
+        // - LIMIT is now handled by rn = 1 in the outer join condition
+        // - Orderings are now in the ROW_NUMBER's ORDER BY clause
+        // - OFFSET would need different handling (we'll clear it too)
         var tables = subquery.Tables.ToList();
+
+        if (useRowNumber)
+        {
+            // Clear LIMIT/OFFSET from ALL nested SelectExpressions
+            tables = ClearLimitFromNestedTables(tables);
+        }
+
         if (nestedTableWithCorrelation != null && nestedTableIndex >= 0)
         {
             // Rebuild the nested table without the correlation predicate
             var (_, otherPreds) = SplitPredicate(nestedTableWithCorrelation.Predicate!, correlationInfo.OuterColumns);
+
             var newNestedTable = nestedTableWithCorrelation.Update(
-                nestedTableWithCorrelation.Tables,
+                useRowNumber ? ClearLimitFromNestedTables(nestedTableWithCorrelation.Tables.ToList()) : nestedTableWithCorrelation.Tables,
                 otherPreds,  // Remove correlation predicates
                 nestedTableWithCorrelation.GroupBy,
                 nestedTableWithCorrelation.Having,
                 nestedTableWithCorrelation.Projection,
-                nestedTableWithCorrelation.Orderings,
-                nestedTableWithCorrelation.Offset,
-                nestedTableWithCorrelation.Limit);
+                useRowNumber ? [] : nestedTableWithCorrelation.Orderings,  // Clear orderings when using ROW_NUMBER
+                useRowNumber ? null : nestedTableWithCorrelation.Offset,   // Clear offset when using ROW_NUMBER
+                useRowNumber ? null : nestedTableWithCorrelation.Limit);   // Clear limit when using ROW_NUMBER
 
             // Replace the table in the list
             tables[nestedTableIndex] = newNestedTable;
@@ -545,6 +571,104 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
 
         // For other types, don't add COALESCE (let NULL propagate)
         return null;
+    }
+
+    /// <summary>
+    /// Clears LIMIT and Orderings from all nested SelectExpressions in a table list.
+    /// This is needed when using ROW_NUMBER transformation since the per-partition limiting
+    /// is now handled by rn = 1 instead of LIMIT.
+    /// Note: OFFSET is preserved as it requires special handling in the ROW_NUMBER filter.
+    /// </summary>
+    private List<TableExpressionBase> ClearLimitFromNestedTables(IEnumerable<TableExpressionBase> tables)
+    {
+        var result = new List<TableExpressionBase>();
+        foreach (var table in tables)
+        {
+            var tableToProcess = table.UnwrapJoin();
+            if (tableToProcess is SelectExpression nestedSelect)
+            {
+                // Check if this SELECT needs LIMIT/Orderings cleared
+                // Note: We preserve OFFSET as it needs special handling (rn > offset condition)
+                var needsClear = nestedSelect.Limit != null || nestedSelect.Orderings.Count > 0;
+
+                // Always recurse to handle deeply nested SelectExpressions
+                var clearedNestedTables = ClearLimitFromNestedTables(nestedSelect.Tables.ToList());
+                var nestedTablesChanged = !clearedNestedTables.SequenceEqual(nestedSelect.Tables);
+
+                if (needsClear || nestedTablesChanged)
+                {
+                    // Clear LIMIT and Orderings from this SELECT if needed (preserve OFFSET)
+                    var clearedSelect = nestedSelect.Update(
+                        clearedNestedTables,
+                        nestedSelect.Predicate,
+                        nestedSelect.GroupBy,
+                        nestedSelect.Having,
+                        nestedSelect.Projection,
+                        needsClear ? [] : nestedSelect.Orderings,
+                        nestedSelect.Offset,  // Preserve OFFSET - needs special handling
+                        needsClear ? null : nestedSelect.Limit);
+
+                    // Preserve the join wrapper if present
+                    if (table is LeftJoinExpression leftJoin)
+                    {
+                        result.Add(new LeftJoinExpression(clearedSelect, leftJoin.JoinPredicate, leftJoin.IsPrunable));
+                    }
+                    else if (table is InnerJoinExpression innerJoin)
+                    {
+                        result.Add(new InnerJoinExpression(clearedSelect, innerJoin.JoinPredicate, innerJoin.IsPrunable));
+                    }
+                    else if (table is CrossJoinExpression)
+                    {
+                        result.Add(new CrossJoinExpression(clearedSelect));
+                    }
+                    else
+                    {
+                        result.Add(clearedSelect);
+                    }
+                }
+                else
+                {
+                    result.Add(table);
+                }
+            }
+            else
+            {
+                result.Add(table);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Remaps an ordering expression from the nested table's column references to
+    /// use the nested table's alias (so they can be used in the outer SELECT's ROW_NUMBER).
+    /// For example, if the nested table has alias "o0" and contains ORDER BY o.OrderID,
+    /// we need to reference o0.OrderID which is projected by the nested select.
+    /// </summary>
+    private OrderingExpression RemapOrderingToNestedAlias(OrderingExpression ordering, SelectExpression nestedTable)
+    {
+        if (ordering.Expression is ColumnExpression col)
+        {
+            // Find the projection in the nested table that contains this column
+            foreach (var projection in nestedTable.Projection)
+            {
+                if (projection.Expression is ColumnExpression projCol &&
+                    projCol.TableAlias == col.TableAlias &&
+                    projCol.Name == col.Name)
+                {
+                    // Create a column reference to the nested table's projection
+                    var remappedCol = new ColumnExpression(
+                        projection.Alias,
+                        nestedTable.Alias!,
+                        col.Type,
+                        col.TypeMapping,
+                        col.IsNullable);
+                    return new OrderingExpression(remappedCol, ordering.IsAscending);
+                }
+            }
+        }
+        // If we can't remap, return as-is (might still work if column is directly accessible)
+        return ordering;
     }
 
     /// <summary>
