@@ -95,6 +95,33 @@ The provider transforms them to LEFT/INNER JOINs by:
 - Removing correlated projections and remapping outer references
 - Handling "both-sides-outer" correlations where both sides reference ancestor tables
 
+### SelectMany with Take (per-partition limiting)
+
+```csharp
+// SUPPORTED - Take with equality correlation
+from c in customers
+from o in orders.Where(o => o.CustomerID == c.CustomerID)
+               .OrderBy(o => o.OrderID)
+               .Take(2)
+               .DefaultIfEmpty()
+select new { c.CustomerID, o.OrderID }
+```
+
+The provider transforms this to:
+
+```sql
+SELECT c.CustomerID, o0.OrderID
+FROM Customers AS c
+LEFT JOIN (
+    SELECT o.OrderID, o.CustomerID,
+           ROW_NUMBER() OVER(PARTITION BY o.CustomerID ORDER BY o.OrderID) AS _rn
+    FROM Orders AS o
+) AS o0 ON c.CustomerID = o0.CustomerID AND o0._rn <= 2
+```
+
+**Note:** If the ORDER BY clause references outer columns (e.g., `OrderBy(o => c.City)`), those columns
+are excluded from the ROW_NUMBER ordering since they cannot be referenced inside the subquery.
+
 ## Unsupported Patterns
 
 ### Take/Skip with correlated subqueries
@@ -141,6 +168,36 @@ var customers = context.Customers
         TopOrders = orders.Where(o => o.CustomerID == c.CustomerID).Take(5).ToList()
     });
 ```
+
+### SelectMany with inequality correlations
+
+SelectMany with NOT EQUAL (`!=`) correlations cannot use the ROW_NUMBER transformation:
+
+```csharp
+// NOT SUPPORTED - inequality correlation with Take
+from c in customers
+from o in orders.Where(o => o.CustomerID != c.CustomerID)  // != instead of ==
+               .Take(2)
+               .DefaultIfEmpty()
+select new { c.CustomerID, o.OrderID }
+```
+
+This requires true LATERAL JOIN support, which BigQuery doesn't provide.
+
+### Correlated projections with DefaultIfEmpty
+
+When projecting outer columns in a correlated SelectMany with `DefaultIfEmpty()`:
+
+```csharp
+// NOT SUPPORTED - projects outer column, needs NULL when empty
+from c in customers
+from city in orders.Where(o => o.CustomerID == c.CustomerID)
+                   .Select(o => c.City)  // Projects outer column
+                   .DefaultIfEmpty()
+select new { c.CustomerID, city }
+```
+
+The provider cannot properly handle the NULL semantics when `DefaultIfEmpty()` produces a default value.
 
 ### Deeply nested correlated subqueries
 
