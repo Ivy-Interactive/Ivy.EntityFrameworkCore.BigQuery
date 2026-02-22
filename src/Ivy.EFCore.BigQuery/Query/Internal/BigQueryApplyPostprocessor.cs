@@ -481,7 +481,17 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
 
         var predicateCount = combinedPredicate != null ? GetPredicateCount(combinedPredicate) : 0;
         var tablesChanged = transformedTables != null;
-        var needsUpdate = additionalProjections.Count > 0 || nonCorrelatedParts.Count < predicateCount || tablesChanged;
+
+        // Check if we need to transform LIMIT to ROW_NUMBER for per-partition limiting
+        var hasLimit = innerSelect.Limit != null;
+        var hasCorrelations = correlatedParts.Count > 0 || nestedCorrelations.Count > 0;
+        var needsRowNumber = hasLimit && hasCorrelations;
+
+        var needsUpdate = additionalProjections.Count > 0 || nonCorrelatedParts.Count < predicateCount || tablesChanged || needsRowNumber;
+
+        // Track the ROW_NUMBER column for adding to join predicate
+        ColumnExpression? rowNumberColumn = null;
+        SqlConstantExpression? limitValue = null;
 
         if (needsUpdate)
         {
@@ -518,15 +528,86 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
                 }
             }
 
+            // Handle LIMIT transformation to ROW_NUMBER for per-partition limiting
+            var orderingsToUse = innerSelect.Orderings;
+            SqlExpression? limitToUse = innerSelect.Limit;
+
+            if (needsRowNumber)
+            {
+                // Build PARTITION BY columns from correlations
+                var partitionByColumns = new List<SqlExpression>();
+                foreach (var (outerCol, innerExpr) in correlatedParts)
+                {
+                    if (innerExpr is ColumnExpression innerCol)
+                    {
+                        // Use the projected column if we have a mapping, otherwise use the original
+                        if (projectionMapping.TryGetValue(innerCol, out var projectedCol))
+                        {
+                            // We need the original column for PARTITION BY, not the projected one
+                            partitionByColumns.Add(innerCol);
+                        }
+                        else
+                        {
+                            partitionByColumns.Add(innerCol);
+                        }
+                    }
+                }
+
+                // Also add nested correlation columns to partition by
+                foreach (var (outerCol, innerExpr) in nestedCorrelations)
+                {
+                    if (innerExpr is ColumnExpression innerCol)
+                    {
+                        partitionByColumns.Add(innerCol);
+                    }
+                }
+
+                if (partitionByColumns.Count > 0)
+                {
+                    // Filter orderings to exclude those with outer references (can't be used inside subquery)
+                    var validOrderings = innerSelect.Orderings
+                        .Where(o => !ContainsOuterReference(o.Expression))
+                        .ToList();
+
+                    // Build the ROW_NUMBER expression
+                    var rowNumberExpression = new RowNumberExpression(
+                        partitions: partitionByColumns,
+                        orderings: validOrderings,
+                        _typeMappingSource.FindMapping(typeof(long))!);
+
+                    // Add ROW_NUMBER projection
+                    var rowNumberProjection = new ProjectionExpression(rowNumberExpression, RowNumberAlias);
+                    newProjections.Add(rowNumberProjection);
+
+                    // Create column reference for the ROW_NUMBER in join predicate
+                    rowNumberColumn = new ColumnExpression(
+                        RowNumberAlias,
+                        innerSelect.Alias!,
+                        typeof(long),
+                        _typeMappingSource.FindMapping(typeof(long)),
+                        nullable: false);
+
+                    // Store the limit value for the join predicate
+                    if (innerSelect.Limit is SqlConstantExpression constLimit)
+                    {
+                        limitValue = constLimit;
+                    }
+
+                    // Clear LIMIT and orderings from inner SELECT (orderings are now in ROW_NUMBER)
+                    orderingsToUse = [];
+                    limitToUse = null;
+                }
+            }
+
             newInnerSelect = innerSelect.Update(
                 tablesToUse,
                 newPredicate,
                 newGroupBy,
                 innerSelect.Having,
                 newProjections,
-                innerSelect.Orderings,
+                orderingsToUse,
                 innerSelect.Offset,
-                innerSelect.Limit);
+                limitToUse);
         }
         else
         {
@@ -572,6 +653,13 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         {
             var remappedPred = RemapPredicateColumns(complexPred, newInnerSelect, projectionMapping);
             joinPredicate = joinPredicate == null ? remappedPred : _sqlExpressionFactory.AndAlso(joinPredicate, remappedPred);
+        }
+
+        // Add ROW_NUMBER condition for per-partition LIMIT (rn <= limit_value)
+        if (rowNumberColumn != null && limitValue != null)
+        {
+            var rnCondition = _sqlExpressionFactory.LessThanOrEqual(rowNumberColumn, limitValue);
+            joinPredicate = joinPredicate == null ? rnCondition : _sqlExpressionFactory.AndAlso(joinPredicate, rnCondition);
         }
 
         return new ApplyTransformResult(newInnerSelect, joinPredicate);
@@ -993,6 +1081,11 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
     }
 
     private record ApplyTransformResult(SelectExpression TransformedSelect, SqlExpression? JoinPredicate);
+
+    /// <summary>
+    /// The alias used for the ROW_NUMBER projection when transforming LIMIT to per-partition limiting.
+    /// </summary>
+    private const string RowNumberAlias = "_rn";
 
     /// <summary>
     /// Checks if a SelectExpression contains any APPLY expressions (directly or nested).
