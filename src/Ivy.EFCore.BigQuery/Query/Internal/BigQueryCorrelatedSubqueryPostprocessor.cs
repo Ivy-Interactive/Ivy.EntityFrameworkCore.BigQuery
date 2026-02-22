@@ -527,12 +527,12 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         _joinsToAdd ??= new List<LeftJoinExpression>();
         _joinsToAdd.Add(leftJoin);
 
-        // For aggregate expressions, wrap in COALESCE to handle NULL when no rows match
-        // This preserves the semantics of COUNT returning 0 instead of NULL
+        // For COUNT aggregates, wrap in COALESCE to return 0 instead of NULL when no rows match.
+        // Other aggregates (MIN, MAX, SUM, AVG) should return NULL for empty sets - that's the expected behavior.
         SqlExpression result = replacementColumn;
-        if (containsAggregate)
+        if (ContainsCountAggregate(projectedExpression))
         {
-            var defaultValue = GetAggregateDefaultValue(scalarSubquery.Type, scalarSubquery.TypeMapping);
+            var defaultValue = GetCountDefaultValue(scalarSubquery.Type, scalarSubquery.TypeMapping);
             if (defaultValue != null)
             {
                 result = _sqlExpressionFactory.Coalesce(replacementColumn, defaultValue);
@@ -543,11 +543,23 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
     }
 
     /// <summary>
-    /// Gets the default value for an aggregate expression (used in COALESCE when LEFT JOIN returns NULL).
+    /// Checks if an expression contains a COUNT aggregate function.
+    /// Only COUNT should get COALESCE with 0, as it has the defined semantic of returning 0 for empty sets.
+    /// Other aggregates (MIN, MAX, SUM, AVG) should return NULL for empty sets.
     /// </summary>
-    private SqlExpression? GetAggregateDefaultValue(Type type, RelationalTypeMapping? typeMapping)
+    private static bool ContainsCountAggregate(SqlExpression expression)
     {
-        // For numeric types, return 0
+        var finder = new CountAggregateFinder();
+        finder.Visit(expression);
+        return finder.Found;
+    }
+
+    /// <summary>
+    /// Gets the default value for a COUNT aggregate (always 0).
+    /// </summary>
+    private SqlExpression? GetCountDefaultValue(Type type, RelationalTypeMapping? typeMapping)
+    {
+        // COUNT returns integer types
         if (type == typeof(int) || type == typeof(int?))
         {
             return _sqlExpressionFactory.Constant(0, typeMapping ?? _typeMappingSource.FindMapping(typeof(int)));
@@ -556,20 +568,8 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         {
             return _sqlExpressionFactory.Constant(0L, typeMapping ?? _typeMappingSource.FindMapping(typeof(long)));
         }
-        if (type == typeof(decimal) || type == typeof(decimal?))
-        {
-            return _sqlExpressionFactory.Constant(0m, typeMapping ?? _typeMappingSource.FindMapping(typeof(decimal)));
-        }
-        if (type == typeof(double) || type == typeof(double?))
-        {
-            return _sqlExpressionFactory.Constant(0d, typeMapping ?? _typeMappingSource.FindMapping(typeof(double)));
-        }
-        if (type == typeof(float) || type == typeof(float?))
-        {
-            return _sqlExpressionFactory.Constant(0f, typeMapping ?? _typeMappingSource.FindMapping(typeof(float)));
-        }
 
-        // For other types, don't add COALESCE (let NULL propagate)
+        // For other types, don't add COALESCE
         return null;
     }
 
@@ -991,6 +991,37 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
 
             // Also check for AggregateSqlExpression if EF Core uses it
             if (node.GetType().Name.Contains("Aggregate", StringComparison.OrdinalIgnoreCase))
+            {
+                Found = true;
+                return node;
+            }
+
+            return base.VisitExtension(node);
+        }
+    }
+
+    /// <summary>
+    /// Finds COUNT aggregate functions specifically.
+    /// COUNT is the only aggregate that should have COALESCE with 0, as it has the defined semantic
+    /// of returning 0 for empty sets. Other aggregates (MIN, MAX, SUM, AVG) should return NULL.
+    /// </summary>
+    private class CountAggregateFinder : ExpressionVisitor
+    {
+        private static readonly HashSet<string> CountNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "COUNT", "COUNT_BIG", "COUNTIF"
+        };
+
+        public bool Found { get; private set; }
+
+        protected override Expression VisitExtension(Expression node)
+        {
+            if (Found)
+            {
+                return node;
+            }
+
+            if (node is SqlFunctionExpression function && CountNames.Contains(function.Name))
             {
                 Found = true;
                 return node;

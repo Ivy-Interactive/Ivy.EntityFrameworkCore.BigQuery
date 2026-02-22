@@ -61,4 +61,18 @@ public class NorthwindSelectQueryBigQueryTests : NorthwindSelectQueryRelationalT
         => Task.CompletedTask;
 
     #endregion
+
+    #region Unsupported: SelectMany with complex correlations
+
+    [ConditionalTheory(Skip = "BigQuery cannot support correlated projections with DefaultIfEmpty - outer reference vs NULL semantics")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task SelectMany_correlated_with_outer_3(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery cannot support inequality correlations with Take - requires true LATERAL JOIN")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task SelectMany_correlated_with_outer_6(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 }
