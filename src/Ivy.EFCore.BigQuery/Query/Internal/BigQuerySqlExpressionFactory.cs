@@ -3,6 +3,7 @@ using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
@@ -18,6 +19,7 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
 
     /// <summary>
     /// Override MakeBinary to handle DateTime/DateTimeOffset type coercion.
+    /// BigQuery cannot compare TIMESTAMP with DATETIME directly, so we need to cast.
     /// </summary>
     public override SqlExpression? MakeBinary(
         ExpressionType operatorType,
@@ -26,6 +28,7 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
         RelationalTypeMapping? typeMapping,
         SqlExpression? existingExpression = null)
     {
+        // Handle comparison operators between DateTime and DateTimeOffset
         if (IsComparisonOperator(operatorType))
         {
             (left, right) = ApplyDateTimeCoercion(left, right);
@@ -44,81 +47,93 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
 
     /// <summary>
     /// Applies type coercion when comparing DateTime (DATETIME) with DateTimeOffset (TIMESTAMP).
+    /// BigQuery requires both sides to be the same type for comparison.
+    /// We cast DATETIME to TIMESTAMP using the TIMESTAMP() function.
+    ///
+    /// Note: We only apply coercion when CURRENT_TIMESTAMP() or CURRENT_DATETIME() functions
+    /// are involved, to avoid breaking cases where model configuration might not match
+    /// the actual database schema.
     /// </summary>
     private (SqlExpression left, SqlExpression right) ApplyDateTimeCoercion(SqlExpression left, SqlExpression right)
     {
-        var leftIsTimestamp = IsTimestampType(left);
-        var rightIsTimestamp = IsTimestampType(right);
-        var leftIsDateTime = IsDateTimeType(left);
-        var rightIsDateTime = IsDateTimeType(right);
+        var leftIsCurrentTimestamp = IsCurrentTimestampFunction(left);
+        var rightIsCurrentTimestamp = IsCurrentTimestampFunction(right);
+        var leftIsCurrentDatetime = IsCurrentDatetimeFunction(left);
+        var rightIsCurrentDatetime = IsCurrentDatetimeFunction(right);
 
-        if (leftIsTimestamp && rightIsDateTime)
+        // Only coerce when one of the temporal functions is involved
+        // Case 1: CURRENT_TIMESTAMP() compared with DATETIME (parameter, constant, column, or CURRENT_DATETIME())
+        if (leftIsCurrentTimestamp && !rightIsCurrentTimestamp && IsDateTimeExpression(right))
         {
             right = CastToTimestamp(right);
         }
-        else if (rightIsTimestamp && leftIsDateTime)
+        else if (rightIsCurrentTimestamp && !leftIsCurrentTimestamp && IsDateTimeExpression(left))
         {
             left = CastToTimestamp(left);
+        }
+        // Case 2: CURRENT_DATETIME() compared with TIMESTAMP (DateTimeOffset CLR type)
+        else if (leftIsCurrentDatetime && IsDateTimeOffsetExpression(right))
+        {
+            left = CastToTimestamp(left);
+        }
+        else if (rightIsCurrentDatetime && IsDateTimeOffsetExpression(left))
+        {
+            right = CastToTimestamp(right);
         }
 
         return (left, right);
     }
 
     /// <summary>
-    /// Determines if an expression produces a BigQuery DATETIME type.
+    /// Checks if expression is the CURRENT_TIMESTAMP() function.
     /// </summary>
-    private static bool IsDateTimeType(SqlExpression expression)
+    private static bool IsCurrentTimestampFunction(SqlExpression expression)
+        => expression is SqlFunctionExpression func &&
+           func.Name.Equals("CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Checks if expression is the CURRENT_DATETIME() function.
+    /// </summary>
+    private static bool IsCurrentDatetimeFunction(SqlExpression expression)
+        => expression is SqlFunctionExpression func &&
+           func.Name.Equals("CURRENT_DATETIME", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Determines if an expression is a DateTime type (for coercion with CURRENT_TIMESTAMP).
+    /// Only considers CLR type and basic type mapping, not column store types.
+    /// </summary>
+    private static bool IsDateTimeExpression(SqlExpression expression)
     {
-        if (expression is SqlFunctionExpression func &&
-            func.Name.Equals("CURRENT_DATETIME", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (expression.TypeMapping is BigQueryDateTimeTypeMapping)
-            return true;
-
-        if (expression.TypeMapping?.StoreType?.Equals("DATETIME", StringComparison.OrdinalIgnoreCase) == true)
+        // CURRENT_DATETIME() is DateTime
+        if (IsCurrentDatetimeFunction(expression))
             return true;
 
         var clrType = UnwrapNullableType(expression.Type);
+
+        // DateTime CLR type without DateTimeOffset mapping
         if (clrType == typeof(DateTime))
         {
-            if (expression is SqlFunctionExpression f &&
-                f.Name.Equals("CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase))
-            {
+            // Make sure it's not mapped to TIMESTAMP
+            if (expression.TypeMapping is BigQueryDateTimeOffsetTypeMapping)
                 return false;
-            }
 
-            return expression.TypeMapping == null ||
-                   expression.TypeMapping.StoreType?.Equals("DATETIME", StringComparison.OrdinalIgnoreCase) == true;
+            return true;
         }
 
         return false;
     }
 
     /// <summary>
-    /// Determines if an expression produces a BigQuery TIMESTAMP type.
+    /// Determines if an expression is a DateTimeOffset type (for coercion with CURRENT_DATETIME).
     /// </summary>
-    private static bool IsTimestampType(SqlExpression expression)
+    private static bool IsDateTimeOffsetExpression(SqlExpression expression)
     {
-        if (expression is SqlFunctionExpression func &&
-            func.Name.Equals("CURRENT_TIMESTAMP", StringComparison.OrdinalIgnoreCase))
-        {
+        // CURRENT_TIMESTAMP() is DateTimeOffset/TIMESTAMP
+        if (IsCurrentTimestampFunction(expression))
             return true;
-        }
 
         var clrType = UnwrapNullableType(expression.Type);
-        if (clrType == typeof(DateTimeOffset))
-            return true;
-
-        if (expression.TypeMapping is BigQueryDateTimeOffsetTypeMapping)
-            return true;
-
-        if (expression.TypeMapping?.StoreType?.Equals("TIMESTAMP", StringComparison.OrdinalIgnoreCase) == true)
-            return true;
-
-        return false;
+        return clrType == typeof(DateTimeOffset);
     }
 
     private SqlExpression CastToTimestamp(SqlExpression expression)
@@ -180,7 +195,8 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
         SqlExpression index,
         RelationalTypeMapping? elementTypeMapping = null)
     {
-        if (array.TypeMapping is not BigQueryArrayTypeMapping arrayMapping)
+        // Validate array is actually an array type
+        if (array.TypeMapping is not Storage.Internal.Mapping.BigQueryArrayTypeMapping arrayMapping)
         {
             throw new InvalidOperationException($"Array indexing requires an array type, but got {array.TypeMapping?.GetType().Name}");
         }
@@ -304,4 +320,6 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
     {
         return new BigQueryJsonTraversalExpression(column, Array.Empty<SqlExpression>(), type, typeMapping);
     }
+
+
 }
