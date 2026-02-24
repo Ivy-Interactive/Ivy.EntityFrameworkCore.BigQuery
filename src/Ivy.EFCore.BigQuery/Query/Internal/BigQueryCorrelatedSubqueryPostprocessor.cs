@@ -380,7 +380,7 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             useRowNumber = true;
 
             // Create the ROW_NUMBER expression
-            // Try orderings from: 1) main subquery, 2) nested table with correlation, 3) partition columns
+            // Try orderings from: 1) main subquery, 2) nested table with correlation, 3) inner table columns
             List<OrderingExpression> orderings;
             if (subquery.Orderings.Count > 0)
             {
@@ -396,18 +396,20 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             }
             else
             {
-                orderings = partitionColumns.Select(p => new OrderingExpression(p, ascending: true)).ToList();
+                // No explicit ordering - use inner table columns (not partition columns)
+                // This better matches SQL Server's TOP(1) behavior which often follows physical/PK order.
+                // First try to find columns from the inner table that aren't partition columns.
+                orderings = GetInnerTableColumnsForOrdering(subquery, partitionColumns);
             }
 
             if (orderings.Count == 0)
             {
-                // ROW_NUMBER requires at least one ordering
+                // ROW_NUMBER requires at least one ordering - use a constant for non-deterministic order
                 orderings.Add(new OrderingExpression(
                     _sqlExpressionFactory.Constant(1, _typeMappingSource.FindMapping(typeof(int))),
                     ascending: true));
             }
 
-            // Check if orderings contain any outer column references
             foreach (var ordering in orderings)
             {
                 if (ContainsAnyOuterColumnReference(ordering.Expression, correlationInfo.OuterColumns))
@@ -684,6 +686,77 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
         }
         // If we can't remap, return as-is (might still work if column is directly accessible)
         return ordering;
+    }
+
+    /// <summary>
+    /// Gets ordering expressions from the inner table's columns, preferring columns that aren't partition keys.
+    /// This is used as a fallback for FirstOrDefault() without explicit OrderBy().
+    /// We try to match SQL Server's TOP(1) behavior which often follows the clustered index (PK) order.
+    /// </summary>
+    private List<OrderingExpression> GetInnerTableColumnsForOrdering(
+        SelectExpression subquery,
+        List<SqlExpression> partitionColumns)
+    {
+        var orderings = new List<OrderingExpression>();
+        var partitionColumnSet = new HashSet<string>();
+
+        // Build a set of partition column identifiers for quick lookup
+        foreach (var partCol in partitionColumns)
+        {
+            if (partCol is ColumnExpression colExpr)
+            {
+                partitionColumnSet.Add($"{colExpr.TableAlias}.{colExpr.Name}");
+            }
+        }
+
+        foreach (var table in subquery.Tables)
+        {
+            var unwrapped = table.UnwrapJoin();
+
+            if (unwrapped is TableExpression tableExpr)
+            {
+                // For a base table, look at columns used in the subquery's projection
+                foreach (var projection in subquery.Projection)
+                {
+                    if (projection.Expression is ColumnExpression col &&
+                        col.TableAlias == tableExpr.Alias)
+                    {
+                        var colKey = $"{col.TableAlias}.{col.Name}";
+                        if (!partitionColumnSet.Contains(colKey))
+                        {
+                            orderings.Add(new OrderingExpression(col, ascending: true));
+                            // Use first non-partition column found
+                            return orderings;
+                        }
+                    }
+                }
+            }
+            else if (unwrapped is SelectExpression nestedSelect)
+            {
+                foreach (var projection in nestedSelect.Projection)
+                {
+                    if (projection.Expression is ColumnExpression col)
+                    {
+                        var projectedCol = new ColumnExpression(
+                            projection.Alias,
+                            nestedSelect.Alias!,
+                            col.Type,
+                            col.TypeMapping,
+                            col.IsNullable);
+
+                        var colKey = $"{col.TableAlias}.{col.Name}";
+                        if (!partitionColumnSet.Contains(colKey))
+                        {
+                            orderings.Add(new OrderingExpression(projectedCol, ascending: true));
+                            return orderings;
+                        }
+                    }
+                }
+            }
+        }
+
+        // No suitable columns found, return empty list (caller will use constant ordering)
+        return orderings;
     }
 
     /// <summary>
