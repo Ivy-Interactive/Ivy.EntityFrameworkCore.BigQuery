@@ -36,7 +36,6 @@ public class StoreValueGenerationBigQueryTest : StoreValueGenerationTestBase<
 
     #region Single operation
 
-    // Skip: BigQuery doesn't support auto-increment IDs; test creates entities without explicit Id
     [ConditionalTheory(Skip = "BigQuery does not support auto-increment integer IDs")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_with_generated_values(bool async)
@@ -161,7 +160,7 @@ WHERE `Id` = @p0
             }
 
             // For "some database generated" - use default values instead of computed columns
-            // Also set Id to ValueGeneratedNever since BigQuery doesn't support auto-increment
+            // Set Id to ValueGeneratedNever since BigQuery doesn't support auto-increment
             foreach (var name in new[]
                      {
                          nameof(StoreValueGenerationContext.WithSomeDatabaseGenerated),
