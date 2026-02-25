@@ -1,4 +1,4 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.Extensions;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -7,13 +7,13 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public class TPCGearsOfWarQueryBigQueryFixture : TPCGearsOfWarQueryRelationalFixture
+public class GearsOfWarQueryBigQueryFixture : GearsOfWarQueryRelationalFixture
 {
-    static TPCGearsOfWarQueryBigQueryFixture() { }
+    static GearsOfWarQueryBigQueryFixture() { }
 
-    protected override ITestStoreFactory TestStoreFactory => TPCBigQueryTestStoreFactory.Instance;
+    protected override ITestStoreFactory TestStoreFactory => GearsOfWarBigQueryTestStoreFactory.Instance;
 
-    private GearsOfWarData _expectedData;
+    private GearsOfWarData? _expectedData;
 
     public override ISetSource GetExpectedData()
     {
@@ -21,7 +21,7 @@ public class TPCGearsOfWarQueryBigQueryFixture : TPCGearsOfWarQueryRelationalFix
         {
             _expectedData = (GearsOfWarData)base.GetExpectedData();
 
-            //No DateTimeOffset equivalent in BigQuery
+            // BigQuery has no DateTimeOffset equivalent - normalize to UTC with microsecond precision
             foreach (var mission in _expectedData.Missions)
             {
                 mission.Timeline = new DateTimeOffset(
@@ -52,9 +52,11 @@ public class TPCGearsOfWarQueryBigQueryFixture : TPCGearsOfWarQueryRelationalFix
         var factions = GearsOfWarData.CreateFactions();
         var locustHighCommands = GearsOfWarData.CreateHighCommands();
 
+        // BigQuery has no DateTimeOffset equivalent - normalize to UTC with microsecond precision
         foreach (var mission in missions)
         {
-            mission.Timeline = new DateTimeOffset(mission.Timeline.Ticks - (mission.Timeline.Ticks % (TimeSpan.TicksPerMillisecond / 1000)), TimeSpan.Zero);
+            mission.Timeline = new DateTimeOffset(
+                mission.Timeline.Ticks - (mission.Timeline.Ticks % (TimeSpan.TicksPerMillisecond / 1000)), TimeSpan.Zero);
         }
 
         GearsOfWarData.WireUp(squads, missions, squadMissions, cities, weapons, tags, gears, locustLeaders, factions, locustHighCommands);
@@ -77,30 +79,29 @@ public class TPCGearsOfWarQueryBigQueryFixture : TPCGearsOfWarQueryRelationalFix
     }
 }
 
-public class TPCBigQueryTestStoreFactory : BigQueryTestStoreFactory
+public class GearsOfWarBigQueryTestStoreFactory : BigQueryTestStoreFactory
 {
-    public new static TPCBigQueryTestStoreFactory Instance { get; } = new();
+    public new static GearsOfWarBigQueryTestStoreFactory Instance { get; } = new();
 
     public override TestStore Create(string storeName)
-        => new TPCBigQueryTestStore(storeName, shared: false);
+        => new GearsOfWarBigQueryTestStore(storeName, shared: false);
 
     public override TestStore GetOrCreate(string storeName)
-        => new TPCBigQueryTestStore(storeName, shared: true);
+        => new GearsOfWarBigQueryTestStore(storeName, shared: true);
 }
 
-public class TPCBigQueryTestStore : BigQueryTestStore
+public class GearsOfWarBigQueryTestStore : BigQueryTestStore
 {
-    public TPCBigQueryTestStore(string name, bool shared) : base(name, shared)
+    public GearsOfWarBigQueryTestStore(string name, bool shared) : base(name, shared)
     {
     }
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
     {
-        var result = builder.UseBigQuery(Connection.ConnectionString, b =>
+        return builder.UseBigQuery(Connection.ConnectionString, b =>
         {
             b.IgnoreUniqueConstraints();
             b.ApplyConfiguration();
         });
-        return result;
     }
 }
