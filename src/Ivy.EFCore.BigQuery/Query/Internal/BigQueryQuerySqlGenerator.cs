@@ -648,6 +648,26 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
         }
 
+        protected override void GenerateSetOperation(SetOperationBase setOperation)
+        {
+            // BigQuery requires explicit ALL or DISTINCT for set operations
+            // e.g., UNION DISTINCT, UNION ALL, EXCEPT DISTINCT, EXCEPT ALL
+            GenerateSetOperationOperand(setOperation, setOperation.Source1);
+            Sql.AppendLine()
+                .Append(GetSetOperation(setOperation))
+                .AppendLine(setOperation.IsDistinct ? " DISTINCT" : " ALL");
+            GenerateSetOperationOperand(setOperation, setOperation.Source2);
+
+            static string GetSetOperation(SetOperationBase operation)
+                => operation switch
+                {
+                    ExceptExpression => "EXCEPT",
+                    IntersectExpression => "INTERSECT",
+                    UnionExpression => "UNION",
+                    _ => throw new InvalidOperationException($"Unknown set operation type: {operation.GetType().Name}")
+                };
+        }
+
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
         {
             // BigQuery doesn't allow parameterized types in CAST expressions
