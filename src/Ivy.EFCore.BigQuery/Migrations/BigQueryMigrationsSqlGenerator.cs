@@ -134,6 +134,29 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             IModel? model,
             MigrationCommandListBuilder builder)
         {
+            // BigQuery only supports foreign keys that reference the primary key of the target table.
+            if (model != null)
+            {
+                var principalEntityType = model.GetEntityTypes()
+                    .FirstOrDefault(e => e.GetTableName() == operation.PrincipalTable);
+
+                if (principalEntityType != null)
+                {
+                    var primaryKey = principalEntityType.FindPrimaryKey();
+                    if (primaryKey != null)
+                    {
+                        var pkColumnNames = primaryKey.Properties
+                            .Select(p => p.GetColumnName())
+                            .ToList();
+
+                        if (!operation.PrincipalColumns.SequenceEqual(pkColumnNames))
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+
             builder
                 .Append("FOREIGN KEY (")
                 .Append(ColumnList(operation.Columns))
