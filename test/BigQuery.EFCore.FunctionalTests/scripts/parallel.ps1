@@ -54,7 +54,7 @@ param(
     [switch]$ListGroups,
     [switch]$ListHistory,
     [string]$CompareRunId = $null,
-    [int]$MaxParallel = 5,
+    [int]$MaxParallel = 15,
     [switch]$NoHistory,
     [switch]$Verbose,
     [switch]$GenerateReport
@@ -399,6 +399,30 @@ if ($selectedGroups.Count -eq 0) {
     Write-Host ""
     exit 1
 }
+
+# Priority order for slow test groups (slowest first)
+# These groups take >10 minutes and should start first to minimize total wall time
+$slowTestGroups = @(
+    "Ivy.EntityFrameworkCore.BigQuery.Query.AdHocJsonQueryBigQueryTest"             # ~27m
+    "Ivy.EntityFrameworkCore.BigQuery.Update.ComplexTypeBulkUpdatesBigQueryTest"    # ~23m
+    "Ivy.EntityFrameworkCore.BigQuery.Query.TPCGearsOfWarQueryBigQueryTest"         # ~23m
+    "Ivy.EntityFrameworkCore.BigQuery.Query.GearsOfWarQueryBigQueryTest"            # ~23m
+    "Ivy.EntityFrameworkCore.BigQuery.Query.NullSemanticsQueryBigQueryTest"         # ~22m
+    "Ivy.EntityFrameworkCore.BigQuery.Update.JsonUpdateBigQueryTest"                # ~18m
+    "Ivy.EntityFrameworkCore.BigQuery.BulkUpdates.NorthwindBulkUpdatesBigQueryTest" # ~13m
+)
+
+# Sort: priority groups first (in order), then remaining groups
+$priorityGroups = @()
+foreach ($slowGroup in $slowTestGroups) {
+    $match = $selectedGroups | Where-Object { $_.Name -eq $slowGroup }
+    if ($match) {
+        $priorityGroups += $match
+    }
+}
+$remainingGroups = $selectedGroups | Where-Object { $_.Name -notin $slowTestGroups }
+$selectedGroups = @($priorityGroups) + @($remainingGroups)
+
 Write-Host "Selected $($selectedGroups.Count) test group(s):" -ForegroundColor Green
 $selectedGroups | ForEach-Object {
     Write-Host "  • $($_.Name) - $($_.Description)" -ForegroundColor Gray

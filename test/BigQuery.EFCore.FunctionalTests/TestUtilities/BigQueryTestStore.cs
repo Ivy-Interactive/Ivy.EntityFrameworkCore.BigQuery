@@ -60,7 +60,8 @@ public class BigQueryTestStore : RelationalTestStore
     }
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-        => builder.UseBigQuery(Connection.ConnectionString);
+        => builder.UseBigQuery(Connection.ConnectionString, b => b
+            .UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery));
 
     protected override async Task InitializeAsync(Func<DbContext> createContext, Func<DbContext, Task>? seed, Func<DbContext, Task>? clean)
     {

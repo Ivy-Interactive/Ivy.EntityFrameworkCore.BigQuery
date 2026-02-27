@@ -23,8 +23,8 @@ public class NorthwindBulkUpdatesBigQueryTest(
 
         AssertSql(
             """
-DELETE FROM `Order Details` AS o
-WHERE o.`OrderID` < 10300
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` < 10300
 """);
     }
 
@@ -34,14 +34,14 @@ WHERE o.`OrderID` < 10300
 
         AssertSql(
             """
-@__quantity_0='1' (Nullable = true) (DbType = Int16)
+@__quantity_0='1' (Nullable = true) (DbType = Int64)
 
-DELETE FROM `Order Details` AS o
-WHERE o.`Quantity` = @__quantity_0
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`Quantity` = @__quantity_0
 """,
             //
             """
-DELETE FROM `Order Details` AS o
+DELETE FROM `Order Details` AS `o`
 WHERE FALSE
 """);
     }
@@ -54,8 +54,8 @@ WHERE FALSE
             """
 -- MyDelete
 
-DELETE FROM `Order Details` AS o
-WHERE o.`OrderID` < 10300
+DELETE FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` < 10300
 """);
     }
 
@@ -69,9 +69,9 @@ WHERE o.`OrderID` < 10300
 
         AssertExecuteUpdateSql(
             """
-UPDATE `Customers` AS c
-SET c.`ContactName` = 'Updated'
-WHERE c.`CustomerID` LIKE 'F%'
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = 'Updated'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -83,9 +83,9 @@ WHERE c.`CustomerID` LIKE 'F%'
             """
 -- MyUpdate
 
-UPDATE `Customers` AS c
-SET c.`ContactName` = 'Updated'
-WHERE c.`CustomerID` LIKE 'F%'
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = 'Updated'
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -97,17 +97,17 @@ WHERE c.`CustomerID` LIKE 'F%'
             """
 @__customer_0='ALFKI'
 
-UPDATE `Customers` AS c
-SET c.`ContactName` = 'Updated'
-WHERE c.`CustomerID` = @__customer_0
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = 'Updated'
+WHERE `c`.`CustomerID` = @__customer_0
 """,
             //
             """
 @__customer_0='ALFKI'
 
-UPDATE `Customers` AS c
-SET c.`ContactName` = 'Updated'
-WHERE c.`CustomerID` = @__customer_0
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = 'Updated'
+WHERE `c`.`CustomerID` = @__customer_0
 """);
     }
 

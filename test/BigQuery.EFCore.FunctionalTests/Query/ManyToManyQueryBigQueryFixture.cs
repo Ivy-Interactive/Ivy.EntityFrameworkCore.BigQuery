@@ -1,6 +1,5 @@
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.ManyToManyModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -11,10 +10,6 @@ public class ManyToManyQueryBigQueryFixture : ManyToManyQueryRelationalFixture
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
-
-    public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-        => base.AddOptions(builder).ConfigureWarnings(
-            w => w.Ignore(RelationalEventId.MultipleCollectionIncludeWarning));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
     {
