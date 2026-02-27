@@ -569,7 +569,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         {
                             Sql.AppendLine(", ");
                         }
-                        Visit(tableToJoin);
+                        // For JoinExpressionBase, visit only the inner table, not the join itself
+                        // The join predicate is handled separately below
+                        if (tableToJoin is JoinExpressionBase joinExpression)
+                        {
+                            Visit(joinExpression.Table);
+                        }
+                        else
+                        {
+                            Visit(tableToJoin);
+                        }
                     }
 
                     foreach (var table in selectExpression.Tables)
@@ -588,10 +597,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                     }
                 }
 
-                if (selectExpression.Predicate != null)
+                if (predicate != null)
                 {
                     Sql.AppendLine().Append("WHERE ");
-                    Visit(selectExpression.Predicate);
+                    Visit(predicate);
                 }
                 else
                 {
