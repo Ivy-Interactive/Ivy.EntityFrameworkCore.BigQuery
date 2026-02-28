@@ -43,6 +43,20 @@ public class BigQueryTimeSpanTypeMapping : RelationalTypeMapping
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new BigQueryTimeSpanTypeMapping(parameters);
 
+    /// <summary>
+    /// Override to bypass base class sanitization which uses Convert.ChangeType
+    /// (TimeSpan doesn't implement IConvertible, so Convert.ChangeType fails).
+    /// </summary>
+    public override string GenerateSqlLiteral(object? value)
+    {
+        if (value == null)
+        {
+            return "NULL";
+        }
+
+        return GenerateNonNullSqlLiteral(value);
+    }
+
     protected override string GenerateNonNullSqlLiteral(object value)
     {
         // Value may be TimeSpan (model value) or long (provider value after conversion)

@@ -132,33 +132,33 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
                     argumentsPropagateNullability: TrueArrays1,
                     typeof(DateTime)),
 
-            // TimeSpan properties - TimeSpan is stored as INT64 microseconds
-            // Hours component (0-23): (microseconds / 3600000000) MOD 24
+            // TimeSpan is stored as INT64 microseconds
+            // BQ's / operator returns FLOAT64, so we use DIV() for integer division
             nameof(TimeSpan.Hours) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Modulo(
-                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(3600000000L)),
+                        IntegerDivide(instance, 3600000000L),
                         _sqlExpressionFactory.Constant(24L)),
                     returnType),
-            // Minutes component (0-59): (microseconds / 60000000) MOD 60
+            // Minutes component (0-59): DIV(microseconds, 60000000) MOD 60
             nameof(TimeSpan.Minutes) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Modulo(
-                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(60000000L)),
+                        IntegerDivide(instance, 60000000L),
                         _sqlExpressionFactory.Constant(60L)),
                     returnType),
-            // Seconds component (0-59): (microseconds / 1000000) MOD 60
+            // Seconds component (0-59): DIV(microseconds, 1000000) MOD 60
             nameof(TimeSpan.Seconds) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Modulo(
-                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(1000000L)),
+                        IntegerDivide(instance, 1000000L),
                         _sqlExpressionFactory.Constant(60L)),
                     returnType),
-            // Milliseconds component (0-999): (microseconds / 1000) MOD 1000
+            // Milliseconds component (0-999): DIV(microseconds, 1000) MOD 1000
             nameof(TimeSpan.Milliseconds) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Modulo(
-                        _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(1000L)),
+                        IntegerDivide(instance, 1000L),
                         _sqlExpressionFactory.Constant(1000L)),
                     returnType),
 
@@ -167,10 +167,10 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
             nameof(TimeSpan.Ticks) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Multiply(instance, _sqlExpressionFactory.Constant(10L)),
 
-            // Days component: microseconds / 86400000000
+            // Days component: DIV(microseconds, 86400000000)
             nameof(TimeSpan.Days) when declaringType == typeof(TimeSpan)
                 => _sqlExpressionFactory.Convert(
-                    _sqlExpressionFactory.Divide(instance, _sqlExpressionFactory.Constant(86400000000L)),
+                    IntegerDivide(instance, 86400000000L),
                     returnType),
 
             // TotalXxx properties (return double)
@@ -211,6 +211,20 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
         return _sqlExpressionFactory.Convert(
             new BigQueryExtractExpression(part, instance, typeof(long), int64Mapping),
             returnType);
+    }
+
+    /// <summary>
+    /// Creates a BigQuery DIV(a, b) function call for integer division.
+    /// BigQuery's / operator returns FLOAT64, so we need DIV() for integer results.
+    /// </summary>
+    private SqlExpression IntegerDivide(SqlExpression dividend, long divisor)
+    {
+        return _sqlExpressionFactory.Function(
+            "DIV",
+            [dividend, _sqlExpressionFactory.Constant(divisor)],
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays2,
+            typeof(long));
     }
 
     private SqlExpression ExtractMillisecond(SqlExpression instance, Type returnType)

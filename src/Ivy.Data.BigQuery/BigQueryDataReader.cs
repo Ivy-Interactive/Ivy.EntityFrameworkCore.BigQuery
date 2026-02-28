@@ -439,6 +439,10 @@ namespace Ivy.Data.BigQuery
                         return (T)(object)Convert.ToInt16(longValue);
                     case long longValue when typeof(T) == typeof(byte):
                         return (T)(object)Convert.ToByte(longValue);
+                    // TimeSpan is stored as INT64 microseconds
+                    // 1 tick = 100 nanoseconds, 1 microsecond = 10 ticks
+                    case long longValue when typeof(T) == typeof(TimeSpan):
+                        return (T)(object)TimeSpan.FromTicks(longValue * 10);
                     //FLOAT64
                     case double doubleValue when typeof(T) == typeof(float):
                         return (T)(object)Convert.ToSingle(doubleValue);
