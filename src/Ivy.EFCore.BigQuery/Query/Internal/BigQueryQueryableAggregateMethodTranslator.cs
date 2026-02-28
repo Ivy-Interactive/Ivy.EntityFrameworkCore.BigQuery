@@ -49,6 +49,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when methodInfo == QueryableMethods.CountWithoutPredicate
                 || methodInfo == QueryableMethods.CountWithPredicate:
                 var countSqlExpression = (source.Selector as SqlExpression) ?? _sqlExpressionFactory.Fragment("*");
+                countSqlExpression = CombineTerms(source, countSqlExpression);
                 return _sqlExpressionFactory.Convert(
                     _sqlExpressionFactory.Function(
                         "COUNT",
@@ -65,6 +66,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when methodInfo == QueryableMethods.LongCountWithoutPredicate
                 || methodInfo == QueryableMethods.LongCountWithPredicate:
                 var longCountSqlExpression = (source.Selector as SqlExpression) ?? _sqlExpressionFactory.Fragment("*");
+                longCountSqlExpression = CombineTerms(source, longCountSqlExpression);
                 return _sqlExpressionFactory.Function(
                     "COUNT",
                     [longCountSqlExpression],
@@ -84,6 +86,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when (QueryableMethods.IsAverageWithoutSelector(methodInfo)
                     || QueryableMethods.IsAverageWithSelector(methodInfo))
                 && source.Selector is SqlExpression averageSqlExpression:
+                averageSqlExpression = CombineTerms(source, averageSqlExpression);
                 var averageInputType = averageSqlExpression.Type;
 
                 // For int and long, cast to NUMERIC first for exact computation,
@@ -141,6 +144,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when (QueryableMethods.IsSumWithoutSelector(methodInfo)
                     || QueryableMethods.IsSumWithSelector(methodInfo))
                 && source.Selector is SqlExpression sumSqlExpression:
+                sumSqlExpression = CombineTerms(source, sumSqlExpression);
                 return _sqlExpressionFactory.Function(
                     "SUM",
                     [sumSqlExpression],
@@ -154,6 +158,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when (methodInfo == QueryableMethods.MinWithoutSelector
                     || methodInfo == QueryableMethods.MinWithSelector)
                 && source.Selector is SqlExpression minSqlExpression:
+                minSqlExpression = CombineTerms(source, minSqlExpression);
                 return _sqlExpressionFactory.Function(
                     "MIN",
                     [minSqlExpression],
@@ -166,6 +171,7 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
                 when (methodInfo == QueryableMethods.MaxWithoutSelector
                     || methodInfo == QueryableMethods.MaxWithSelector)
                 && source.Selector is SqlExpression maxSqlExpression:
+                maxSqlExpression = CombineTerms(source, maxSqlExpression);
                 return _sqlExpressionFactory.Function(
                     "MAX",
                     [maxSqlExpression],
@@ -176,5 +182,34 @@ public class BigQueryQueryableAggregateMethodTranslator : IAggregateMethodCallTr
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Combines the selector with predicate (CASE WHEN) and DISTINCT if applicable.
+    /// This handles filtered aggregates like g.Where(x => x.IsActive).Count().
+    /// </summary>
+    private SqlExpression CombineTerms(EnumerableExpression enumerableExpression, SqlExpression sqlExpression)
+    {
+        if (enumerableExpression.Predicate != null)
+        {
+            // For COUNT(*), replace * with 1 since CASE WHEN ... THEN * is not valid
+            if (sqlExpression is SqlFragmentExpression)
+            {
+                sqlExpression = _sqlExpressionFactory.Constant(1);
+            }
+
+            // Wrap in CASE WHEN predicate THEN value END
+            // This makes aggregates only consider rows matching the predicate
+            sqlExpression = _sqlExpressionFactory.Case(
+                new List<CaseWhenClause> { new(enumerableExpression.Predicate, sqlExpression) },
+                elseResult: null);
+        }
+
+        if (enumerableExpression.IsDistinct)
+        {
+            sqlExpression = new DistinctExpression(sqlExpression);
+        }
+
+        return sqlExpression;
     }
 }
