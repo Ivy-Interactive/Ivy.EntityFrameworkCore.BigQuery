@@ -211,18 +211,27 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
-                    null => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant(null, typeof(string), stringTypeMapping)),
-                    "" => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant("%")),
-                    _ => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant(patternValue + "%"))
+                    null => _sqlExpressionFactory.Constant(false),
+                    "" => _sqlExpressionFactory.Constant(true),
+                    _ => _sqlExpressionFactory.Function(
+                        "STARTS_WITH",
+                        [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, false],
+                        typeof(bool))
                 };
             }
 
-            return _sqlExpressionFactory.Function(
-                "STARTS_WITH",
-                [instance, pattern],
-                nullable: true,
-                argumentsPropagateNullability: [true, true],
-                typeof(bool));
+            // For non-constant patterns (parameters, columns), wrap with null checks
+            // This allows the nullability processor to optimize when the parameter is null
+            return _sqlExpressionFactory.AndAlso(
+                _sqlExpressionFactory.IsNotNull(pattern),
+                _sqlExpressionFactory.Function(
+                    "STARTS_WITH",
+                    [instance, pattern],
+                    nullable: true,
+                    argumentsPropagateNullability: [true, true],
+                    typeof(bool)));
         }
 
         if (method == EndsWith)
@@ -237,18 +246,27 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
-                    null => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant(null, typeof(string), stringTypeMapping)),
-                    "" => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant("%")),
-                    _ => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant("%" + patternValue))
+                    null => _sqlExpressionFactory.Constant(false),
+                    "" => _sqlExpressionFactory.Constant(true),
+                    _ => _sqlExpressionFactory.Function(
+                        "ENDS_WITH",
+                        [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, false],
+                        typeof(bool))
                 };
             }
 
-            return _sqlExpressionFactory.Function(
-                "ENDS_WITH",
-                [instance, pattern],
-                nullable: true,
-                argumentsPropagateNullability: [true, true],
-                typeof(bool));
+            // For non-constant patterns (parameters, columns), wrap with null checks
+            // This allows the nullability processor to optimize when the parameter is null
+            return _sqlExpressionFactory.AndAlso(
+                _sqlExpressionFactory.IsNotNull(pattern),
+                _sqlExpressionFactory.Function(
+                    "ENDS_WITH",
+                    [instance, pattern],
+                    nullable: true,
+                    argumentsPropagateNullability: [true, true],
+                    typeof(bool)));
         }
 
         if (method == Contains)
@@ -263,20 +281,31 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
-                    null => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant(null, typeof(string), stringTypeMapping)),
-                    "" => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant("%")),
-                    _ => _sqlExpressionFactory.Like(instance, _sqlExpressionFactory.Constant("%" + patternValue + "%"))
+                    null => _sqlExpressionFactory.Constant(false),
+                    "" => _sqlExpressionFactory.Constant(true),
+                    _ => _sqlExpressionFactory.GreaterThan(
+                        _sqlExpressionFactory.Function(
+                            "STRPOS",
+                            [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
+                            nullable: true,
+                            argumentsPropagateNullability: [true, false],
+                            typeof(int)),
+                        _sqlExpressionFactory.Constant(0))
                 };
             }
 
-            return _sqlExpressionFactory.GreaterThan(
-                _sqlExpressionFactory.Function(
-                    "STRPOS",
-                    [instance, pattern],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true],
-                    typeof(int)),
-                _sqlExpressionFactory.Constant(0));
+            // For non-constant patterns (parameters, columns), wrap with null checks
+            // This allows the nullability processor to optimize when the parameter is null
+            return _sqlExpressionFactory.AndAlso(
+                _sqlExpressionFactory.IsNotNull(pattern),
+                _sqlExpressionFactory.GreaterThan(
+                    _sqlExpressionFactory.Function(
+                        "STRPOS",
+                        [instance, pattern],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true],
+                        typeof(int)),
+                    _sqlExpressionFactory.Constant(0)));
         }
 
         if (method == TrimBothWithNoParam || method == TrimBothWithChars || method == TrimBothWithSingleChar
