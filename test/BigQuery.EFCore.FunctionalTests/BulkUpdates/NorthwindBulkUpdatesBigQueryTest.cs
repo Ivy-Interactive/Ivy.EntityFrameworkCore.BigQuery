@@ -70,7 +70,7 @@ WHERE `o`.`OrderID` < 10300
         AssertExecuteUpdateSql(
             """
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = 'Updated'
+SET `ContactName` = 'Updated'
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -84,7 +84,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 -- MyUpdate
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = 'Updated'
+SET `ContactName` = 'Updated'
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -98,7 +98,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 @__customer_0='ALFKI'
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = 'Updated'
+SET `ContactName` = 'Updated'
 WHERE `c`.`CustomerID` = @__customer_0
 """,
             //
@@ -106,7 +106,7 @@ WHERE `c`.`CustomerID` = @__customer_0
 @__customer_0='ALFKI'
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = 'Updated'
+SET `ContactName` = 'Updated'
 WHERE `c`.`CustomerID` = @__customer_0
 """);
     }

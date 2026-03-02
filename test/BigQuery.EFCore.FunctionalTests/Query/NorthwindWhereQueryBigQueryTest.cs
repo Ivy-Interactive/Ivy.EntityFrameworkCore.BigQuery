@@ -22,8 +22,8 @@ public class NorthwindWhereQueryBigQueryTest : NorthwindWhereQueryRelationalTest
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
 WHERE CASE
-    WHEN `p`.`UnitsInStock` >= 20 THEN 1
-    ELSE 0
+    WHEN `p`.`UnitsInStock` >= 20 THEN TRUE
+    ELSE FALSE
 END
 """);
     }

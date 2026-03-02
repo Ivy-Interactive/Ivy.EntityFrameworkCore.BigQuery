@@ -21,6 +21,45 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
 
+    #region Unsupported: Non-deterministic ordering without ORDER BY
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_take_no_order_by(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_skip_no_order_by(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_skip_take_no_order_by(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_with_take(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_with_skip(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_OrderBy_empty_list_contains(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_OrderBy_empty_list_does_not_contains(bool async)
+        => Task.CompletedTask;
+
+    #endregion
+
     #region Unsupported: Deeply nested correlated subqueries
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]

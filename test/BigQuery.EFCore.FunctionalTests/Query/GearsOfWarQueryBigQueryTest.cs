@@ -24,8 +24,8 @@ public class GearsOfWarQueryBigQueryTest : GearsOfWarQueryRelationalTestBase<Gea
 
         AssertSql(
             """
-SELECT m.`Timeline` > CURRENT_DATETIME()
-FROM `Missions` AS m
+SELECT `m`.`Timeline` > CURRENT_TIMESTAMP
+FROM `Missions` AS `m`
 """);
     }
 
@@ -68,6 +68,20 @@ FROM `Missions` AS m
     [ConditionalTheory(Skip = "BigQuery does not support EXISTS subqueries in JOIN predicates")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Subquery_projecting_nullable_scalar_contains_nullable_value_needs_null_expansion_negated(bool async)
+        => Task.CompletedTask;
+
+    #endregion
+
+    #region Unsupported: Non-deterministic ordering without ORDER BY
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_without_orderby_followed_by_orderBy_is_pushed_down1(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_without_orderby_followed_by_orderBy_is_pushed_down2(bool async)
         => Task.CompletedTask;
 
     #endregion

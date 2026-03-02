@@ -22,12 +22,7 @@ public class SqlQueryBigQueryTest : SqlQueryTestBase<NorthwindQueryBigQueryFixtu
 
         AssertSql(
             """
-SELECT
-    *
-  FROM
-    Customers
-  WHERE Customers.ContactName LIKE '%z%'
-;
+SELECT * FROM `Customers` WHERE `ContactName` LIKE '%z%'
 """);
     }
 

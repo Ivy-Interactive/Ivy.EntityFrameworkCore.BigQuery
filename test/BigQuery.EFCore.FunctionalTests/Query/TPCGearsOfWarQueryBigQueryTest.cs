@@ -21,8 +21,8 @@ public class TPCGearsOfWarQueryBigQueryTest : TPCGearsOfWarQueryRelationalTestBa
 
         AssertSql(
             """
-SELECT m.`Timeline` > CURRENT_DATETIME()
-FROM `Missions` AS m
+SELECT `m`.`Timeline` > CURRENT_TIMESTAMP
+FROM `Missions` AS `m`
 """);
     }
 
@@ -30,6 +30,20 @@ FROM `Missions` AS m
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     public override Task Correlated_collections_with_Distinct(bool async)
         => base.Correlated_collections_with_Distinct(async);
+
+    #region Unsupported: Non-deterministic ordering without ORDER BY
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_without_orderby_followed_by_orderBy_is_pushed_down1(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Take_without_orderby_followed_by_orderBy_is_pushed_down2(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 
     #region Unsupported: IN/EXISTS subqueries in JOIN predicates
 
