@@ -79,4 +79,36 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
 
         return base.VisitMember(memberExpression);
     }
+
+    /// <summary>
+    /// Translates Math.Max to BigQuery's GREATEST function.
+    /// </summary>
+    public override SqlExpression? GenerateGreatest(IReadOnlyList<SqlExpression> expressions, Type resultType)
+    {
+        var resultTypeMapping = ExpressionExtensions.InferTypeMapping(expressions);
+
+        return _sqlExpressionFactory.Function(
+            "GREATEST",
+            expressions,
+            nullable: true,
+            argumentsPropagateNullability: Enumerable.Repeat(false, expressions.Count),
+            resultType,
+            resultTypeMapping);
+    }
+
+    /// <summary>
+    /// Translates Math.Min to BigQuery's LEAST function.
+    /// </summary>
+    public override SqlExpression? GenerateLeast(IReadOnlyList<SqlExpression> expressions, Type resultType)
+    {
+        var resultTypeMapping = ExpressionExtensions.InferTypeMapping(expressions);
+
+        return _sqlExpressionFactory.Function(
+            "LEAST",
+            expressions,
+            nullable: true,
+            argumentsPropagateNullability: Enumerable.Repeat(false, expressions.Count),
+            resultType,
+            resultTypeMapping);
+    }
 }
