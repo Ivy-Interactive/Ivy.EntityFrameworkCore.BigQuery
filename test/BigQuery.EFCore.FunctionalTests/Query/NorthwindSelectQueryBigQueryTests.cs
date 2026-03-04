@@ -75,4 +75,14 @@ public class NorthwindSelectQueryBigQueryTests : NorthwindSelectQueryRelationalT
         => Task.CompletedTask;
 
     #endregion
+
+    #region Unsupported: Anonymous type comparisons (EF Core issue #14672)
+
+    public override async Task Member_binding_after_ctor_arguments_fails_with_client_eval(bool async)
+    {
+        // Anonymous type member access. Issue #14672.
+        await AssertTranslationFailed(() => base.Member_binding_after_ctor_arguments_fails_with_client_eval(async));
+    }
+
+    #endregion
 }

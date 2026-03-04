@@ -24,4 +24,14 @@ public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBa
         => Task.CompletedTask;
 
     #endregion
+
+    #region Unsupported: Join with local collection (EF Core issue #14672)
+
+    public override async Task Join_local_collection_int_closure_is_cached_correctly(bool async)
+    {
+        // Join with local collection. Issue #14672.
+        await AssertTranslationFailed(() => base.Join_local_collection_int_closure_is_cached_correctly(async));
+    }
+
+    #endregion
 }

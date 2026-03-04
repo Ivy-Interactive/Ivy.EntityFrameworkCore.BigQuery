@@ -226,7 +226,7 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
             """
             SELECT `j`.`Id`, `j`.`CustomerDocument`, `j`.`CustomerElement`
             FROM `JsonEntities` AS `j`
-            WHERE STRING(`j`.`CustomerElement`.Name) LIKE 'J%'
+            WHERE STARTS_WITH(STRING(`j`.`CustomerElement`.Name), 'J')
             LIMIT 2
             """);
     }

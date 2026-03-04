@@ -111,4 +111,26 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
         => Task.CompletedTask;
 
     #endregion
+
+    #region Unsupported: Anonymous type and tuple comparisons (EF Core issue #14672)
+
+    public override async Task Contains_with_local_tuple_array_closure(bool async)
+    {
+        // Contains with tuple array. Issue #14672.
+        await AssertTranslationFailed(() => base.Contains_with_local_tuple_array_closure(async));
+    }
+
+    public override async Task Contains_with_local_anonymous_type_array_closure(bool async)
+    {
+        // Contains with anonymous type array. Issue #14672.
+        await AssertTranslationFailed(() => base.Contains_with_local_anonymous_type_array_closure(async));
+    }
+
+    public override async Task Contains_with_local_enumerable_inline_closure_mix(bool async)
+    {
+        // Contains with inline Where on local enumerable. Issue #14672.
+        await AssertTranslationFailed(() => base.Contains_with_local_enumerable_inline_closure_mix(async));
+    }
+
+    #endregion
 }

@@ -55,7 +55,7 @@ WHERE UPPER(`c`.`CustomerID`) = 'ALFKI'
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE 'Maria%'
+WHERE STARTS_WITH(`c`.`ContactName`, 'Maria')
 """);
         }
 
@@ -69,7 +69,7 @@ WHERE `c`.`ContactName` LIKE 'Maria%'
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE '%Anders'
+WHERE ENDS_WITH(`c`.`ContactName`, 'Anders')
 """);
         }
 
@@ -83,7 +83,7 @@ WHERE `c`.`ContactName` LIKE '%Anders'
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`ContactName` LIKE '%and%'
+WHERE STRPOS(`c`.`ContactName`, 'and') > 0
 """);
         }
 

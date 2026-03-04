@@ -84,7 +84,7 @@ ORDER BY `p`.`HomeAddress`.`City`, `p`.`Id`
             """
 SELECT `p`.`Id`
 FROM `People` AS `p`
-WHERE `p`.`HomeAddress` IS NOT NULL AND (`p`.`HomeAddress`.`Street` LIKE '%Main%')
+WHERE `p`.`HomeAddress` IS NOT NULL AND STRPOS(`p`.`HomeAddress`.`Street`, 'Main') > 0
 """);
     }
 
@@ -96,7 +96,7 @@ WHERE `p`.`HomeAddress` IS NOT NULL AND (`p`.`HomeAddress`.`Street` LIKE '%Main%
             """
 SELECT `p`.`Id`
 FROM `People` AS `p`
-WHERE `p`.`HomeAddress` IS NOT NULL AND (`p`.`HomeAddress`.`ZipCode` LIKE '98%')
+WHERE `p`.`HomeAddress` IS NOT NULL AND STARTS_WITH(`p`.`HomeAddress`.`ZipCode`, '98')
 """);
     }
 
