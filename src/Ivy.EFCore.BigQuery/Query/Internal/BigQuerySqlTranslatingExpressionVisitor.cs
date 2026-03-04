@@ -8,12 +8,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpressionVisitor
 {
+    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+
     public BigQuerySqlTranslatingExpressionVisitor(
         RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
         RelationalQueryCompilationContext queryCompilationContext,
         QueryableMethodTranslatingExpressionVisitor queryableMethodTranslatingExpressionVisitor)
         : base(dependencies, queryCompilationContext, queryableMethodTranslatingExpressionVisitor)
     {
+        _sqlExpressionFactory = dependencies.SqlExpressionFactory;
     }
 
     protected override Expression VisitExtension(Expression extensionExpression)
@@ -23,6 +26,30 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
             BigQueryStructAccessExpression or BigQueryStructConstructorExpression => extensionExpression,
             _ => base.VisitExtension(extensionExpression),
         };
+    }
+
+    /// <summary>
+    /// Translates byte[].Length to BigQuery's LENGTH function.
+    /// </summary>
+    protected override Expression VisitUnary(UnaryExpression unaryExpression)
+    {
+        if (unaryExpression.NodeType == ExpressionType.ArrayLength
+            && Visit(unaryExpression.Operand) is SqlExpression sqlOperand)
+        {
+            // Translate Length on byte[] (BYTES in BigQuery)
+            if (sqlOperand.Type == typeof(byte[])
+                && sqlOperand.TypeMapping is BigQueryByteArrayTypeMapping or null)
+            {
+                return _sqlExpressionFactory.Function(
+                    "LENGTH",
+                    [sqlOperand],
+                    nullable: true,
+                    argumentsPropagateNullability: [true],
+                    typeof(int));
+            }
+        }
+
+        return base.VisitUnary(unaryExpression);
     }
 
     /// STRUCT field access. e.ContactInfo.City -> e.contact_info.City

@@ -85,6 +85,23 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             IReadOnlyList<SqlExpression> arguments,
             IDiagnosticsLogger<DbLoggerCategory.Query> logger)
         {
+            // byte[] - (BYTES)
+            if (method.IsGenericMethod && arguments.Count >= 1 && IsByteArray(arguments[0]))
+            {
+                var genericMethod = method.GetGenericMethodDefinition();
+
+                if (genericMethod == EnumerableElementAt)
+                {
+                    return TranslateByteArrayElementAt(arguments[0], arguments[1]);
+                }
+
+                if (genericMethod == EnumerableFirstWithoutPredicate
+                    || genericMethod == EnumerableFirstOrDefaultWithoutPredicate)
+                {
+                    return TranslateByteArrayFirst(arguments[0]);
+                }
+            }
+
             if (method.IsGenericMethod &&
                 method.GetGenericMethodDefinition() == EnumerableSequenceEqual &&
                 arguments.Count >= 2 &&
@@ -168,7 +185,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
             var type = expression.Type;
             return expression.TypeMapping is BigQueryArrayTypeMapping ||
-                   type.IsArray ||
+                   (type.IsArray && type != typeof(byte[])) ||
                    (type.IsGenericType &&
                     type.GetGenericTypeDefinition() is Type genType &&
                     (genType == typeof(List<>) ||
@@ -176,6 +193,38 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                      genType == typeof(ICollection<>) ||
                      genType == typeof(IReadOnlyList<>) ||
                      genType == typeof(IReadOnlyCollection<>)));
+        }
+
+        private bool IsByteArray(SqlExpression expression)
+        {
+            return expression.Type == typeof(byte[])
+                && expression.TypeMapping is BigQueryByteArrayTypeMapping or null;
+        }
+
+        /// <summary>
+        /// Translates byte[].ElementAt(n) to TO_CODE_POINTS(bytes)[OFFSET(n)]
+        /// </summary>
+        private SqlExpression TranslateByteArrayElementAt(SqlExpression byteArray, SqlExpression index)
+        {
+            // TO_CODE_POINTS(bytes)[OFFSET(index)]
+            // We create the expression directly to avoid ArrayIndex validation
+            // since TO_CODE_POINTS returns an array without BigQueryArrayTypeMapping
+            var codePoints = _sqlExpressionFactory.Function(
+                "TO_CODE_POINTS",
+                new[] { byteArray },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                typeof(int[]));
+
+            return new BigQueryArrayIndexExpression(codePoints, index, typeof(int), typeMapping: null);
+        }
+
+        /// <summary>
+        /// Translates byte[].First() to TO_CODE_POINTS(bytes)[OFFSET(0)]
+        /// </summary>
+        private SqlExpression TranslateByteArrayFirst(SqlExpression byteArray)
+        {
+            return TranslateByteArrayElementAt(byteArray, _sqlExpressionFactory.Constant(0));
         }
 
         private SqlExpression TranslateLength(SqlExpression array)
