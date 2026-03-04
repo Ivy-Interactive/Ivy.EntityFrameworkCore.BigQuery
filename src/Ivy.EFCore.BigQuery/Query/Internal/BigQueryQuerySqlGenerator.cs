@@ -677,6 +677,21 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 };
         }
 
+        /// <summary>
+        /// BigQuery uses COLLATE(expression, 'collation') function syntax instead of
+        /// the standard SQL "expression COLLATE collation" syntax.
+        /// </summary>
+        protected override Expression VisitCollate(CollateExpression collateExpression)
+        {
+            Sql.Append("COLLATE(");
+            Visit(collateExpression.Operand);
+            Sql.Append(", '");
+            Sql.Append(collateExpression.Collation);
+            Sql.Append("')");
+
+            return collateExpression;
+        }
+
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
         {
             // BigQuery doesn't allow parameterized types in CAST expressions
