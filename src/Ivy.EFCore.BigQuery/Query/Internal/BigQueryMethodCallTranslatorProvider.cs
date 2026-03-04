@@ -24,6 +24,7 @@ public class BigQueryMethodCallTranslatorProvider : RelationalMethodCallTranslat
             new BigQueryConvertTranslator(dependencies.SqlExpressionFactory),
             new BigQueryRegexTranslator(dependencies.SqlExpressionFactory),
             new BigQueryGuidTranslator(dependencies.SqlExpressionFactory),
+            new BigQueryRandomTranslator(dependencies.SqlExpressionFactory),
         ]);
     }
 }
