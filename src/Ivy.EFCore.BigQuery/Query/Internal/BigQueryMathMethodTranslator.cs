@@ -126,6 +126,15 @@ public class BigQueryMathMethodTranslator : IMethodCallTranslator
         typeof(MathF).GetRuntimeMethod(nameof(MathF.Truncate), [typeof(float)])!
     ];
 
+    private static readonly MethodInfo DoubleDegreesToRadians =
+        typeof(double).GetRuntimeMethod(nameof(double.DegreesToRadians), [typeof(double)])!;
+    private static readonly MethodInfo DoubleRadiansToDegrees =
+        typeof(double).GetRuntimeMethod(nameof(double.RadiansToDegrees), [typeof(double)])!;
+    private static readonly MethodInfo FloatDegreesToRadians =
+        typeof(float).GetRuntimeMethod(nameof(float.DegreesToRadians), [typeof(float)])!;
+    private static readonly MethodInfo FloatRadiansToDegrees =
+        typeof(float).GetRuntimeMethod(nameof(float.RadiansToDegrees), [typeof(float)])!;
+
     private static readonly IEnumerable<MethodInfo> RoundMethodInfos =
     [
         typeof(Math).GetRuntimeMethod(nameof(Math.Round), [typeof(decimal)])!,
@@ -241,6 +250,48 @@ public class BigQueryMathMethodTranslator : IMethodCallTranslator
                 argumentsPropagateNullability: [true, true],
                 method.ReturnType,
                 typeMapping);
+        }
+
+        // DegreesToRadians: value * π / 180 = value * ACOS(-1) / 180
+        if (method == DoubleDegreesToRadians || method == FloatDegreesToRadians)
+        {
+            var value = arguments[0];
+            var typeMapping = value.TypeMapping;
+
+            // π = ACOS(-1)
+            var pi = _sqlExpressionFactory.Function(
+                "ACOS",
+                [_sqlExpressionFactory.Constant(-1.0)],
+                nullable: false,
+                argumentsPropagateNullability: [false],
+                method.ReturnType,
+                typeMapping);
+
+            // value * π / 180
+            return _sqlExpressionFactory.Divide(
+                _sqlExpressionFactory.Multiply(value, pi),
+                _sqlExpressionFactory.Constant(180.0, typeMapping));
+        }
+
+        // RadiansToDegrees: value * 180 / π = value * 180 / ACOS(-1)
+        if (method == DoubleRadiansToDegrees || method == FloatRadiansToDegrees)
+        {
+            var value = arguments[0];
+            var typeMapping = value.TypeMapping;
+
+            // π = ACOS(-1)
+            var pi = _sqlExpressionFactory.Function(
+                "ACOS",
+                [_sqlExpressionFactory.Constant(-1.0)],
+                nullable: false,
+                argumentsPropagateNullability: [false],
+                method.ReturnType,
+                typeMapping);
+
+            // value * 180 / π
+            return _sqlExpressionFactory.Divide(
+                _sqlExpressionFactory.Multiply(value, _sqlExpressionFactory.Constant(180.0, typeMapping)),
+                pi);
         }
 
         return null;
