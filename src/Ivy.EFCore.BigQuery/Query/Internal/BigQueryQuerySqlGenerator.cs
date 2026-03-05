@@ -739,5 +739,22 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
             return base.VisitSqlUnary(sqlUnaryExpression);
         }
+
+        /// <summary>
+        /// BigQuery does not support the ESCAPE clause in LIKE expressions.
+        /// Override to generate LIKE without ESCAPE.
+        /// </summary>
+        protected override void GenerateLike(LikeExpression likeExpression, bool negated)
+        {
+            Visit(likeExpression.Match);
+
+            if (negated)
+            {
+                Sql.Append(" NOT");
+            }
+
+            Sql.Append(" LIKE ");
+            Visit(likeExpression.Pattern);            
+        }
     }
 }
