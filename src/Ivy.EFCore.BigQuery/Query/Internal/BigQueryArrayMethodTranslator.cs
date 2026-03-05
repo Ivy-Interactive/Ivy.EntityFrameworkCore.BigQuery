@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Reflection;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
@@ -13,6 +14,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
     public class BigQueryArrayMethodTranslator : IMethodCallTranslator
     {
         private readonly BigQuerySqlExpressionFactory _sqlExpressionFactory;
+        private readonly IRelationalTypeMappingSource _typeMappingSource;
 
         #region MethodInfo Definitions
 
@@ -74,9 +76,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
         #endregion
 
-        public BigQueryArrayMethodTranslator(BigQuerySqlExpressionFactory sqlExpressionFactory)
+        public BigQueryArrayMethodTranslator(
+            BigQuerySqlExpressionFactory sqlExpressionFactory,
+            IRelationalTypeMappingSource typeMappingSource)
         {
             _sqlExpressionFactory = sqlExpressionFactory;
+            _typeMappingSource = typeMappingSource;
         }
 
         public SqlExpression? Translate(
@@ -163,6 +168,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                  (method.DeclaringType.GetGenericTypeDefinition() == typeof(List<>) ||
                   method.DeclaringType.GetGenericTypeDefinition() == typeof(IList<>))))
             {
+                // byte[] indexer needs special handling
+                if (IsByteArray(instance))
+                {
+                    return TranslateByteArrayElementAt(instance, arguments[0]);
+                }
+
                 return TranslateElementAt(instance, arguments[0]);
             }
 
@@ -209,14 +220,20 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             // TO_CODE_POINTS(bytes)[OFFSET(index)]
             // We create the expression directly to avoid ArrayIndex validation
             // since TO_CODE_POINTS returns an array without BigQueryArrayTypeMapping
+            var intTypeMapping = _typeMappingSource.FindMapping(typeof(int));
+            var intArrayTypeMapping = _typeMappingSource.FindMapping(typeof(int[]));
+
             var codePoints = _sqlExpressionFactory.Function(
                 "TO_CODE_POINTS",
                 new[] { byteArray },
                 nullable: true,
                 argumentsPropagateNullability: new[] { true },
-                typeof(int[]));
+                typeof(int[]),
+                intArrayTypeMapping);
 
-            return new BigQueryArrayIndexExpression(codePoints, index, typeof(int), typeMapping: null);
+            var typedIndex = _sqlExpressionFactory.ApplyTypeMapping(index, intTypeMapping);
+
+            return new BigQueryArrayIndexExpression(codePoints, typedIndex, typeof(int), intTypeMapping);
         }
 
         /// <summary>

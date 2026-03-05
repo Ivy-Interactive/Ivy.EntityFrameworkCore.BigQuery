@@ -17,7 +17,7 @@ public class BigQueryMethodCallTranslatorProvider : RelationalMethodCallTranslat
         [
             new BigQueryStringMethodTranslator(dependencies.SqlExpressionFactory),
             new BigQueryMathMethodTranslator(dependencies.SqlExpressionFactory, typeMappingSource),
-            new BigQueryArrayMethodTranslator(sqlExpressionFactory),
+            new BigQueryArrayMethodTranslator(sqlExpressionFactory, typeMappingSource),
             new BigQueryDateTimeMethodTranslator(dependencies.SqlExpressionFactory, typeMappingSource),
             new BigQueryJsonDomTranslator(typeMappingSource, sqlExpressionFactory, model),
             new BigQueryJsonPocoTranslator(typeMappingSource, sqlExpressionFactory, model),

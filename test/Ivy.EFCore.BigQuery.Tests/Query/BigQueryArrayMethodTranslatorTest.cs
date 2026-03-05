@@ -34,7 +34,7 @@ public class BigQueryArrayMethodTranslatorTest
             _typeMappingSource);
 
         _sqlExpressionFactory = new BigQuerySqlExpressionFactory(dependencies);
-        _translator = new BigQueryArrayMethodTranslator(_sqlExpressionFactory);
+        _translator = new BigQueryArrayMethodTranslator(_sqlExpressionFactory, _typeMappingSource);
     }
 
     [Fact]
