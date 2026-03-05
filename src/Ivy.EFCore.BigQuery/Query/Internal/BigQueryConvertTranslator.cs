@@ -37,6 +37,7 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
         typeof(long),
         typeof(short),
         typeof(string),
+        typeof(DateTime),
         typeof(object) // Convert.ToXxx(object) overloads
     ];
     
@@ -52,7 +53,8 @@ public class BigQueryConvertTranslator : IMethodCallTranslator
         typeof(short),
         typeof(string),
         typeof(DateTime),
-        typeof(DateTimeOffset)
+        typeof(DateTimeOffset),
+        typeof(object) // CAST 
     ];
 
     private static readonly List<MethodInfo> SupportedMethods
