@@ -199,7 +199,8 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
-            returnType);
+            returnType,
+            _typeMappingSource.FindMapping(returnType));
     }
 
     private SqlExpression TimestampAdd(SqlExpression instance, SqlExpression value, string part, Type returnType)
@@ -216,7 +217,8 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
-            returnType);
+            returnType,
+            _typeMappingSource.FindMapping(returnType));
     }
 
     private SqlExpression DateAdd(SqlExpression instance, SqlExpression value, string part, Type returnType)
@@ -233,7 +235,8 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
-            returnType);
+            returnType,
+            _typeMappingSource.FindMapping(returnType));
     }
 
     private SqlExpression TimeAdd(SqlExpression instance, SqlExpression value, string part, Type returnType)
@@ -250,7 +253,8 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             [instance, intervalExpression],
             nullable: true,
             argumentsPropagateNullability: TrueArrays2,
-            returnType);
+            returnType,
+            _typeMappingSource.FindMapping(returnType));
     }
 
     private BigQueryIntervalExpression CreateIntervalExpression(SqlExpression value, string datePart)
