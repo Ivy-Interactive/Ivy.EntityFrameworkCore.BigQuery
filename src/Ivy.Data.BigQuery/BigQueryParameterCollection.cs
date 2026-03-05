@@ -27,8 +27,29 @@ public class BigQueryParameterCollection : DbParameterCollection
     public BigQueryParameter Add(BigQueryParameter value)
     {
         ArgumentNullException.ThrowIfNull(value);
+
+        if (Contains(value.ParameterName))
+        {
+            return (BigQueryParameter)GetParameter(value.ParameterName);
+        }
+        
         if (value.Collection is not null)
-            throw new InvalidOperationException($"The parameter {value.ParameterName} already belongs to a collection");
+        {
+            var copy = new BigQueryParameter
+            {
+                ParameterName = value.ParameterName,
+                Value = value.Value,
+                Direction = value.Direction,
+                IsNullable = value.IsNullable,
+                Size = value.Size,
+                DbType = value.DbType
+            };
+            if (value.BigQueryDbType.HasValue)
+            {
+                copy.BigQueryDbType = value.BigQueryDbType.Value;
+            }
+            value = copy;
+        }
 
         _parameters.Add(value);
         value.Collection = this;
@@ -125,11 +146,31 @@ public class BigQueryParameterCollection : DbParameterCollection
             throw new ArgumentException($"Value must be of type {nameof(BigQueryParameter)}.", nameof(value));
         }
 
+        if (Contains(parameter.ParameterName))
+        {
+            return;
+        }
+        
         if (parameter.Collection != null)
-            throw new Exception("The parameter already belongs to a collection");
+        {
+            var copy = new BigQueryParameter
+            {
+                ParameterName = parameter.ParameterName,
+                Value = parameter.Value,
+                Direction = parameter.Direction,
+                IsNullable = parameter.IsNullable,
+                Size = parameter.Size,
+                DbType = parameter.DbType
+            };
+            if (parameter.BigQueryDbType.HasValue)
+            {
+                copy.BigQueryDbType = parameter.BigQueryDbType.Value;
+            }
+            parameter = copy;
+        }
 
-        if (Contains(parameter.ParameterName)) throw new ArgumentException($"Parameter '{parameter.ParameterName}' already exists in the collection.");
         _parameters.Insert(index, parameter);
+        parameter.Collection = this;
     }
 
     public override void Remove(object value)
@@ -225,6 +266,7 @@ public class BigQueryParameterCollection : DbParameterCollection
         }
 
         var bqParams = new List<Google.Cloud.BigQuery.V2.BigQueryParameter>(Count);
+        var addedParamNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var param in _parameters)
         {
@@ -240,6 +282,12 @@ public class BigQueryParameterCollection : DbParameterCollection
                 {
                     continue;
                 }
+            }
+
+            var normalizedName = param.ParameterName.TrimStart('@');
+            if (!addedParamNames.Add(normalizedName))
+            {
+                continue;
             }
 
             bqParams.Add(param.ToBigQueryParameter());
