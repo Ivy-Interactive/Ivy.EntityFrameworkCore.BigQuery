@@ -275,6 +275,15 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
         private SqlExpression TranslateContains(SqlExpression array, SqlExpression item)
         {
+            if (array.TypeMapping == null)
+            {
+                var arrayTypeMapping = _typeMappingSource.FindMapping(array.Type);
+                if (arrayTypeMapping != null)
+                {
+                    array = _sqlExpressionFactory.ApplyTypeMapping(array, arrayTypeMapping);
+                }
+            }
+
             //item IN UNNEST(array)
             return _sqlExpressionFactory.InUnnest(item, array);
         }
