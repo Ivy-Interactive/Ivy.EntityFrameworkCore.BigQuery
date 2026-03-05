@@ -1,6 +1,7 @@
 using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -8,7 +9,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
 public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpressionVisitor
 {
+    private static readonly MethodInfo StringJoinMethodInfo
+        = typeof(string).GetRuntimeMethod(nameof(string.Join), [typeof(string), typeof(string[])])!;
+
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private readonly IRelationalTypeMappingSource _typeMappingSource;
 
     public BigQuerySqlTranslatingExpressionVisitor(
         RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
@@ -17,6 +22,7 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
         : base(dependencies, queryCompilationContext, queryableMethodTranslatingExpressionVisitor)
     {
         _sqlExpressionFactory = dependencies.SqlExpressionFactory;
+        _typeMappingSource = dependencies.TypeMappingSource;
     }
 
     protected override Expression VisitExtension(Expression extensionExpression)
@@ -78,6 +84,53 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
         }
 
         return base.VisitMember(memberExpression);
+    }
+
+    /// <summary>
+    /// Translates non-aggregate string.Join to ARRAY_TO_STRING.
+    /// </summary>
+    protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
+    {
+        var method = methodCallExpression.Method;
+        
+        if (method == StringJoinMethodInfo
+            && methodCallExpression.Arguments[1] is NewArrayExpression newArrayExpression)
+        {
+            if (Visit(methodCallExpression.Arguments[0]) is not SqlExpression delimiter)
+            {
+                return QueryCompilationContext.NotTranslatedExpression;
+            }
+
+            var arrayElements = new SqlExpression[newArrayExpression.Expressions.Count];
+
+            for (var i = 0; i < newArrayExpression.Expressions.Count; i++)
+            {
+                var argument = newArrayExpression.Expressions[i];
+                if (Visit(argument) is not SqlExpression sqlArgument)
+                {
+                    return QueryCompilationContext.NotTranslatedExpression;
+                }
+                
+                arrayElements[i] = _sqlExpressionFactory.Coalesce(
+                    sqlArgument,
+                    _sqlExpressionFactory.Constant(string.Empty));
+            }
+
+            // ARRAY_TO_STRING(array_expression, delimiter[, null_text])
+            var elementTypeMapping = ExpressionExtensions.InferTypeMapping(arrayElements)
+                ?? _typeMappingSource.FindMapping(typeof(string));
+            var arrayTypeMapping = _typeMappingSource.FindMapping(typeof(string[]));
+            var arrayExpression = new BigQueryInlineArrayExpression(arrayElements, typeof(string[]), arrayTypeMapping);
+
+            return _sqlExpressionFactory.Function(
+                "ARRAY_TO_STRING",
+                [arrayExpression, delimiter, _sqlExpressionFactory.Constant(string.Empty)],
+                nullable: false,
+                argumentsPropagateNullability: [false, true, false],
+                typeof(string));
+        }
+
+        return base.VisitMethodCall(methodCallExpression);
     }
 
     /// <summary>

@@ -176,6 +176,28 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
                     : arrayLiteralExpression;
             }
 
+            case BigQueryInlineArrayExpression inlineArrayExpression:
+            {
+                var visitedElements = new List<SqlExpression>();
+                var changed = false;
+
+                foreach (var element in inlineArrayExpression.Elements)
+                {
+                    var visitedElement = Visit(element, allowOptimizedExpansion, out _);
+                    visitedElements.Add((SqlExpression)visitedElement);
+                    if (visitedElement != element)
+                    {
+                        changed = true;
+                    }
+                }
+
+                nullable = false;
+
+                return changed
+                    ? new BigQueryInlineArrayExpression(visitedElements, inlineArrayExpression.Type, inlineArrayExpression.TypeMapping)
+                    : inlineArrayExpression;
+            }
+
             default:
                 return base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable);
         }

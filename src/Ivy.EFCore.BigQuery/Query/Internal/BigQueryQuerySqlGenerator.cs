@@ -84,7 +84,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 BigQueryArrayLiteralExpression arrayLiteralExpression => VisitBigQueryArrayLiteral(arrayLiteralExpression),
                 BigQueryInUnnestExpression inUnnestExpression => VisitBigQueryInUnnest(inUnnestExpression),
                 BigQueryStructAccessExpression structAccessExpression => VisitBigQueryStructAccess(structAccessExpression),
-                //BigQueryArrayConstructorExpression arrayConstructorExpression => VisitBigQueryArrayConstructor(arrayConstructorExpression),
+                BigQueryInlineArrayExpression inlineArrayExpression => VisitBigQueryInlineArray(inlineArrayExpression),
                 BigQueryStructConstructorExpression structConstructorExpression => VisitBigQueryStructConstructor(structConstructorExpression),
                 BigQueryJsonTraversalExpression jsonTraversalExpression => VisitBigQueryJsonTraversal(jsonTraversalExpression),
                 BigQueryExtractExpression extractExpression => VisitBigQueryExtract(extractExpression),
@@ -210,6 +210,24 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             Sql.Append(_sqlGenerationHelper.DelimitIdentifier(structAccessExpression.FieldName));
 
             return structAccessExpression;
+        }
+
+        protected virtual Expression VisitBigQueryInlineArray(BigQueryInlineArrayExpression inlineArrayExpression)
+        {
+            Sql.Append("[");
+
+            for (var i = 0; i < inlineArrayExpression.Elements.Count; i++)
+            {
+                if (i > 0)
+                {
+                    Sql.Append(", ");
+                }
+                Visit(inlineArrayExpression.Elements[i]);
+            }
+
+            Sql.Append("]");
+
+            return inlineArrayExpression;
         }
 
             //protected virtual Expression VisitBigQueryArrayConstructor(BigQueryArrayConstructorExpression arrayConstructorExpression)
