@@ -35,6 +35,37 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
     }
 
     /// <summary>
+    /// Handles binary operations that need special translation for BigQuery.
+    /// </summary>
+    protected override Expression VisitBinary(BinaryExpression binaryExpression)
+    {
+        // TimeOnly - TimeOnly -> TIME_DIFF(left, right, MICROSECOND) returning TimeSpan
+        if (binaryExpression.NodeType == ExpressionType.Subtract
+            && binaryExpression.Left.Type == typeof(TimeOnly)
+            && binaryExpression.Right.Type == typeof(TimeOnly))
+        {
+            var left = Visit(binaryExpression.Left);
+            var right = Visit(binaryExpression.Right);
+
+            if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+            {
+                var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+                // TIME_DIFF(time1, time2, MICROSECOND) returns INT64 microseconds
+                return _sqlExpressionFactory.Function(
+                    "TIME_DIFF",
+                    [sqlLeft, sqlRight, _sqlExpressionFactory.Fragment("MICROSECOND")],
+                    nullable: true,
+                    argumentsPropagateNullability: [true, true, false],
+                    typeof(TimeSpan),
+                    timeSpanMapping);
+            }
+        }
+
+        return base.VisitBinary(binaryExpression);
+    }
+
+    /// <summary>
     /// Translates byte[].Length to BigQuery's LENGTH function.
     /// </summary>
     protected override Expression VisitUnary(UnaryExpression unaryExpression)
