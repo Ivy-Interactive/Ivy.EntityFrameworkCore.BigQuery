@@ -70,9 +70,77 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         Sql.Append(")");
                         return binary;
                     }
+                // BigQuery doesn't allow bitwise operations with literal NULL
+                // expr & NULL, expr | NULL, expr ^ NULL all result in NULL
+                case ExpressionType.And:
+                case ExpressionType.Or:
+                case ExpressionType.ExclusiveOr:
+                    {
+                        // Check if this is a bitwise operation (not boolean AND/OR)
+                        if (binary.Type != typeof(bool))
+                        {
+                            var leftIsNull = IsNullConstant(binary.Left);
+                            var rightIsNull = IsNullConstant(binary.Right);
+
+                            if (leftIsNull || rightIsNull)
+                            {
+                                // Bitwise op with NULL returns NULL
+                                Sql.Append("NULL");
+                                return binary;
+                            }
+                        }
+                        return base.VisitSqlBinary(binary);
+                    }
+                // BQ doesn't allow comparison operators with literal NULL
+                // NULL > x, x > NULL, etc. are not allowed - use FALSE instead
+                // This also applies to expressions that will evaluate to NULL (e.g., bitwise ops with NULL)
+                case ExpressionType.GreaterThan:
+                case ExpressionType.GreaterThanOrEqual:
+                case ExpressionType.LessThan:
+                case ExpressionType.LessThanOrEqual:
+                    {
+                        var leftIsNull = WillEvaluateToNull(binary.Left);
+                        var rightIsNull = WillEvaluateToNull(binary.Right);
+
+                        if (leftIsNull || rightIsNull)
+                        {
+                            // Comparison with NULL is always unknown/false
+                            Sql.Append("FALSE");
+                            return binary;
+                        }
+                        return base.VisitSqlBinary(binary);
+                    }
                 default:
                     return base.VisitSqlBinary(binary);
             }
+        }
+
+        private static bool IsNullConstant(SqlExpression expression)
+        {
+            return expression is SqlConstantExpression { Value: null };
+        }
+
+        /// <summary>
+        /// Checks if an expression will evaluate to NULL at runtime.
+        /// This includes direct NULL constants and bitwise operations with NULL operands.
+        /// </summary>
+        private static bool WillEvaluateToNull(SqlExpression expression)
+        {
+            // Direct NULL constant
+            if (expression is SqlConstantExpression { Value: null })
+            {
+                return true;
+            }
+
+            // Bitwise operation with NULL operand will evaluate to NULL
+            if (expression is SqlBinaryExpression { OperatorType: var op } binary
+                && op is ExpressionType.And or ExpressionType.Or or ExpressionType.ExclusiveOr
+                && binary.Type != typeof(bool))
+            {
+                return IsNullConstant(binary.Left) || IsNullConstant(binary.Right);
+            }
+
+            return false;
         }
 
         protected override Expression VisitExtension(Expression extensionExpression)
