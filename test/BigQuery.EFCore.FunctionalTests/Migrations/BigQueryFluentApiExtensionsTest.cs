@@ -2,8 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Migrations;
 
 public class BigQueryFluentApiExtensionsTest

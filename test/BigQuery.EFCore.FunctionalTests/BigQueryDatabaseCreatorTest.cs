@@ -7,8 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
 public class BigQueryDatabaseCreatorTest

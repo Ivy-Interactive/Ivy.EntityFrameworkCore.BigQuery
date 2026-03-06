@@ -5,11 +5,8 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using System.Linq.Expressions;
 using System.Reflection;
 using Xunit;
-
-#pragma warning disable EF1001 // Internal EF Core API usage.
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Query;
 

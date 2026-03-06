@@ -13,8 +13,6 @@ using NetTopologySuite;
 using NetTopologySuite.Geometries;
 using Xunit;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Query;
 
 public class BigQueryGeographyMethodTranslatorTest

@@ -1,55 +1,59 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>    
-	<AssemblyName>Ivy.EntityFrameworkCore.BigQuery.FunctionalTests</AssemblyName>
-	<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
-	<Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AssemblyName>Ivy.EntityFrameworkCore.BigQuery.FunctionalTests</AssemblyName>
+		<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="scripts\**" />
-    <EmbeddedResource Remove="scripts\**" />
-    <None Remove="scripts\**" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Remove="scripts\**" />
+		<EmbeddedResource Remove="scripts\**" />
+		<None Remove="scripts\**" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Remove="Northwind.sql" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Remove="Northwind.sql" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Northwind.sql">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.6" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.7" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+	<ItemGroup>
+		<Content Include="Northwind.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
-    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
-    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="coverlet.collector" Version="6.0.4">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.6" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.7" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.7" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
 
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
+		<ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
+		<ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<NoWarn>EF1001</NoWarn>
+	</PropertyGroup>
 
 </Project>

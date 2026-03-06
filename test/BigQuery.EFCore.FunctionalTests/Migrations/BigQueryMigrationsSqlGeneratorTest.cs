@@ -8,8 +8,6 @@ using Ivy.EntityFrameworkCore.BigQuery.Metadata.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Migrations;
 
 public class BigQueryMigrationsSqlGeneratorTest() : MigrationsSqlGeneratorTestBase(

@@ -6,8 +6,6 @@ using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 /// <summary>
 /// BigQuery doesn't support correlated scalar subqueries in SELECT projections.
 /// This postprocessor transforms them into LEFT JOINs with ROW_NUMBER() window functions.

@@ -16,8 +16,6 @@ using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
 using System.Diagnostics;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding;
 
 public class BigQueryDatabaseModelFactoryTest : IClassFixture<BigQueryDatabaseModelFactoryTest.BigQueryDatabaseModelFixture>

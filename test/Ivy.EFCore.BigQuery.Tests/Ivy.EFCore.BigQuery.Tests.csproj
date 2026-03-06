@@ -1,38 +1,42 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.7" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.7" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="9.0.7" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageReference Include="xunit" Version="2.9.3" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
-    <ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
-    <ProjectReference Include="..\BigQuery.EFCore.FunctionalTests\Ivy.EFCore.BigQuery.FunctionalTests.csproj" />
-    <ProjectReference Include="..\Ivy.EFCore.BigQuery.Conformance.Tests\Ivy.Data.BigQuery.Conformance.Tests.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery\Ivy.EFCore.BigQuery.csproj" />
+		<ProjectReference Include="..\..\src\Ivy.EFCore.BigQuery.NTS\Ivy.EFCore.BigQuery.NTS.csproj" />
+		<ProjectReference Include="..\BigQuery.EFCore.FunctionalTests\Ivy.EFCore.BigQuery.FunctionalTests.csproj" />
+		<ProjectReference Include="..\Ivy.EFCore.BigQuery.Conformance.Tests\Ivy.Data.BigQuery.Conformance.Tests.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Storage\" />
-    <Folder Include="TestUtilities\" />
-  </ItemGroup>
+	<ItemGroup>
+		<Folder Include="Storage\" />
+		<Folder Include="TestUtilities\" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="BigQueryUpdateTestSeed.sql" />
-  </ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="BigQueryUpdateTestSeed.sql" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<NoWarn>EF1001</NoWarn>
+	</PropertyGroup>
 
 </Project>

@@ -6,8 +6,6 @@ using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 /// <summary>
 /// Handles correlated predicates in JOINs that reference outer tables.
 /// BigQuery doesn't support correlated subqueries inside FROM clause JOINs.

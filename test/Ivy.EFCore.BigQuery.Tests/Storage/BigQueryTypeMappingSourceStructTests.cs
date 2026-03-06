@@ -8,8 +8,6 @@ using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
 using Xunit;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Storage;
-
-#pragma warning disable EF1001 // Internal EF Core API usage.
 public class BigQueryTypeMappingSourceStructTests
 {
     private readonly BigQueryTypeMappingSource _typeMappingSource;

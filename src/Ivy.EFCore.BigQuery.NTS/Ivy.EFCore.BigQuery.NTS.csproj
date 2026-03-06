@@ -38,4 +38,8 @@
 	<ItemGroup>
 		<None Include="build\**\*" Pack="true" PackagePath="build\" />
 	</ItemGroup>
+
+	<PropertyGroup>
+		<NoWarn>EF1001</NoWarn>
+	</PropertyGroup>
 </Project>

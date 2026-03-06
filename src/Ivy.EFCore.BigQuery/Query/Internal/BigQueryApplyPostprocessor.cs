@@ -6,8 +6,6 @@ using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 /// <summary>
 /// BigQuery doesn't support LATERAL joins or correlated subqueries in FROM clause.
 /// This postprocessor transforms OUTER APPLY and CROSS APPLY expressions by extracting

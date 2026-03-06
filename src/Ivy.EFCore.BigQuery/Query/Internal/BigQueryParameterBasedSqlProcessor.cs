@@ -3,8 +3,6 @@ using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 public class BigQueryParameterBasedSqlProcessor : RelationalParameterBasedSqlProcessor
 {
     private readonly BigQueryCorrelatedJoinPostprocessor _correlatedJoinPostprocessor;

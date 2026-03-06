@@ -3,369 +3,367 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using System.Text.RegularExpressions;
 
-#pragma warning disable EF1001 // Internal EF Core API usage.
-namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
+namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal;
+
+/// <summary>
+/// Custom model code generator that handles STRUCT types specially
+/// </summary>
+public class BigQueryModelCodeGenerator : ModelCodeGenerator
 {
-    /// <summary>
-    /// Custom model code generator that handles STRUCT types specially
-    /// </summary>
-    public class BigQueryModelCodeGenerator : ModelCodeGenerator
+    private readonly IServiceProvider _serviceProvider;
+
+    public BigQueryModelCodeGenerator(
+        ModelCodeGeneratorDependencies dependencies,
+        IServiceProvider serviceProvider)
+        : base(dependencies)
     {
-        private readonly IServiceProvider _serviceProvider;
+        _serviceProvider = serviceProvider;
+    }
 
-        public BigQueryModelCodeGenerator(
-            ModelCodeGeneratorDependencies dependencies,
-            IServiceProvider serviceProvider)
-            : base(dependencies)
+    public override string Language => "C#";
+
+    public override ScaffoldedModel GenerateModel(
+        IModel model,
+        ModelCodeGenerationOptions options)
+    {
+
+        var defaultGenerator = new Microsoft.EntityFrameworkCore.Scaffolding.Internal.CSharpModelGenerator(
+            Dependencies,
+            _serviceProvider.GetService(typeof(Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter))
+                as Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter
+                ?? throw new InvalidOperationException("IOperationReporter not found"),
+            _serviceProvider);
+
+        var scaffoldedModel = defaultGenerator.GenerateModel(model, options);
+
+        PostProcessStructEntityFiles(scaffoldedModel, model);
+
+        PostProcessDbContext(scaffoldedModel, model);
+
+        AddLocationToConnectionString(scaffoldedModel);
+
+        return scaffoldedModel;
+    }
+
+    /// <summary>
+    /// Add [BigQueryStruct] and remove other attributes
+    /// </summary>
+    private void PostProcessStructEntityFiles(ScaffoldedModel scaffoldedModel, IModel model)
+    {
+        var filesToReplace = new List<(int index, ScaffoldedFile newFile)>();
+
+        var structEntityTypes = model.GetEntityTypes()
+            .Where(e => e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? == true)
+            .ToList();
+
+        for (int i = 0; i < scaffoldedModel.AdditionalFiles.Count; i++)
         {
-            _serviceProvider = serviceProvider;
-        }
+            var file = scaffoldedModel.AdditionalFiles[i];
 
-        public override string Language => "C#";
+            var structEntity = structEntityTypes.FirstOrDefault(e =>
+                file.Path.Equals($"{e.Name}.cs", StringComparison.OrdinalIgnoreCase));
 
-        public override ScaffoldedModel GenerateModel(
-            IModel model,
-            ModelCodeGenerationOptions options)
-        {
-
-            var defaultGenerator = new Microsoft.EntityFrameworkCore.Scaffolding.Internal.CSharpModelGenerator(
-                Dependencies,
-                _serviceProvider.GetService(typeof(Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter))
-                    as Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter
-                    ?? throw new InvalidOperationException("IOperationReporter not found"),
-                _serviceProvider);
-
-            var scaffoldedModel = defaultGenerator.GenerateModel(model, options);
-
-            PostProcessStructEntityFiles(scaffoldedModel, model);
-
-            PostProcessDbContext(scaffoldedModel, model);
-
-            AddLocationToConnectionString(scaffoldedModel);
-
-            return scaffoldedModel;
-        }
-
-        /// <summary>
-        /// Add [BigQueryStruct] and remove other attributes
-        /// </summary>
-        private void PostProcessStructEntityFiles(ScaffoldedModel scaffoldedModel, IModel model)
-        {
-            var filesToReplace = new List<(int index, ScaffoldedFile newFile)>();
-
-            var structEntityTypes = model.GetEntityTypes()
-                .Where(e => e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? == true)
-                .ToList();
-
-            for (int i = 0; i < scaffoldedModel.AdditionalFiles.Count; i++)
+            if (structEntity != null)
             {
-                var file = scaffoldedModel.AdditionalFiles[i];
-
-                var structEntity = structEntityTypes.FirstOrDefault(e =>
-                    file.Path.Equals($"{e.Name}.cs", StringComparison.OrdinalIgnoreCase));
-
-                if (structEntity != null)
+                var modifiedCode = TransformStructEntity(file.Code, structEntity);
+                filesToReplace.Add((i, new ScaffoldedFile(file.Path, modifiedCode)));
+            }
+            else
+            {
+                var regularEntity = model.GetEntityTypes().FirstOrDefault(e =>
                 {
-                    var modifiedCode = TransformStructEntity(file.Code, structEntity);
-                    filesToReplace.Add((i, new ScaffoldedFile(file.Path, modifiedCode)));
+                    if (!file.Path.Equals($"{e.Name}.cs", StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    return e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? != true; // Only regular entities
+                });
+
+                if (regularEntity != null)
+                {
+                    var modifiedCode = ReplaceStructPropertyTypes(file.Code, regularEntity);
+                    if (modifiedCode != file.Code)
+                    {
+                        filesToReplace.Add((i, new ScaffoldedFile(file.Path, modifiedCode)));
+                    }
+                }
+            }
+        }
+
+        foreach (var (index, newFile) in filesToReplace)
+        {
+            scaffoldedModel.AdditionalFiles[index] = newFile;
+        }
+    }
+
+    /// <summary>
+    /// Transform a STRUCT entity class to add [BigQueryStruct] and other attributes
+    /// </summary>
+    private string TransformStructEntity(string code, IEntityType entityType)
+    {
+        var lines = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var result = new System.Text.StringBuilder();
+        bool hasStructAttribute = false;
+        bool hasAddedUsing = code.Contains("using Ivy.EntityFrameworkCore.BigQuery.Metadata;");
+        int lastUsingLineIndex = -1;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Trim().StartsWith("using "))
+            {
+                lastUsingLineIndex = i;
+            }
+        }
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+
+            if (line.Trim().StartsWith("[Table("))
+            {
+                continue;
+            }
+
+            if (line.Trim().StartsWith("[PrimaryKey"))
+            {
+                continue;
+            }
+
+            if (line.Trim().StartsWith("[Index("))
+            {
+                continue;
+            }
+
+            if (line.Trim().StartsWith("[Keyless"))
+            {
+                continue;
+            }
+
+            if (!hasAddedUsing && i == lastUsingLineIndex)
+            {
+                result.AppendLine(line);
+                result.AppendLine("using Ivy.EntityFrameworkCore.BigQuery.Metadata;");
+                hasAddedUsing = true;
+                continue;
+            }
+
+            if (line.Contains($"public partial class {entityType.Name}"))
+            {
+                if (!hasStructAttribute)
+                {
+                    var indent = GetIndentation(line);
+                    result.AppendLine($"{indent}[BigQueryStruct]");
+                    hasStructAttribute = true;
+                }
+            }
+
+            result.AppendLine(line);
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Replace IDictionary<string, object> with STRUCT class names in regular entities
+    /// </summary>
+    private string ReplaceStructPropertyTypes(string code, IEntityType entityType)
+    {
+        var modifiedCode = code;
+
+        foreach (var property in entityType.GetProperties())
+        {
+            var structClassName = property.FindAnnotation("BigQuery:StructClassName")?.Value as string;
+            if (!string.IsNullOrEmpty(structClassName))
+            {
+                var propertyName = property.Name;
+                var storeType = property.GetColumnType();
+
+                bool isArray = storeType?.StartsWith("ARRAY<STRUCT<", StringComparison.OrdinalIgnoreCase) == true;
+
+                if (isArray)
+                {
+                    // ARRAY<STRUCT<...>> replacements
+                    var arrayReplacements = new[]
+                    {
+                        ($"public IDictionary<string, object>[]? {propertyName} {{ get; set; }}",
+                         $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
+                        ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }}",
+                         $"public List<{structClassName}> {propertyName} {{ get; set; }}"),
+                        ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }} = null!;",
+                         $"public List<{structClassName}> {propertyName} {{ get; set; }} = null!;"),
+                        ($"public ICollection<IDictionary<string, object>>? {propertyName} {{ get; set; }}",
+                         $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
+                        ($"public ICollection<IDictionary<string, object>> {propertyName} {{ get; set; }}",
+                         $"public List<{structClassName}> {propertyName} {{ get; set; }}")
+                    };
+
+                    foreach (var (oldPattern, newPattern) in arrayReplacements)
+                    {
+                        if (modifiedCode.Contains(oldPattern))
+                        {
+                            modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
+                        }
+                    }
                 }
                 else
                 {
-                    var regularEntity = model.GetEntityTypes().FirstOrDefault(e =>
+                    var scalarReplacements = new[]
                     {
-                        if (!file.Path.Equals($"{e.Name}.cs", StringComparison.OrdinalIgnoreCase))
-                            return false;
+                        ($"public IDictionary<string, object>? {propertyName} {{ get; set; }}",
+                         $"public {structClassName}? {propertyName} {{ get; set; }}"),
+                        ($"public IDictionary<string, object> {propertyName} {{ get; set; }}",
+                         $"public {structClassName} {propertyName} {{ get; set; }}"),
+                        ($"public IDictionary<string, object> {propertyName} {{ get; set; }} = null!;",
+                         $"public {structClassName} {propertyName} {{ get; set; }} = null!;")
+                    };
 
-                        return e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? != true; // Only regular entities
-                    });
-
-                    if (regularEntity != null)
+                    foreach (var (oldPattern, newPattern) in scalarReplacements)
                     {
-                        var modifiedCode = ReplaceStructPropertyTypes(file.Code, regularEntity);
-                        if (modifiedCode != file.Code)
+                        if (modifiedCode.Contains(oldPattern))
                         {
-                            filesToReplace.Add((i, new ScaffoldedFile(file.Path, modifiedCode)));
+                            modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
                         }
                     }
                 }
             }
+        }
 
-            foreach (var (index, newFile) in filesToReplace)
+        return modifiedCode;
+    }
+
+    /// <summary>
+    /// Add location to connection string if discovered during scaffolding
+    /// </summary>
+    private void AddLocationToConnectionString(ScaffoldedModel scaffoldedModel)
+    {
+        var location = BigQueryDatabaseModelFactory.LastScaffoldedLocation;
+        if (string.IsNullOrWhiteSpace(location))
+        {
+            return;
+        }
+
+        var code = scaffoldedModel.ContextFile.Code;
+
+        // Find UseBigQuery( and check if Location is already present
+        var useBigQueryPattern = @"\.UseBigQuery\s*\(\s*""([^""]+)""";
+        var match = System.Text.RegularExpressions.Regex.Match(code, useBigQueryPattern);
+
+        if (match.Success)
+        {
+            var connectionString = match.Groups[1].Value;
+
+            // Only add location if not already present
+            if (!connectionString.Contains("Location=", StringComparison.OrdinalIgnoreCase))
             {
-                scaffoldedModel.AdditionalFiles[index] = newFile;
+                var newConnectionString = connectionString.TrimEnd(';') + $";Location={location}";
+                code = code.Replace($"\"{connectionString}\"", $"\"{newConnectionString}\"");
+                scaffoldedModel.ContextFile = new ScaffoldedFile(
+                    scaffoldedModel.ContextFile.Path,
+                    code);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Remove DbSets and .ToTable() calls for struct entities
+    /// </summary>
+    private void PostProcessDbContext(ScaffoldedModel scaffoldedModel, IModel model)
+    {
+        var structEntityNames = model.GetEntityTypes()
+            .Where(e => e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? == true)
+            .Select(e => e.Name)
+            .ToHashSet();
+
+        var modifiedCode = scaffoldedModel.ContextFile.Code;
+        var lines = modifiedCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var result = new System.Text.StringBuilder();
+
+        bool hasAddedUsing = modifiedCode.Contains("using Ivy.EntityFrameworkCore.BigQuery.Extensions;");
+        int lastUsingLineIndex = -1;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Trim().StartsWith("using "))
+            {
+                lastUsingLineIndex = i;
             }
         }
 
-        /// <summary>
-        /// Transform a STRUCT entity class to add [BigQueryStruct] and other attributes
-        /// </summary>
-        private string TransformStructEntity(string code, IEntityType entityType)
-        {
-            var lines = code.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var result = new System.Text.StringBuilder();
-            bool hasStructAttribute = false;
-            bool hasAddedUsing = code.Contains("using Ivy.EntityFrameworkCore.BigQuery.Metadata;");
-            int lastUsingLineIndex = -1;
+        bool insideStructEntityConfiguration = false;
+        string? currentStructEntityName = null;
 
-            for (int i = 0; i < lines.Length; i++)
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            bool shouldSkip = false;
+
+            if (!hasAddedUsing && i == lastUsingLineIndex)
             {
-                if (lines[i].Trim().StartsWith("using "))
-                {
-                    lastUsingLineIndex = i;
-                }
+                result.AppendLine(line);
+                result.AppendLine("using Ivy.EntityFrameworkCore.BigQuery.Extensions;");
+                hasAddedUsing = true;
+                continue;
             }
 
-            for (int i = 0; i < lines.Length; i++)
+            // Check if we're entering a struct entity configuration block
+            if (structEntityNames.Any())
             {
-                var line = lines[i];
-
-                if (line.Trim().StartsWith("[Table("))
+                foreach (var structName in structEntityNames)
                 {
-                    continue;
-                }
-
-                if (line.Trim().StartsWith("[PrimaryKey"))
-                {
-                    continue;
-                }
-
-                if (line.Trim().StartsWith("[Index("))
-                {
-                    continue;
-                }
-
-                if (line.Trim().StartsWith("[Keyless"))
-                {
-                    continue;
-                }
-
-                if (!hasAddedUsing && i == lastUsingLineIndex)
-                {
-                    result.AppendLine(line);
-                    result.AppendLine("using Ivy.EntityFrameworkCore.BigQuery.Metadata;");
-                    hasAddedUsing = true;
-                    continue;
-                }
-
-                if (line.Contains($"public partial class {entityType.Name}"))
-                {
-                    if (!hasStructAttribute)
+                    if (Regex.IsMatch(line.Trim(), $@"^public\s+(virtual\s+)?DbSet<{Regex.Escape(structName)}>\s+\w+\s*{{\s*get;\s*set;\s*}}"))
                     {
-                        var indent = GetIndentation(line);
-                        result.AppendLine($"{indent}[BigQueryStruct]");
-                        hasStructAttribute = true;
+                        shouldSkip = true;
+                        break;
+                    }
+
+                    // Check if entering modelBuilder.Entity<StructType>( configuration
+                    if (Regex.IsMatch(line.Trim(), $@"modelBuilder\.Entity<{Regex.Escape(structName)}>\s*\("))
+                    {
+                        insideStructEntityConfiguration = true;
+                        currentStructEntityName = structName;
+                        break;
                     }
                 }
 
+                if (insideStructEntityConfiguration)
+                {
+                    if (line.Trim().StartsWith(".ToTable("))
+                    {
+                        shouldSkip = true;
+                    }
+
+                    if (line.Trim() == "});")
+                    {
+                        insideStructEntityConfiguration = false;
+                        currentStructEntityName = null;
+                    }
+                }
+            }
+
+            if (!shouldSkip)
+            {
                 result.AppendLine(line);
             }
-
-            return result.ToString();
         }
 
-        /// <summary>
-        /// Replace IDictionary<string, object> with STRUCT class names in regular entities
-        /// </summary>
-        private string ReplaceStructPropertyTypes(string code, IEntityType entityType)
+        scaffoldedModel.ContextFile = new ScaffoldedFile(
+            scaffoldedModel.ContextFile.Path,
+            result.ToString());
+    }
+
+    private static string GetIndentation(string line)
+    {
+        int count = 0;
+        foreach (char c in line)
         {
-            var modifiedCode = code;
-
-            foreach (var property in entityType.GetProperties())
+            if (c == ' ' || c == '\t')
             {
-                var structClassName = property.FindAnnotation("BigQuery:StructClassName")?.Value as string;
-                if (!string.IsNullOrEmpty(structClassName))
-                {
-                    var propertyName = property.Name;
-                    var storeType = property.GetColumnType();
-
-                    bool isArray = storeType?.StartsWith("ARRAY<STRUCT<", StringComparison.OrdinalIgnoreCase) == true;
-
-                    if (isArray)
-                    {
-                        // ARRAY<STRUCT<...>> replacements
-                        var arrayReplacements = new[]
-                        {
-                            ($"public IDictionary<string, object>[]? {propertyName} {{ get; set; }}",
-                             $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
-                            ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }}",
-                             $"public List<{structClassName}> {propertyName} {{ get; set; }}"),
-                            ($"public IDictionary<string, object>[] {propertyName} {{ get; set; }} = null!;",
-                             $"public List<{structClassName}> {propertyName} {{ get; set; }} = null!;"),
-                            ($"public ICollection<IDictionary<string, object>>? {propertyName} {{ get; set; }}",
-                             $"public List<{structClassName}>? {propertyName} {{ get; set; }}"),
-                            ($"public ICollection<IDictionary<string, object>> {propertyName} {{ get; set; }}",
-                             $"public List<{structClassName}> {propertyName} {{ get; set; }}")
-                        };
-
-                        foreach (var (oldPattern, newPattern) in arrayReplacements)
-                        {
-                            if (modifiedCode.Contains(oldPattern))
-                            {
-                                modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var scalarReplacements = new[]
-                        {
-                            ($"public IDictionary<string, object>? {propertyName} {{ get; set; }}",
-                             $"public {structClassName}? {propertyName} {{ get; set; }}"),
-                            ($"public IDictionary<string, object> {propertyName} {{ get; set; }}",
-                             $"public {structClassName} {propertyName} {{ get; set; }}"),
-                            ($"public IDictionary<string, object> {propertyName} {{ get; set; }} = null!;",
-                             $"public {structClassName} {propertyName} {{ get; set; }} = null!;")
-                        };
-
-                        foreach (var (oldPattern, newPattern) in scalarReplacements)
-                        {
-                            if (modifiedCode.Contains(oldPattern))
-                            {
-                                modifiedCode = modifiedCode.Replace(oldPattern, newPattern);
-                            }
-                        }
-                    }
-                }
+                count++;
             }
-
-            return modifiedCode;
-        }
-
-        /// <summary>
-        /// Add location to connection string if discovered during scaffolding
-        /// </summary>
-        private void AddLocationToConnectionString(ScaffoldedModel scaffoldedModel)
-        {
-            var location = BigQueryDatabaseModelFactory.LastScaffoldedLocation;
-            if (string.IsNullOrWhiteSpace(location))
+            else
             {
-                return;
-            }
-
-            var code = scaffoldedModel.ContextFile.Code;
-
-            // Find UseBigQuery( and check if Location is already present
-            var useBigQueryPattern = @"\.UseBigQuery\s*\(\s*""([^""]+)""";
-            var match = System.Text.RegularExpressions.Regex.Match(code, useBigQueryPattern);
-
-            if (match.Success)
-            {
-                var connectionString = match.Groups[1].Value;
-
-                // Only add location if not already present
-                if (!connectionString.Contains("Location=", StringComparison.OrdinalIgnoreCase))
-                {
-                    var newConnectionString = connectionString.TrimEnd(';') + $";Location={location}";
-                    code = code.Replace($"\"{connectionString}\"", $"\"{newConnectionString}\"");
-                    scaffoldedModel.ContextFile = new ScaffoldedFile(
-                        scaffoldedModel.ContextFile.Path,
-                        code);
-                }
+                break;
             }
         }
-
-        /// <summary>
-        /// Remove DbSets and .ToTable() calls for struct entities
-        /// </summary>
-        private void PostProcessDbContext(ScaffoldedModel scaffoldedModel, IModel model)
-        {
-            var structEntityNames = model.GetEntityTypes()
-                .Where(e => e.FindAnnotation("BigQuery:IsStructType")?.Value as bool? == true)
-                .Select(e => e.Name)
-                .ToHashSet();
-
-            var modifiedCode = scaffoldedModel.ContextFile.Code;
-            var lines = modifiedCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-            var result = new System.Text.StringBuilder();
-
-            bool hasAddedUsing = modifiedCode.Contains("using Ivy.EntityFrameworkCore.BigQuery.Extensions;");
-            int lastUsingLineIndex = -1;
-
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (lines[i].Trim().StartsWith("using "))
-                {
-                    lastUsingLineIndex = i;
-                }
-            }
-
-            bool insideStructEntityConfiguration = false;
-            string? currentStructEntityName = null;
-
-            for (int i = 0; i < lines.Length; i++)
-            {
-                var line = lines[i];
-                bool shouldSkip = false;
-
-                if (!hasAddedUsing && i == lastUsingLineIndex)
-                {
-                    result.AppendLine(line);
-                    result.AppendLine("using Ivy.EntityFrameworkCore.BigQuery.Extensions;");
-                    hasAddedUsing = true;
-                    continue;
-                }
-
-                // Check if we're entering a struct entity configuration block
-                if (structEntityNames.Any())
-                {
-                    foreach (var structName in structEntityNames)
-                    {
-                        if (Regex.IsMatch(line.Trim(), $@"^public\s+(virtual\s+)?DbSet<{Regex.Escape(structName)}>\s+\w+\s*{{\s*get;\s*set;\s*}}"))
-                        {
-                            shouldSkip = true;
-                            break;
-                        }
-
-                        // Check if entering modelBuilder.Entity<StructType>( configuration
-                        if (Regex.IsMatch(line.Trim(), $@"modelBuilder\.Entity<{Regex.Escape(structName)}>\s*\("))
-                        {
-                            insideStructEntityConfiguration = true;
-                            currentStructEntityName = structName;
-                            break;
-                        }
-                    }
-
-                    if (insideStructEntityConfiguration)
-                    {
-                        if (line.Trim().StartsWith(".ToTable("))
-                        {
-                            shouldSkip = true;
-                        }
-
-                        if (line.Trim() == "});")
-                        {
-                            insideStructEntityConfiguration = false;
-                            currentStructEntityName = null;
-                        }
-                    }
-                }
-
-                if (!shouldSkip)
-                {
-                    result.AppendLine(line);
-                }
-            }
-
-            scaffoldedModel.ContextFile = new ScaffoldedFile(
-                scaffoldedModel.ContextFile.Path,
-                result.ToString());
-        }
-
-        private static string GetIndentation(string line)
-        {
-            int count = 0;
-            foreach (char c in line)
-            {
-                if (c == ' ' || c == '\t')
-                {
-                    count++;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            return line.Substring(0, count);
-        }
+        return line.Substring(0, count);
     }
 }

@@ -8,8 +8,6 @@ using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
-#pragma warning disable EF1001 // Internal EF Core API usage.
-
 public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQueryableMethodTranslatingExpressionVisitor
 {
     private readonly RelationalQueryCompilationContext _queryCompilationContext;
