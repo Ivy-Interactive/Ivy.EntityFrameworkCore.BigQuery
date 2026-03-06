@@ -84,10 +84,11 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             return DateTimeAdd(instance!, arguments[0], "MILLISECOND", typeof(DateTime));
 
         // DateTimeOffset Add methods - use TIMESTAMP_ADD for BigQuery TIMESTAMP type
+        // Note: TIMESTAMP_ADD doesn't support YEAR/MONTH, so we use DATETIME_ADD with casts
         if (method == DateTimeOffset_AddYears)
-            return TimestampAdd(instance!, arguments[0], "YEAR", typeof(DateTimeOffset));
+            return TimestampAddViaDatetime(instance!, arguments[0], "YEAR", typeof(DateTimeOffset));
         if (method == DateTimeOffset_AddMonths)
-            return TimestampAdd(instance!, arguments[0], "MONTH", typeof(DateTimeOffset));
+            return TimestampAddViaDatetime(instance!, arguments[0], "MONTH", typeof(DateTimeOffset));
         if (method == DateTimeOffset_AddDays)
             return TimestampAdd(instance!, arguments[0], "DAY", typeof(DateTimeOffset));
         if (method == DateTimeOffset_AddHours)
@@ -146,7 +147,14 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
         if (method == TimeOnly_FromTimeSpan)
         {
             var baseTime = _sqlExpressionFactory.Fragment("TIME '00:00:00'");
-            var intervalExpression = CreateIntervalExpression(arguments[0], "MICROSECOND");
+            // Apply TimeSpan type mapping so the value is correctly converted to microseconds
+            var timeSpanValue = arguments[0];
+            if (timeSpanValue.TypeMapping == null && timeSpanValue.Type == typeof(TimeSpan))
+            {
+                var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+                timeSpanValue = _sqlExpressionFactory.ApplyTypeMapping(timeSpanValue, timeSpanMapping);
+            }
+            var intervalExpression = CreateIntervalExpression(timeSpanValue, "MICROSECOND");
             return _sqlExpressionFactory.Function(
                 "TIME_ADD",
                 [baseTime, intervalExpression],
@@ -160,7 +168,14 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
         {
             // TIME_ADD(time, INTERVAL value MICROSECOND)
             // TimeSpan is stored as INT64 microseconds in BigQuery
-            var intervalExpression = CreateIntervalExpression(arguments[0], "MICROSECOND");
+            // Apply TimeSpan type mapping so the value is correctly converted to microseconds
+            var timeSpanValue = arguments[0];
+            if (timeSpanValue.TypeMapping == null && timeSpanValue.Type == typeof(TimeSpan))
+            {
+                var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+                timeSpanValue = _sqlExpressionFactory.ApplyTypeMapping(timeSpanValue, timeSpanMapping);
+            }
+            var intervalExpression = CreateIntervalExpression(timeSpanValue, "MICROSECOND");
             return _sqlExpressionFactory.Function(
                 "TIME_ADD",
                 [instance!, intervalExpression],
@@ -219,6 +234,35 @@ public class BigQueryDateTimeMethodTranslator : IMethodCallTranslator
             argumentsPropagateNullability: TrueArrays2,
             returnType,
             _typeMappingSource.FindMapping(returnType));
+    }
+
+    /// <summary>
+    /// BigQuery's TIMESTAMP_ADD doesn't support YEAR or MONTH intervals.
+    /// We work around this by casting to DATETIME, using DATETIME_ADD, then casting back to TIMESTAMP.
+    /// Result: CAST(DATETIME_ADD(CAST(ts AS DATETIME), INTERVAL n YEAR) AS TIMESTAMP)
+    /// </summary>
+    private SqlExpression TimestampAddViaDatetime(SqlExpression instance, SqlExpression value, string part, Type returnType)
+    {
+        var intValue = value.Type == typeof(double) || value.Type == typeof(int)
+            ? _sqlExpressionFactory.Convert(value, typeof(long))
+            : value;
+
+        var intervalExpression = CreateIntervalExpression(intValue, part);
+
+        var datetimeTypeMapping = _typeMappingSource.FindMapping(typeof(DateTime));
+        var castToDatetime = _sqlExpressionFactory.Convert(instance, typeof(DateTime), datetimeTypeMapping);
+
+        // DATETIME_ADD(datetime, INTERVAL n part)
+        var datetimeAdd = _sqlExpressionFactory.Function(
+            "DATETIME_ADD",
+            [castToDatetime, intervalExpression],
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays2,
+            typeof(DateTime),
+            datetimeTypeMapping);
+
+        var timestampTypeMapping = _typeMappingSource.FindMapping(returnType);
+        return _sqlExpressionFactory.Convert(datetimeAdd, returnType, timestampTypeMapping);
     }
 
     private SqlExpression DateAdd(SqlExpression instance, SqlExpression value, string part, Type returnType)
