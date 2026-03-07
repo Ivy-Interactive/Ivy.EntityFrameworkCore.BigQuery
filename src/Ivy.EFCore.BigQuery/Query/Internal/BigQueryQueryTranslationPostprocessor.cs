@@ -12,6 +12,7 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
 {
     private readonly BigQueryCorrelatedSubqueryPostprocessor _correlatedSubqueryPostprocessor;
     private readonly BigQueryApplyPostprocessor _applyPostprocessor;
+    private readonly BigQueryGroupByAggregatePostprocessor _groupByAggregatePostprocessor;
 
     public BigQueryQueryTranslationPostprocessor(
         QueryTranslationPostprocessorDependencies dependencies,
@@ -27,6 +28,9 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
         _applyPostprocessor = new BigQueryApplyPostprocessor(
             relationalDependencies.SqlExpressionFactory,
             relationalDependencies.TypeMappingSource);
+
+        _groupByAggregatePostprocessor = new BigQueryGroupByAggregatePostprocessor(
+            relationalDependencies.SqlExpressionFactory);
     }
 
     public override Expression Process(Expression query)
@@ -39,6 +43,9 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
 
         // Transform correlated scalar subqueries to LEFT JOINs
         result = _correlatedSubqueryPostprocessor.Visit(result);
+
+        // Wrap non-grouped columns from joined subqueries with ANY_VALUE()
+        result = _groupByAggregatePostprocessor.Visit(result);
 
         return result;
     }
