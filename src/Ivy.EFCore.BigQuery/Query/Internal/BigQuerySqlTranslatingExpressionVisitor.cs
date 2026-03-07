@@ -39,26 +39,61 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
     /// </summary>
     protected override Expression VisitBinary(BinaryExpression binaryExpression)
     {
-        // TimeOnly - TimeOnly -> TIME_DIFF(left, right, MICROSECOND) returning TimeSpan
-        if (binaryExpression.NodeType == ExpressionType.Subtract
-            && binaryExpression.Left.Type == typeof(TimeOnly)
-            && binaryExpression.Right.Type == typeof(TimeOnly))
+        if (binaryExpression.NodeType == ExpressionType.Subtract)
         {
-            var left = Visit(binaryExpression.Left);
-            var right = Visit(binaryExpression.Right);
-
-            if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+            // TimeOnly - TimeOnly -> TIME_DIFF(left, right, MICROSECOND) returning TimeSpan
+            if (binaryExpression.Left.Type == typeof(TimeOnly)
+                && binaryExpression.Right.Type == typeof(TimeOnly))
             {
-                var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+                var left = Visit(binaryExpression.Left);
+                var right = Visit(binaryExpression.Right);
 
-                // TIME_DIFF(time1, time2, MICROSECOND) returns INT64 microseconds
-                return _sqlExpressionFactory.Function(
-                    "TIME_DIFF",
-                    [sqlLeft, sqlRight, _sqlExpressionFactory.Fragment("MICROSECOND")],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true, false],
-                    typeof(TimeSpan),
-                    timeSpanMapping);
+                if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+                {
+                    var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+                    // TIME_DIFF(time1, time2, MICROSECOND) returns INT64 microseconds
+                    return _sqlExpressionFactory.Function(
+                        "TIME_DIFF",
+                        [sqlLeft, sqlRight, _sqlExpressionFactory.Fragment("MICROSECOND")],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, false],
+                        typeof(TimeSpan),
+                        timeSpanMapping);
+                }
+            }
+
+            // DateTimeOffset - TimeSpan -> TIMESTAMP_SUB(timestamp, INTERVAL value MICROSECOND)
+            if (binaryExpression.Left.Type == typeof(DateTimeOffset)
+                && binaryExpression.Right.Type == typeof(TimeSpan))
+            {
+                var left = Visit(binaryExpression.Left);
+                var right = Visit(binaryExpression.Right);
+
+                if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+                {
+                    var timestampMapping = _typeMappingSource.FindMapping(typeof(DateTimeOffset));
+                    var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+                    if (sqlRight.TypeMapping == null)
+                    {
+                        sqlRight = _sqlExpressionFactory.ApplyTypeMapping(sqlRight, timeSpanMapping);
+                    }
+
+                    // TIMESTAMP_SUB(timestamp, INTERVAL value MICROSECOND)
+                    var intervalExpression = new BigQueryIntervalExpression(
+                        sqlRight,
+                        "MICROSECOND",
+                        _typeMappingSource.FindMapping(typeof(long)));
+
+                    return _sqlExpressionFactory.Function(
+                        "TIMESTAMP_SUB",
+                        [sqlLeft, intervalExpression],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true],
+                        typeof(DateTimeOffset),
+                        timestampMapping);
+                }
             }
         }
 
