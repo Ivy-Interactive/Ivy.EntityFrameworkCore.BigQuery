@@ -47,9 +47,19 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
         {
             return member.Name switch
             {
-                nameof(DateTime.Now) or nameof(DateTimeOffset.Now)
+                // DateTime.Now -> CURRENT_DATETIME() (returns DATETIME)
+                nameof(DateTime.Now) when declaringType == typeof(DateTime)
                     => _sqlExpressionFactory.Function(
                         "CURRENT_DATETIME",
+                        [],
+                        nullable: false,
+                        argumentsPropagateNullability: [],
+                        returnType),
+
+                // DateTimeOffset.Now -> CURRENT_TIMESTAMP() (returns TIMESTAMP)
+                nameof(DateTimeOffset.Now) when declaringType == typeof(DateTimeOffset)
+                    => _sqlExpressionFactory.Function(
+                        "CURRENT_TIMESTAMP",
                         [],
                         nullable: false,
                         argumentsPropagateNullability: [],
@@ -106,14 +116,10 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
                     argumentsPropagateNullability: TrueArrays1,
                     typeof(DateTime)),
 
-            // DateTime.TimeOfDay / DateTimeOffset.TimeOfDay - extract time part
+            // DateTime.TimeOfDay / DateTimeOffset.TimeOfDay - extract time part as TimeSpan
+            // TimeSpan is stored as INT64 microseconds
             nameof(DateTime.TimeOfDay)
-                => _sqlExpressionFactory.Function(
-                    "TIME",
-                    [instance],
-                    nullable: true,
-                    argumentsPropagateNullability: TrueArrays1,
-                    typeof(TimeSpan)),
+                => TranslateTimeOfDay(instance),
 
             // DateTimeOffset specific
             nameof(DateTimeOffset.DateTime) when declaringType == typeof(DateTimeOffset)
@@ -247,5 +253,30 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
         return _sqlExpressionFactory.Convert(
             _sqlExpressionFactory.Subtract(dayOfWeek, _sqlExpressionFactory.Constant(1L)),
             returnType);
+    }
+
+    /// <summary>
+    /// Translates DateTime.TimeOfDay / DateTimeOffset.TimeOfDay to microseconds since midnight.
+    /// TimeSpan is stored as INT64 microseconds in BigQuery.
+    /// Result: TIME_DIFF(TIME(instance), TIME '00:00:00', MICROSECOND)
+    /// </summary>
+    private SqlExpression TranslateTimeOfDay(SqlExpression instance)
+    {
+        var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+        var timeValue = _sqlExpressionFactory.Function(
+            "TIME",
+            [instance],
+            nullable: true,
+            argumentsPropagateNullability: TrueArrays1,
+            typeof(TimeOnly));
+        
+        return _sqlExpressionFactory.Function(
+            "TIME_DIFF",
+            [timeValue, _sqlExpressionFactory.Fragment("TIME '00:00:00'"), _sqlExpressionFactory.Fragment("MICROSECOND")],
+            nullable: true,
+            argumentsPropagateNullability: [true, false, false],
+            typeof(TimeSpan),
+            timeSpanMapping);
     }
 }
