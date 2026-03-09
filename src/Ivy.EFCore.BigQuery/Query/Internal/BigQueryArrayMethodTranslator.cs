@@ -105,6 +105,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 {
                     return TranslateByteArrayFirst(arguments[0]);
                 }
+
+                // byte[].Contains(value) -> value IN UNNEST(TO_CODE_POINTS(bytes))
+                if (genericMethod == EnumerableContains)
+                {
+                    return TranslateByteArrayContains(arguments[0], arguments[1]);
+                }
             }
 
             if (method.IsGenericMethod &&
@@ -242,6 +248,32 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         private SqlExpression TranslateByteArrayFirst(SqlExpression byteArray)
         {
             return TranslateByteArrayElementAt(byteArray, _sqlExpressionFactory.Constant(0));
+        }
+
+        /// <summary>
+        /// Translates byte[].Contains(value) to value IN UNNEST(TO_CODE_POINTS(bytes))
+        /// BigQuery BYTES type needs to be converted to an array of code points first.
+        /// </summary>
+        private SqlExpression TranslateByteArrayContains(SqlExpression byteArray, SqlExpression value)
+        {
+            var intTypeMapping = _typeMappingSource.FindMapping(typeof(int));
+            var intArrayTypeMapping = _typeMappingSource.FindMapping(typeof(int[]));
+
+            // TO_CODE_POINTS(bytes) returns ARRAY<INT64>
+            var codePoints = _sqlExpressionFactory.Function(
+                "TO_CODE_POINTS",
+                new[] { byteArray },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                typeof(int[]),
+                intArrayTypeMapping);
+            
+            var typedValue = _sqlExpressionFactory.ApplyTypeMapping(
+                _sqlExpressionFactory.Convert(value, typeof(int), intTypeMapping),
+                intTypeMapping);
+
+            // value IN UNNEST(TO_CODE_POINTS(bytes))
+            return _sqlExpressionFactory.InUnnest(typedValue, codePoints);
         }
 
         private SqlExpression TranslateLength(SqlExpression array)
