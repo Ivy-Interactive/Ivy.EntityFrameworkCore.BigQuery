@@ -230,6 +230,22 @@ namespace Ivy.Data.BigQuery
 
             if (value is System.Collections.IEnumerable && type != typeof(string) && type != typeof(byte[]))
             {
+                var elementType = GetEnumerableElementType(type);
+                if (elementType != null)
+                {
+                    var underlyingType = Nullable.GetUnderlyingType(elementType);
+                    var effectiveType = underlyingType ?? elementType;
+
+                    // Return Array type for collections - the element type is inferred by the SDK
+                    if (IsIntegerType(effectiveType)
+                        || effectiveType == typeof(double) || effectiveType == typeof(float)
+                        || effectiveType == typeof(bool)
+                        || effectiveType == typeof(string)
+                        || effectiveType == typeof(decimal))
+                    {
+                        return (DbType.Object, Google.Cloud.BigQuery.V2.BigQueryDbType.Array);
+                    }
+                }
                 return (DbType.Object, null);
             }
 
@@ -349,22 +365,50 @@ namespace Ivy.Data.BigQuery
                      && apiValue is not System.Collections.IDictionary)
             {
                 var elementType = GetEnumerableElementType(apiValue.GetType());
-                if (elementType != null && !IsPrimitiveType(elementType))
+                if (elementType != null)
                 {
-                    var convertedList = new List<Dictionary<string, object>>();
-                    foreach (var element in enumerable)
+                    // BQ SDK doesn't accept List<int?>, List<short?>, etc.
+                    // Convert to long[] for integer types, filtering out nulls
+                    var underlyingType = Nullable.GetUnderlyingType(elementType);
+                    if (underlyingType != null && IsIntegerType(underlyingType))
                     {
-                        if (element == null)
+                        var convertedList = new List<long>();
+                        foreach (var element in enumerable)
                         {
-                            convertedList.Add(null!);
+                            if (element != null)
+                                convertedList.Add(Convert.ToInt64(element));
                         }
-                        else
-                        {
-                            var dict = ConvertObjectToDict(element);
-                            convertedList.Add(dict);
-                        }
+                        apiValue = convertedList.ToArray();
+                        type = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
                     }
-                    apiValue = convertedList;
+                    else if (IsIntegerType(elementType) && elementType != typeof(long))
+                    {
+                        var convertedList = new List<long>();
+                        foreach (var element in enumerable)
+                        {
+                            convertedList.Add(Convert.ToInt64(element));
+                        }
+                        apiValue = convertedList.ToArray();
+                        type = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
+                    }
+                    // Custom object lists
+                    else if (!IsPrimitiveType(elementType))
+                    {
+                        var convertedList = new List<Dictionary<string, object>>();
+                        foreach (var element in enumerable)
+                        {
+                            if (element == null)
+                            {
+                                convertedList.Add(null!);
+                            }
+                            else
+                            {
+                                var dict = ConvertObjectToDict(element);
+                                convertedList.Add(dict);
+                            }
+                        }
+                        apiValue = convertedList;
+                    }
                 }
             }
 
@@ -408,6 +452,18 @@ namespace Ivy.Data.BigQuery
                    || type == typeof(Guid)
                    || type == typeof(byte[])
                    || type == typeof(BigQueryNumeric);
+        }
+
+        private static bool IsIntegerType(Type type)
+        {
+            return type == typeof(int)
+                   || type == typeof(short)
+                   || type == typeof(byte)
+                   || type == typeof(sbyte)
+                   || type == typeof(ushort)
+                   || type == typeof(uint)
+                   || type == typeof(long)
+                   || type == typeof(ulong);
         }
 
         private static Dictionary<string, object> ConvertObjectToDict(object value)
