@@ -395,9 +395,14 @@ public class BigQueryGroupByAggregatePostprocessor : ExpressionVisitor
                 return expression;
             }
 
-            // Column from a joined subquery
+            // Column from a joined subquery - wrap with MIN aggregate
+            // MIN is used instead of ANY_VALUE for deterministic results:
+            // - When there's exactly one value per group (common with ROW_NUMBER rn=1 joins),
+            //   MIN returns that value
+            // - When there are multiple values, MIN returns the smallest, giving deterministic behavior
+            // - This is important for bulk update/delete operations where row counts must be predictable
             return _sqlExpressionFactory.Function(
-                "ANY_VALUE",
+                "MIN",
                 new[] { column },
                 nullable: true,
                 argumentsPropagateNullability: new[] { true },
