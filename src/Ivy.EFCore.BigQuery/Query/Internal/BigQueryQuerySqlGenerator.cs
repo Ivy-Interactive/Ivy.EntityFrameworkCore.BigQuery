@@ -91,6 +91,36 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         }
                         return base.VisitSqlBinary(binary);
                     }
+                // Convert: A XOR B -> (A AND NOT B) OR (NOT A AND B)
+                case ExpressionType.ExclusiveOr:
+                    {
+                        if (binary.Type == typeof(bool))
+                        {
+                            // Boolean XOR: (A AND NOT B) OR (NOT A AND B)
+                            Sql.Append("((");
+                            Visit(binary.Left);
+                            Sql.Append(" AND NOT ");
+                            Visit(binary.Right);
+                            Sql.Append(") OR (NOT ");
+                            Visit(binary.Left);
+                            Sql.Append(" AND ");
+                            Visit(binary.Right);
+                            Sql.Append("))");
+                            return binary;
+                        }
+
+                        // Bitwise XOR with NULL
+                        var leftIsNull = IsNullConstant(binary.Left);
+                        var rightIsNull = IsNullConstant(binary.Right);
+
+                        if (leftIsNull || rightIsNull)
+                        {
+                            Sql.Append("NULL");
+                            return binary;
+                        }
+
+                        return base.VisitSqlBinary(binary);
+                    }
                 // BQ doesn't allow comparison operators with literal NULL
                 // NULL > x, x > NULL, etc. are not allowed - use FALSE instead
                 // This also applies to expressions that will evaluate to NULL (e.g., bitwise ops with NULL)
