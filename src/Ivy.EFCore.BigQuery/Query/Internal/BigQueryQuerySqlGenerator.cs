@@ -74,7 +74,6 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 // expr & NULL, expr | NULL, expr ^ NULL all result in NULL
                 case ExpressionType.And:
                 case ExpressionType.Or:
-                case ExpressionType.ExclusiveOr:
                     {
                         // Check if this is a bitwise operation (not boolean AND/OR)
                         if (binary.Type != typeof(bool))
@@ -808,34 +807,63 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             return collateExpression;
         }
 
+        /// <summary>
+        /// BQ requires DISTINCT without parentheses inside aggregate functions.
+        /// When DISTINCT is applied to a CAST expression, BQ requires:
+        /// DISTINCT CAST(x AS type), not CAST(DISTINCT x AS type).
+        /// </summary>
+        protected override Expression VisitDistinct(DistinctExpression distinctExpression)
+        {
+            Sql.Append("DISTINCT ");
+            Visit(distinctExpression.Operand);
+            return distinctExpression;
+        }
+
+        /// <summary>
+        /// Override CAST handling for BigQuery-specific requirements:
+        /// 1. Strip precision/scale from NUMERIC/BIGNUMERIC types
+        /// 2. When CAST wraps a DISTINCT expression, reorder to: DISTINCT CAST(x AS type)
+        /// </summary>
         protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
         {
-            // BigQuery doesn't allow parameterized types in CAST expressions
-            // CAST(x AS BIGNUMERIC(57,28)) -> CAST(x AS BIGNUMERIC)
             if (sqlUnaryExpression.OperatorType == ExpressionType.Convert)
             {
+                if (sqlUnaryExpression.Operand is DistinctExpression distinctExpression)
+                {
+                    Sql.Append("DISTINCT CAST(");
+                    Visit(distinctExpression.Operand);
+                    Sql.Append(" AS ");
+                    AppendStoreType(sqlUnaryExpression.TypeMapping?.StoreType);
+                    Sql.Append(")");
+                    return sqlUnaryExpression;
+                }
+
+                // Normal CAST handling
                 Sql.Append("CAST(");
                 Visit(sqlUnaryExpression.Operand);
                 Sql.Append(" AS ");
-
-                var storeType = sqlUnaryExpression.TypeMapping?.StoreType;
-                if (storeType != null)
-                {
-                    // Strip precision/scale from numeric types for CAST expressions
-                    var openParen = storeType.IndexOf('(');
-                    if (openParen > 0 && (storeType.StartsWith("NUMERIC", StringComparison.OrdinalIgnoreCase)
-                                        || storeType.StartsWith("BIGNUMERIC", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        storeType = storeType.Substring(0, openParen);
-                    }
-                    Sql.Append(storeType);
-                }
-
+                AppendStoreType(sqlUnaryExpression.TypeMapping?.StoreType);
                 Sql.Append(")");
                 return sqlUnaryExpression;
             }
 
             return base.VisitSqlUnary(sqlUnaryExpression);
+        }
+
+        private void AppendStoreType(string? storeType)
+        {
+            if (storeType != null)
+            {
+                // Strip precision/scale from numeric types for CAST expressions
+                // BQ doesn't allow: CAST(x AS BIGNUMERIC(57,28))
+                var openParen = storeType.IndexOf('(');
+                if (openParen > 0 && (storeType.StartsWith("NUMERIC", StringComparison.OrdinalIgnoreCase)
+                                    || storeType.StartsWith("BIGNUMERIC", StringComparison.OrdinalIgnoreCase)))
+                {
+                    storeType = storeType.Substring(0, openParen);
+                }
+                Sql.Append(storeType);
+            }
         }
 
         /// <summary>
@@ -852,7 +880,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
 
             Sql.Append(" LIKE ");
-            Visit(likeExpression.Pattern);            
+            Visit(likeExpression.Pattern);
         }
 
         /// <summary>
