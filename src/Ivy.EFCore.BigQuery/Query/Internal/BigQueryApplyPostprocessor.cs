@@ -567,6 +567,12 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
                         .Where(o => !ContainsOuterReference(o.Expression))
                         .ToList();
 
+                    // BQ requires at least one ORDER BY column in ROW_NUMBER OVER()
+                    if (validOrderings.Count == 0 && partitionByColumns.Count > 0)
+                    {
+                        validOrderings = [new OrderingExpression(partitionByColumns[0], ascending: true)];
+                    }
+
                     // Build the ROW_NUMBER expression
                     var rowNumberExpression = new RowNumberExpression(
                         partitions: partitionByColumns,
