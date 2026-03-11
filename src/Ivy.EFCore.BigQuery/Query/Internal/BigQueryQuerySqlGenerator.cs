@@ -854,5 +854,63 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             Sql.Append(" LIKE ");
             Visit(likeExpression.Pattern);            
         }
+
+        /// <summary>
+        /// BQ does not support the simple CASE syntax when the operand is a boolean expression.
+        /// For example: CASE (expr = 'Foo') WHEN TRUE THEN result END
+        /// This must be converted to searched CASE: CASE WHEN expr = 'Foo' THEN result END
+        /// </summary>
+        protected override Expression VisitCase(CaseExpression caseExpression)
+        {
+            if (caseExpression.Operand != null)
+            {
+                Sql.Append("CASE");
+
+                using (Sql.Indent())
+                {
+                    foreach (var whenClause in caseExpression.WhenClauses)
+                    {
+                        Sql.AppendLine().Append("WHEN ");
+
+                        if (whenClause.Test is SqlConstantExpression { Value: bool boolValue })
+                        {
+                            if (boolValue)
+                            {
+                                // WHEN TRUE -> WHEN
+                                Visit(caseExpression.Operand);
+                            }
+                            else
+                            {
+                                // WHEN FALSE -> WHEN NOT
+                                Sql.Append("NOT (");
+                                Visit(caseExpression.Operand);
+                                Sql.Append(")");
+                            }
+                        }
+                        else
+                        {
+                            Visit(caseExpression.Operand);
+                            Sql.Append(" = ");
+                            Visit(whenClause.Test);
+                        }
+
+                        Sql.Append(" THEN ");
+                        Visit(whenClause.Result);
+                    }
+
+                    if (caseExpression.ElseResult != null)
+                    {
+                        Sql.AppendLine().Append("ELSE ");
+                        Visit(caseExpression.ElseResult);
+                    }
+                }
+
+                Sql.AppendLine().Append("END");
+
+                return caseExpression;
+            }
+
+            return base.VisitCase(caseExpression);
+        }
     }
 }
