@@ -63,6 +63,50 @@ public class BigQuerySqlTranslatingExpressionVisitor : RelationalSqlTranslatingE
                 }
             }
 
+            // DateTime - DateTime -> DATETIME_DIFF(left, right, MICROSECOND) returning TimeSpan
+            if (binaryExpression.Left.Type == typeof(DateTime)
+                && binaryExpression.Right.Type == typeof(DateTime))
+            {
+                var left = Visit(binaryExpression.Left);
+                var right = Visit(binaryExpression.Right);
+
+                if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+                {
+                    var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+                    // DATETIME_DIFF(datetime1, datetime2, MICROSECOND) returns INT64 microseconds
+                    return _sqlExpressionFactory.Function(
+                        "DATETIME_DIFF",
+                        [sqlLeft, sqlRight, _sqlExpressionFactory.Fragment("MICROSECOND")],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, false],
+                        typeof(TimeSpan),
+                        timeSpanMapping);
+                }
+            }
+
+            // DateTimeOffset - DateTimeOffset -> TIMESTAMP_DIFF(left, right, MICROSECOND) returning TimeSpan
+            if (binaryExpression.Left.Type == typeof(DateTimeOffset)
+                && binaryExpression.Right.Type == typeof(DateTimeOffset))
+            {
+                var left = Visit(binaryExpression.Left);
+                var right = Visit(binaryExpression.Right);
+
+                if (left is SqlExpression sqlLeft && right is SqlExpression sqlRight)
+                {
+                    var timeSpanMapping = _typeMappingSource.FindMapping(typeof(TimeSpan));
+
+                    // TIMESTAMP_DIFF(timestamp1, timestamp2, MICROSECOND) returns INT64 microseconds
+                    return _sqlExpressionFactory.Function(
+                        "TIMESTAMP_DIFF",
+                        [sqlLeft, sqlRight, _sqlExpressionFactory.Fragment("MICROSECOND")],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, false],
+                        typeof(TimeSpan),
+                        timeSpanMapping);
+                }
+            }
+
             // DateTimeOffset - TimeSpan -> TIMESTAMP_SUB(timestamp, INTERVAL value MICROSECOND)
             if (binaryExpression.Left.Type == typeof(DateTimeOffset)
                 && binaryExpression.Right.Type == typeof(TimeSpan))
