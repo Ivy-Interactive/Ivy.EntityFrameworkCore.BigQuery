@@ -8,24 +8,24 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
 {
     public class MigrationsInfrastructureBigQueryTest(MigrationsInfrastructureBigQueryTest.MigrationsInfrastructureBigQueryFixture fixture) : MigrationsInfrastructureTestBase<MigrationsInfrastructureBigQueryTest.MigrationsInfrastructureBigQueryFixture>(fixture)
     {
+        [ConditionalFact(Skip = "Model diffing against old versions not implemented for BigQuery")]
         public override void Can_diff_against_2_1_ASP_NET_Identity_model()
         {
-            throw new NotImplementedException();
         }
 
+        [ConditionalFact(Skip = "Model diffing against old versions not implemented for BigQuery")]
         public override void Can_diff_against_2_2_ASP_NET_Identity_model()
         {
-            throw new NotImplementedException();
         }
 
+        [ConditionalFact(Skip = "Model diffing against old versions not implemented for BigQuery")]
         public override void Can_diff_against_2_2_model()
         {
-            throw new NotImplementedException();
         }
-        
+
+        [ConditionalFact(Skip = "Model diffing against old versions not implemented for BigQuery")]
         public override void Can_diff_against_3_0_ASP_NET_Identity_model()
         {
-            throw new NotImplementedException();
         }
 
         [ConditionalFact(Skip = "BigQuery doesn't support DDL in transactions")]

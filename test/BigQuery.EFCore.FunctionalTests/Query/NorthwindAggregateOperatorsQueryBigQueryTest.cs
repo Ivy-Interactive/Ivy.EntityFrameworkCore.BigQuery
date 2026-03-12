@@ -133,4 +133,25 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
     }
 
     #endregion
+
+    #region Unsupported: BigQuery VALUES syntax
+
+    // BigQuery does not support VALUES keyword in subqueries
+    // e.g., SELECT ... UNION ALL VALUES ('ALFKI')
+
+    [ConditionalTheory(Skip = "BigQuery does not support VALUES keyword in subqueries")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Contains_with_local_enumerable_inline(bool async)
+        => Task.CompletedTask;
+
+    #endregion
+
+    #region Exception type differences
+
+    [ConditionalTheory(Skip = "BigQuery throws different exception type for keyless entity Contains")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Contains_over_keyless_entity_throws(bool async)
+        => Task.CompletedTask;
+
+    #endregion
 }

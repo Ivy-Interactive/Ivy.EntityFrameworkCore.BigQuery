@@ -28,6 +28,13 @@
 .PARAMETER Filter
     Filter to only errors containing this pattern (regex). Example: "could not be translated"
 
+.PARAMETER TestName
+    Filter to only specific tests by name. Accepts one or more test names (substring match).
+    Example: -TestName "MyTest" or -TestName "Test1", "Test2", "Test3"
+
+.PARAMETER FullMessages
+    Show complete untruncated error messages instead of shortened versions.
+
 .PARAMETER ShowVariants
     When errors are grouped together, show up to 3 different original messages to see the variants.
 
@@ -58,6 +65,18 @@
 .EXAMPLE
     .\Analyze-TestResults.ps1 -Filter "Translation.*failed|could not be translated" -TopN 5
     # Regex filter for multiple patterns, show top 5 groups
+
+.EXAMPLE
+    .\Analyze-TestResults.ps1 -TestName "String_Contains"
+    # Show results for tests containing "String_Contains" in their name
+
+.EXAMPLE
+    .\Analyze-TestResults.ps1 -TestName "Test1", "Test2", "Test3"
+    # Show results for multiple specific tests
+
+.EXAMPLE
+    .\Analyze-TestResults.ps1 -TestName "MyTest" -FullMessages
+    # Show full untruncated error messages for specific test(s)
 
 .OUTPUTS
     Report format:
@@ -126,6 +145,12 @@ param(
     [string]$Filter,
 
     [Parameter()]
+    [string[]]$TestName,
+
+    [Parameter()]
+    [switch]$FullMessages,
+
+    [Parameter()]
     [switch]$ShowVariants
 )
 
@@ -133,11 +158,14 @@ param(
 function Get-NormalizedErrorMessage {
     param([string]$Message)
 
-    if ([string]::IsNullOrWhiteSpace($Message)) {
+    if ($null -eq $Message -or [string]::IsNullOrWhiteSpace($Message)) {
         return "[No error message]"
     }
 
     $normalized = $Message.Trim()
+    if ([string]::IsNullOrEmpty($normalized)) {
+        return "[No error message]"
+    }
 
     # Remove GUIDs
     $normalized = $normalized -replace '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', '{GUID}'
@@ -175,7 +203,7 @@ function Get-NormalizedErrorMessage {
 function Extract-SqlFromError {
     param([string]$Message)
 
-    if ([string]::IsNullOrWhiteSpace($Message)) {
+    if ($null -eq $Message -or [string]::IsNullOrWhiteSpace($Message)) {
         return $null
     }
 
@@ -253,22 +281,32 @@ function Extract-SqlFromError {
 function Get-ErrorWithoutSql {
     param([string]$Message)
 
-    if ([string]::IsNullOrWhiteSpace($Message)) {
-        return $Message
+    if ($null -eq $Message -or [string]::IsNullOrWhiteSpace($Message)) {
+        return "[No error message]"
     }
 
     # For BigQuery errors, extract just the error description
     if ($Message -match 'BigQueryException\s*:\s*Query execution failed:\s*(.+?)(?:\s+at\s+\[\d+:\d+\])?\s*$' -or
         $Message -match 'BigQueryException\s*:\s*Query execution failed:\s*(.+?)(?:\s+at\s+\[\d+:\d+\])?\s*[\r\n]') {
         # First line contains the actual error
-        $firstLine = ($Message -split "`n")[0]
-        if ($firstLine -match 'Query execution failed:\s*(.+?)(?:\s+at\s+\[\d+:\d+\])?$') {
-            return $Matches[1].Trim()
+        $lines = $Message -split "`n"
+        if ($null -ne $lines -and $lines.Count -gt 0) {
+            $firstLine = $lines[0]
+            if ($firstLine -match 'Query execution failed:\s*(.+?)(?:\s+at\s+\[\d+:\d+\])?$' -and $null -ne $Matches -and $Matches.Count -gt 1) {
+                return $Matches[1].Trim()
+            }
         }
     }
 
     # For other errors, return first line
-    $firstLine = ($Message -split "`n")[0]
+    $lines = $Message -split "`n"
+    if ($null -eq $lines -or $lines.Count -eq 0) {
+        return $Message
+    }
+    $firstLine = $lines[0]
+    if ($null -eq $firstLine) {
+        return "[No error message]"
+    }
     if ($firstLine.Length -gt 200) {
         return $firstLine.Substring(0, 200) + "..."
     }
@@ -279,21 +317,21 @@ function Get-ErrorWithoutSql {
 function Get-ErrorCategory {
     param([string]$Message)
 
-    if ([string]::IsNullOrWhiteSpace($Message)) {
+    if ($null -eq $Message -or [string]::IsNullOrWhiteSpace($Message)) {
         return "Unknown"
     }
 
     # Extract exception type if present
-    if ($Message -match '^([\w\.]+Exception)\s*:') {
+    if ($Message -match '^([\w\.]+Exception)\s*:' -and $null -ne $Matches -and $Matches.Count -gt 1) {
         return $Matches[1]
     }
 
-    if ($Message -match '^([\w\.]+Exception)\s*$') {
+    if ($Message -match '^([\w\.]+Exception)\s*$' -and $null -ne $Matches -and $Matches.Count -gt 1) {
         return $Matches[1]
     }
 
     # Common assertion patterns
-    if ($Message -match 'Assert\.(\w+)') {
+    if ($Message -match 'Assert\.(\w+)' -and $null -ne $Matches -and $Matches.Count -gt 1) {
         return "Assert.$($Matches[1])"
     }
 
@@ -345,11 +383,17 @@ function Parse-TrxFile {
 
     # Try both namespaced and non-namespaced queries
     $testResults = $trx.SelectNodes("//t:UnitTestResult", $ns)
-    if ($testResults.Count -eq 0) {
+    if ($null -eq $testResults -or $testResults.Count -eq 0) {
         $testResults = $trx.SelectNodes("//UnitTestResult")
     }
 
+    if ($null -eq $testResults) {
+        Write-Warning "No test results found in TRX file"
+        return $results
+    }
+
     foreach ($result in $testResults) {
+        if ($null -eq $result) { continue }
         $results.Total++
         $outcome = $result.outcome
 
@@ -406,16 +450,25 @@ function Group-FailedTests {
 
     $groups = @{}
 
+    if ($null -eq $FailedTests) {
+        return @()
+    }
+
     foreach ($test in $FailedTests) {
+        if ($null -eq $test) { continue }
+
         $key = $test.NormalizedMessage
+        if ($null -eq $key -or [string]::IsNullOrWhiteSpace($key)) {
+            $key = "[No error message]"
+        }
 
         if (-not $groups.ContainsKey($key)) {
             $groups[$key] = [PSCustomObject]@{
                 NormalizedMessage = $key
-                OriginalMessage = $test.Message
-                ShortError = $test.ShortError
-                Category = $test.ErrorCategory
-                StackTrace = $test.StackTrace
+                OriginalMessage = if ($null -ne $test.Message) { $test.Message } else { "" }
+                ShortError = if ($null -ne $test.ShortError) { $test.ShortError } else { "" }
+                Category = if ($null -ne $test.ErrorCategory) { $test.ErrorCategory } else { "Unknown" }
+                StackTrace = if ($null -ne $test.StackTrace) { $test.StackTrace } else { "" }
                 Sql = $test.Sql
                 Tests = [System.Collections.ArrayList]@()
                 UniqueMessages = [System.Collections.ArrayList]@()
@@ -425,13 +478,18 @@ function Group-FailedTests {
         [void]$groups[$key].Tests.Add($test.TestName)
 
         # Collect unique original messages for showing variants
-        $shortMsg = if ($test.Message.Length -gt 500) { $test.Message.Substring(0, 500) } else { $test.Message }
+        $msg = if ($null -ne $test.Message) { $test.Message } else { "" }
+        $shortMsg = if ($msg.Length -gt 500) { $msg.Substring(0, 500) } else { $msg }
         if ($groups[$key].UniqueMessages.Count -lt 10 -and -not $groups[$key].UniqueMessages.Contains($shortMsg)) {
             [void]$groups[$key].UniqueMessages.Add($shortMsg)
         }
     }
 
-    return $groups.Values | Sort-Object { $_.Tests.Count } -Descending
+    $sortedGroups = $groups.Values | Sort-Object { $_.Tests.Count } -Descending
+    if ($null -eq $sortedGroups) {
+        return @()
+    }
+    return $sortedGroups
 }
 
 # Generate the report
@@ -442,7 +500,9 @@ function Generate-Report {
         [switch]$ShowStackTraces,
         [int]$TopN,
         [switch]$ShowVariants,
-        [string]$Filter
+        [switch]$FullMessages,
+        [string]$Filter,
+        [string[]]$TestName
     )
 
     $sb = [System.Text.StringBuilder]::new()
@@ -460,9 +520,15 @@ function Generate-Report {
     [void]$sb.AppendLine("Failed:        $($Results.Failed) ($([math]::Round($Results.Failed / [math]::Max($Results.Total, 1) * 100, 1))%)")
     [void]$sb.AppendLine("Skipped:       $($Results.Skipped)")
     [void]$sb.AppendLine("Error Groups:  $($Groups.Count)")
-    if ($Filter) {
+    if ($Filter -or $TestName) {
         $filteredCount = ($Groups | ForEach-Object { $_.Tests.Count } | Measure-Object -Sum).Sum
-        [void]$sb.AppendLine("Filter:        '$Filter' ($filteredCount matching tests)")
+        if ($Filter) {
+            [void]$sb.AppendLine("Filter:        '$Filter'")
+        }
+        if ($TestName) {
+            [void]$sb.AppendLine("TestName:      $($TestName -join ', ')")
+        }
+        [void]$sb.AppendLine("Matched:       $filteredCount tests")
     }
     [void]$sb.AppendLine()
 
@@ -494,8 +560,16 @@ function Generate-Report {
         [void]$sb.AppendLine("[$groupNum] $($group.Category) - $($group.Tests.Count) test(s)")
         [void]$sb.AppendLine("-" * 80)
 
-        # Show the error message (short version if SQL was extracted, otherwise original)
-        if ($group.Sql) {
+        # Show the error message
+        if ($FullMessages) {
+            # Show complete untruncated error message
+            [void]$sb.AppendLine("Error:")
+            $msgLines = $group.OriginalMessage -split "`n"
+            foreach ($msgLine in $msgLines) {
+                [void]$sb.AppendLine("  $msgLine")
+            }
+        }
+        elseif ($group.Sql) {
             # We have SQL - show short error and SQL separately
             [void]$sb.AppendLine("Error: $($group.ShortError)")
             [void]$sb.AppendLine()
@@ -506,7 +580,7 @@ function Generate-Report {
             }
         }
         else {
-            # No SQL - show original error message
+            # No SQL - show original error message (truncated)
             $msgLines = $group.OriginalMessage -split "`n"
             $firstLine = $msgLines[0]
             if ($firstLine.Length -gt 200) {
@@ -559,12 +633,13 @@ function Generate-Report {
         }
 
         foreach ($testName in $testsToShow) {
+            if ($null -eq $testName) { continue }
             # Extract just the test method name for brevity
             $shortName = $testName
-            if ($testName -match '\.([^.]+)$') {
+            if ($testName -match '\.([^.]+\([^)]*\))$' -and $null -ne $Matches -and $Matches.Count -gt 1) {
                 $shortName = $Matches[1]
             }
-            if ($testName -match '\.([^.]+\([^)]*\))$') {
+            elseif ($testName -match '\.([^.]+)$' -and $null -ne $Matches -and $Matches.Count -gt 1) {
                 $shortName = $Matches[1]
             }
             [void]$sb.AppendLine("  - $shortName")
@@ -607,17 +682,26 @@ try {
 
     $results = Parse-TrxFile -Path $TrxPath
 
-    # Apply filter if specified
+    # Apply filters if specified
     $failedTests = $results.FailedTests
     if ($Filter) {
         $failedTests = @($failedTests | Where-Object { $_.Message -match $Filter })
         Write-Host "Filter '$Filter': $($failedTests.Count) of $($results.Failed) failed tests match" -ForegroundColor Yellow
         Write-Host ""
     }
+    if ($TestName) {
+        $failedTests = @($failedTests | Where-Object {
+            $testNameValue = $_.TestName
+            $TestName | Where-Object { $testNameValue -like "*$_*" }
+        })
+        $testNameList = $TestName -join ", "
+        Write-Host "TestName filter: $($failedTests.Count) tests match [$testNameList]" -ForegroundColor Yellow
+        Write-Host ""
+    }
 
     $groups = Group-FailedTests -FailedTests $failedTests
 
-    $report = Generate-Report -Results $results -Groups $groups -ShowStackTraces:$ShowStackTraces -TopN $TopN -ShowVariants:$ShowVariants -Filter $Filter
+    $report = Generate-Report -Results $results -Groups $groups -ShowStackTraces:$ShowStackTraces -TopN $TopN -ShowVariants:$ShowVariants -FullMessages:$FullMessages -Filter $Filter -TestName $TestName
 
     if ($OutputPath) {
         $report | Out-File -FilePath $OutputPath -Encoding UTF8
@@ -628,5 +712,6 @@ try {
 }
 catch {
     Write-Error "Error analyzing TRX file: $_"
+    Write-Error "Stack trace: $($_.ScriptStackTrace)"
     exit 1
 }

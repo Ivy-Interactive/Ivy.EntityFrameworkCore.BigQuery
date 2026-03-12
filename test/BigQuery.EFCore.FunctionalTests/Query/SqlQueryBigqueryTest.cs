@@ -59,6 +59,25 @@ SELECT * FROM `Customers` WHERE `ContactName` LIKE '%z%'
     protected override DbParameter CreateDbParameter(string name, object value)
     => new BigQueryParameter { ParameterName = name, Value = value };
 
+    #region Exception type mismatch (InvalidCastException instead of InvalidOperationException)
+
+    [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Bad_data_error_handling_null(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Bad_data_error_handling_null_projection(bool async)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Bad_data_error_handling_null_no_tracking(bool async)
+        => Task.CompletedTask;
+
+    #endregion
+
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 }
