@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 
@@ -8,14 +9,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 public class BigQueryCharTypeMapping : RelationalTypeMapping
 {
     public BigQueryCharTypeMapping()
-        : base(new RelationalTypeMappingParameters(
-            new CoreTypeMappingParameters(typeof(char)),
-            "STRING",
-            StoreTypePostfix.None,
+        : base("STRING",
+            typeof(char),
             System.Data.DbType.StringFixedLength,
-            unicode: false,
-            size: 1,
-            fixedLength: true))
+            jsonValueReaderWriter: JsonCharReaderWriter.Instance)
     {
     }
 
