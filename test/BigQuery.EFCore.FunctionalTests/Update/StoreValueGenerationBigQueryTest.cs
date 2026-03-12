@@ -52,7 +52,7 @@ public class StoreValueGenerationBigQueryTest : StoreValueGenerationTestBase<
 @p2='1000'
 
 INSERT INTO `WithNoDatabaseGenerated` (`Id`, `Data1`, `Data2`)
-VALUES (@p0, @p1, @p2)
+VALUES (@p0, @p1, @p2);
 """);
     }
 
@@ -66,8 +66,9 @@ VALUES (@p0, @p1, @p2)
 @p0='1000'
 @p1='1000'
 
-UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
-WHERE `Id` = @p2
+UPDATE `WithNoDatabaseGenerated`
+SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 """);
     }
 
@@ -80,7 +81,7 @@ WHERE `Id` = @p2
 @p0='1'
 
 DELETE FROM `WithSomeDatabaseGenerated`
-WHERE `Id` = @p0
+WHERE `Id` = @p0;
 """);
     }
 

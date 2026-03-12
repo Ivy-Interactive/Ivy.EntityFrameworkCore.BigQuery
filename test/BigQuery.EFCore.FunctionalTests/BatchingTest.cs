@@ -123,42 +123,41 @@ public class BatchingTest(BatchingTest.BatchingTestFixture fixture) : IClassFixt
     [ConditionalTheory]
     [InlineData(3)]
     [InlineData(4)]
-    public Task Inserts_are_batched_only_when_necessary(int minBatchSize)
+    public async Task Inserts_are_batched_only_when_necessary(int minBatchSize)
     {
         var expectedBlogs = new List<Blog>();
-        return TestHelpers.ExecuteWithStrategyInTransactionAsync(
-            () => (BloggingContext)Fixture.CreateContext(minBatchSize),
-            null,
-            async context =>
-            {
-                await context.Set<Blog>().ExecuteDeleteAsync();
-                await context.Set<Owner>().ExecuteDeleteAsync();
 
-                var owner = new Owner();
-                context.Owners.Add(owner);
+        await using var context = (BloggingContext)Fixture.CreateContext(minBatchSize);
 
-                for (var i = 1; i < 3; i++)
-                {
-                    var blog = new Blog { Id = Guid.NewGuid(), Owner = owner };
+        await context.Set<Blog>().ExecuteDeleteAsync();
+        await context.Set<Owner>().ExecuteDeleteAsync();
 
-                    context.Set<Blog>().Add(blog);
-                    expectedBlogs.Add(blog);
-                }
+        var owner = new Owner();
+        context.Owners.Add(owner);
 
-                Fixture.TestSqlLoggerFactory.Clear();
+        for (var i = 1; i < 3; i++)
+        {
+            var blog = new Blog { Id = Guid.NewGuid(), Owner = owner };
 
-                await context.SaveChangesAsync();
+            context.Set<Blog>().Add(blog);
+            expectedBlogs.Add(blog);
+        }
 
-                Assert.Contains(
-                    minBatchSize == 3
-                        ? RelationalResources.LogBatchReadyForExecution(new TestLogger<BigQueryLoggingDefinitions>())
-                            .GenerateMessage(3)
-                        : RelationalResources.LogBatchSmallerThanMinBatchSize(new TestLogger<BigQueryLoggingDefinitions>())
-                            .GenerateMessage(3, 4),
-                    Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
+        Fixture.TestSqlLoggerFactory.Clear();
 
-                Assert.Equal(minBatchSize <= 3 ? 1 : 3, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
-            }, context => AssertDatabaseState(context, false, expectedBlogs));
+        await context.SaveChangesAsync();
+
+        Assert.Contains(
+            minBatchSize == 3
+                ? RelationalResources.LogBatchReadyForExecution(new TestLogger<BigQueryLoggingDefinitions>())
+                    .GenerateMessage(3)
+                : RelationalResources.LogBatchSmallerThanMinBatchSize(new TestLogger<BigQueryLoggingDefinitions>())
+                    .GenerateMessage(3, 4),
+            Fixture.TestSqlLoggerFactory.Log.Select(l => l.Message));
+
+        Assert.Equal(minBatchSize <= 3 ? 1 : 3, Fixture.TestSqlLoggerFactory.SqlStatements.Count);
+
+        await AssertDatabaseState(context, false, expectedBlogs);
     }
 
     private async Task AssertDatabaseState(DbContext context, bool clientOrder, List<Blog> expectedBlogs)
