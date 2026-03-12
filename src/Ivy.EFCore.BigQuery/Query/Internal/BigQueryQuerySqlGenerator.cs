@@ -940,5 +940,26 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
             return base.VisitCase(caseExpression);
         }
+
+        /// <summary>
+        /// BigQuery doesn't support (SELECT 1) in ORDER BY clauses.
+        /// When the scalar subquery is just selecting a constant, output the constant directly.
+        /// </summary>
+        protected override Expression VisitScalarSubquery(ScalarSubqueryExpression scalarSubqueryExpression)
+        {
+            var subquery = scalarSubqueryExpression.Subquery;
+
+            if (subquery.Tables.Count == 0
+                && subquery.Predicate == null
+                && subquery.Orderings.Count == 0
+                && subquery.Projection.Count == 1
+                && subquery.Projection[0].Expression is SqlConstantExpression constant)
+            {
+                Visit(constant);
+                return scalarSubqueryExpression;
+            }
+
+            return base.VisitScalarSubquery(scalarSubqueryExpression);
+        }
     }
 }
