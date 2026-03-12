@@ -233,7 +233,7 @@ namespace Ivy.Data.BigQuery
             var bqParameters = Parameters.ToBigQueryParameters(CommandText);
 
             CancellationTokenSource internalCts;
-            lock (this) 
+            lock (this)
             {
                 if (_cancellationTokenSource == null || _cancellationTokenSource.IsCancellationRequested)
                 {
@@ -270,8 +270,28 @@ namespace Ivy.Data.BigQuery
                     jobReference: job.Reference,
                     options: null,
                     cancellationToken: effectiveToken).ConfigureAwait(false);
+                
+                var statementType = job.Resource.Statistics?.Query?.StatementType;
 
-                return (int?)results.NumDmlAffectedRows ?? -1;
+                // Multi-statement batches; row count is not available at job level
+                if (statementType == "SCRIPT")
+                {
+                    return -1;
+                }
+
+                if (results.NumDmlAffectedRows.HasValue)
+                {
+                    return (int)results.NumDmlAffectedRows.Value;
+                }
+
+                var jobStatsRowCount = job.Resource.Statistics?.Query?.NumDmlAffectedRows;
+                if (jobStatsRowCount.HasValue)
+                {
+                    return (int)jobStatsRowCount.Value;
+                }
+
+                // Non-DML
+                return -1;
 
             }
             catch (OperationCanceledException)
