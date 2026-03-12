@@ -386,17 +386,19 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
         if (method == FirstOrDefaultWithoutArgs)
         {
             var argument = arguments[0];
+            // SUBSTR returns STRING, but we return char type for proper comparison semantics
             return _sqlExpressionFactory.Function(
                 "SUBSTR",
                 [argument, _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1)],
                 nullable: true,
                 argumentsPropagateNullability: [true, true, true],
-                typeof(string));
+                method.ReturnType);
         }
 
         if (method == LastOrDefaultWithoutArgs)
         {
             var argument = arguments[0];
+            // SUBSTR returns STRING, but we return char type for proper comparison semantics
             return _sqlExpressionFactory.Function(
                 "SUBSTR",
                 [
@@ -411,7 +413,7 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 ],
                 nullable: true,
                 argumentsPropagateNullability: [true, true, true],
-                typeof(string));
+                method.ReturnType);
         }
 
         if (method == StringJoinWithObjectArray || method == StringJoinWithStringArray || method == StringJoinWithEnumerable)

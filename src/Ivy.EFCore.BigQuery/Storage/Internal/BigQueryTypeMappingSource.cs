@@ -29,6 +29,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         private readonly BigQueryIntTypeMapping _int = new();
         private readonly BigQueryShortTypeMapping _short = new();
         private readonly BigQueryByteTypeMapping _byte = new();
+        private readonly BigQueryCharTypeMapping _char = new();
         private readonly BigQueryJsonTypeMapping _jsonString = new("JSON", typeof(string));
         private readonly BigQueryJsonTypeMapping _jsonDocument = new("JSON", typeof(JsonDocument));
         private readonly BigQueryJsonTypeMapping _jsonElement = new("JSON", typeof(JsonElement));
@@ -104,6 +105,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
                 { typeof(short?), _short },
                 { typeof(byte), _byte },
                 { typeof(byte?), _byte },
+                { typeof(char), _char },
+                { typeof(char?), _char },
 
                 { typeof(JsonDocument), _jsonDocument },
                 // JsonElement maps to owned JSON type mapping for EF Core's owned JSON support (ToJson())

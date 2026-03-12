@@ -284,6 +284,15 @@ namespace Ivy.Data.BigQuery
                 apiValue = null;
             }
 
+            else if (apiValue is char charValue)
+            {
+                apiValue = charValue.ToString();
+                if (type.Value != Google.Cloud.BigQuery.V2.BigQueryDbType.String)
+                {
+                    type = Google.Cloud.BigQuery.V2.BigQueryDbType.String;
+                }
+            }
+
             else if (apiValue is Stream streamValue)
             {
                 byte[] streamBytes;
