@@ -1,17 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using Ivy.Data.BigQuery;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data.Common;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     public class BigQueryStringTypeMapping : StringTypeMapping
     {
-        
         private static readonly Type _clrType = typeof(string);
 
         public BigQueryStringTypeMapping()
@@ -57,11 +51,21 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             var stringValue = value as string ?? value.ToString()!;
             var escapedValue = stringValue
                 .Replace("\\", "\\\\")
-                .Replace("'", "\\'") 
+                .Replace("'", "\\'")
                 .Replace("\n", "\\n")
                 .Replace("\r", "\\r")
                 .Replace("\t", "\\t");
             return $"'{escapedValue}'";
+        }
+
+        protected override void ConfigureParameter(DbParameter parameter)
+        {
+            base.ConfigureParameter(parameter);
+
+            if (parameter is BigQueryParameter bigQueryParameter)
+            {
+                bigQueryParameter.BigQueryDbType = Google.Cloud.BigQuery.V2.BigQueryDbType.String;
+            }
         }
     }
 }
