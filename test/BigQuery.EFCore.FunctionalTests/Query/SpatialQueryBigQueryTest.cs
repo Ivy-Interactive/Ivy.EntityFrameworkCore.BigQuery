@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.SpatialModel;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
@@ -59,7 +58,6 @@ FROM `PolygonEntity` AS `p`
     }
 
     // BigQuery's WKB has tiny floating-point precision differences (subnormal values ~1e-308 instead of exact 0.0)
-    // Override to verify SQL and compare parsed coordinates with tolerance instead of raw bytes
     public override async Task AsBinary(bool async)
     {
         var context = Fixture.CreateContext();
@@ -67,14 +65,12 @@ FROM `PolygonEntity` AS `p`
             ? await context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point!.AsBinary() }).ToListAsync()
             : context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point!.AsBinary() }).ToList();
 
-        // Verify SQL
         AssertSql(
             """
 SELECT `p`.`Id`, ST_ASBINARY(`p`.`Point`) AS `Binary`
 FROM `PointEntity` AS `p`
 """);
 
-        // Verify WKB can be parsed and coordinates are correct (with tolerance for BigQuery precision)
         var wkbReader = new WKBReader();
         foreach (var result in results.Where(r => r.Binary != null))
         {
@@ -98,7 +94,6 @@ FROM `PointEntity` AS `p`
             ? await context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point == null ? null : e.Point.AsBinary() }).ToListAsync()
             : context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point == null ? null : e.Point.AsBinary() }).ToList();
 
-        // Verify SQL
         AssertSql(
             """
 SELECT `p`.`Id`, CASE
@@ -108,7 +103,6 @@ END AS `Binary`
 FROM `PointEntity` AS `p`
 """);
 
-        // Verify results include null for null points
         Assert.Contains(results, r => r.Binary == null);
         Assert.Contains(results, r => r.Binary != null);
     }
@@ -124,9 +118,8 @@ FROM `PointEntity` AS `p`
 """);
     }
 
-    // No BigQuery translation for ST_BOUNDARY
     public override Task Boundary(bool async)
-        => Task.CompletedTask;
+        => base.Boundary(async);
 
     public override async Task Buffer(bool async)
     {
@@ -139,9 +132,8 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // BigQuery ST_BUFFER doesn't support quadrant segments parameter
     public override Task Buffer_quadrantSegments(bool async)
-        => Task.CompletedTask;
+        => base.Buffer_quadrantSegments(async);
 
     public override async Task Centroid(bool async)
     {
@@ -154,13 +146,11 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // No BigQuery aggregate function for geometry collection
     public override Task Combine_aggregate(bool async)
-        => Task.CompletedTask;
+        => base.Combine_aggregate(async);
 
-    // No BigQuery aggregate function for envelope combine
     public override Task EnvelopeCombine_aggregate(bool async)
-        => Task.CompletedTask;
+        => base.EnvelopeCombine_aggregate(async);
 
     public override async Task Contains(bool async)
     {
@@ -186,9 +176,8 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // No BigQuery aggregate function for convex hull
     public override Task ConvexHull_aggregate(bool async)
-        => Task.CompletedTask;
+        => base.ConvexHull_aggregate(async);
 
     public override async Task IGeometryCollection_Count(bool async)
     {
@@ -238,9 +227,9 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // No BigQuery translation for ST_CROSSES
+    [ConditionalFact(Skip = "No BigQuery translation for ST_CROSSES")]
     public override Task Crosses(bool async)
-        => Task.CompletedTask;
+        => base.Crosses(async);
 
     public override async Task Difference(bool async)
     {
@@ -334,31 +323,29 @@ FROM `PointEntity` AS `p`
 """);
     }
 
-    // SRID mismatch issues with constants
     public override Task Distance_constant(bool async)
-        => Task.CompletedTask;
+        => base.Distance_constant(async);
 
     public override Task Distance_constant_srid_4326(bool async)
-        => Task.CompletedTask;
+        => base.Distance_constant_srid_4326(async);
 
     public override Task Distance_constant_lhs(bool async)
-        => Task.CompletedTask;
+        => base.Distance_constant_lhs(async);
 
-    // Custom GeoPoint conversion tests - not implemented
     public override Task WithConversion(bool async)
-        => Task.CompletedTask;
+        => base.WithConversion(async);
 
     public override Task Distance_on_converted_geometry_type(bool async)
-        => Task.CompletedTask;
+        => base.Distance_on_converted_geometry_type(async);
 
     public override Task Distance_on_converted_geometry_type_lhs(bool async)
-        => Task.CompletedTask;
+        => base.Distance_on_converted_geometry_type_lhs(async);
 
     public override Task Distance_on_converted_geometry_type_constant(bool async)
-        => Task.CompletedTask;
+        => base.Distance_on_converted_geometry_type_constant(async);
 
     public override Task Distance_on_converted_geometry_type_constant_lhs(bool async)
-        => Task.CompletedTask;
+        => base.Distance_on_converted_geometry_type_constant_lhs(async);
 
     public override async Task EndPoint(bool async)
     {
@@ -371,9 +358,8 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // No BigQuery translation for ST_ENVELOPE (geography mode)
     public override Task Envelope(bool async)
-        => Task.CompletedTask;
+        => base.Envelope(async);
 
     public override async Task EqualsTopologically(bool async)
     {
@@ -421,13 +407,12 @@ FROM `MultiLineStringEntity` AS `m`
 """);
     }
 
-    // BigQuery doesn't handle null arguments gracefully
     public override Task GetGeometryN_with_null_argument(bool async)
-        => Task.CompletedTask;
+        => base.GetGeometryN_with_null_argument(async);
 
-    // No BigQuery translation for interior ring access
+    [ConditionalFact(Skip = "No BigQuery translation for interior ring access")]
     public override Task GetInteriorRingN(bool async)
-        => Task.CompletedTask;
+        => base.GetInteriorRingN(async);
 
     public override async Task GetPointN(bool async)
     {
@@ -440,9 +425,8 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // No BigQuery translation for ST_INTERIORPOINT
     public override Task InteriorPoint(bool async)
-        => Task.CompletedTask;
+        => base.InteriorPoint(async);
 
     public override async Task Intersection(bool async)
     {
@@ -481,9 +465,8 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // No BigQuery translation for IMultiCurve.IsClosed
     public override Task IMultiCurve_IsClosed(bool async)
-        => Task.CompletedTask;
+        => base.IMultiCurve_IsClosed(async);
 
     public override async Task IsEmpty(bool async)
     {
@@ -507,13 +490,11 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // No BigQuery translation for ST_ISSIMPLE (geography)
     public override Task IsSimple(bool async)
-        => Task.CompletedTask;
+        => base.IsSimple(async);
 
-    // No BigQuery translation for ST_ISVALID (geography)
     public override Task IsValid(bool async)
-        => Task.CompletedTask;
+        => base.IsValid(async);
 
     public override async Task IsWithinDistance(bool async)
     {
@@ -528,9 +509,9 @@ FROM `PointEntity` AS `p`
 """);
     }
 
-    // Item/indexer - different syntax needed
+    [ConditionalFact(Skip = "Item/indexer - different syntax needed")]
     public override Task Item(bool async)
-        => Task.CompletedTask;
+        => base.Item(async);
 
     public override async Task Length(bool async)
     {
@@ -543,13 +524,12 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // BigQuery geography doesn't support M coordinate
     public override Task M(bool async)
-        => Task.CompletedTask;
+        => base.M(async);
 
-    // No BigQuery translation for ST_NORMALIZE
+    [ConditionalFact(Skip = "No BigQuery translation for ST_NORMALIZE")]
     public override Task Normalized(bool async)
-        => Task.CompletedTask;
+        => base.Normalized(async);
 
     public override async Task NumGeometries(bool async)
     {
@@ -584,9 +564,8 @@ FROM `LineStringEntity` AS `l`
 """);
     }
 
-    // No BigQuery translation for OgcGeometryType
     public override Task OgcGeometryType(bool async)
-        => Task.CompletedTask;
+        => base.OgcGeometryType(async);
 
     public override async Task Overlaps(bool async)
     {
@@ -602,24 +581,23 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // No BigQuery translation for ST_POINTONSURFACE
     public override Task PointOnSurface(bool async)
-        => Task.CompletedTask;
+        => base.PointOnSurface(async);
 
-    // No BigQuery translation for ST_RELATE
+    [ConditionalFact(Skip = "No BigQuery translation for ST_RELATE")]
     public override Task Relate(bool async)
-        => Task.CompletedTask;
+        => base.Relate(async);
 
-    // No BigQuery translation for ST_REVERSE
+    [ConditionalFact(Skip = "No BigQuery translation for ST_REVERSE")]
     public override Task Reverse(bool async)
-        => Task.CompletedTask;
+        => base.Reverse(async);
 
-    // BigQuery geography doesn't support SRID property (always 4326)
+    [ConditionalFact(Skip = "BigQuery geography doesn't support SRID property (always 4326)")]
     public override Task SRID(bool async)
-        => Task.CompletedTask;
+        => base.SRID(async);
 
     public override Task SRID_geometry(bool async)
-        => Task.CompletedTask;
+        => base.SRID_geometry(async);
 
     public override async Task StartPoint(bool async)
     {
@@ -653,14 +631,12 @@ FROM `PolygonEntity` AS `p`
             ? await context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point!.ToBinary() }).ToListAsync()
             : context.Set<PointEntity>().Select(e => new { e.Id, Binary = e.Point!.ToBinary() }).ToList();
 
-        // Verify SQL (ToBinary translates to same ST_ASBINARY as AsBinary)
         AssertSql(
             """
 SELECT `p`.`Id`, ST_ASBINARY(`p`.`Point`) AS `Binary`
 FROM `PointEntity` AS `p`
 """);
 
-        // Verify WKB can be parsed and coordinates are correct
         var wkbReader = new WKBReader();
         foreach (var result in results.Where(r => r.Binary != null))
         {
@@ -707,13 +683,12 @@ FROM `PolygonEntity` AS `p`
 """);
     }
 
-    // No BigQuery aggregate function for union
     public override Task Union_aggregate(bool async)
-        => Task.CompletedTask;
+        => base.Union_aggregate(async);
 
-    // Union without parameter (self-union) - not supported
+    [ConditionalFact(Skip = "Union without parameter (self-union) - not supported")]
     public override Task Union_void(bool async)
-        => Task.CompletedTask;
+        => base.Union_void(async);
 
     public override async Task Within(bool async)
     {
@@ -768,26 +743,23 @@ FROM `PointEntity` AS `p`
 """);
     }
 
-    // BigQuery geography doesn't support Z coordinate
     public override Task Z(bool async)
-        => Task.CompletedTask;
+        => base.Z(async);
 
-    // XY with collection join - complex query, skip
     public override Task XY_with_collection_join(bool async)
-        => Task.CompletedTask;
+        => base.XY_with_collection_join(async);
 
-    // Null comparison tests - different behavior
     public override Task IsEmpty_equal_to_null(bool async)
-        => Task.CompletedTask;
+        => base.IsEmpty_equal_to_null(async);
 
     public override Task IsEmpty_not_equal_to_null(bool async)
-        => Task.CompletedTask;
+        => base.IsEmpty_not_equal_to_null(async);
 
     public override Task Intersects_equal_to_null(bool async)
-        => Task.CompletedTask;
+        => base.Intersects_equal_to_null(async);
 
     public override Task Intersects_not_equal_to_null(bool async)
-        => Task.CompletedTask;
+        => base.Intersects_not_equal_to_null(async);
 
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

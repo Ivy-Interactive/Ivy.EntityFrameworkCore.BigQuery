@@ -924,7 +924,7 @@ FROM `JsonEntitiesCustomNaming` AS `j`
             entityAsserters[typeof(JsonEntityAllTypes)] = (object e, object a) =>
             {
                 Assert.Equal(e == null, a == null);
-                if (a != null)
+                if (e != null && a != null)
                 {
                     var ee = (JsonEntityAllTypes)e;
                     var aa = (JsonEntityAllTypes)a;
@@ -944,7 +944,7 @@ FROM `JsonEntitiesCustomNaming` AS `j`
             entityAsserters[typeof(JsonOwnedAllTypes)] = (object e, object a) =>
             {
                 Assert.Equal(e == null, a == null);
-                if (a != null)
+                if (e != null && a != null)
                 {
                     var ee = (JsonOwnedAllTypes)e;
                     var aa = (JsonOwnedAllTypes)a;

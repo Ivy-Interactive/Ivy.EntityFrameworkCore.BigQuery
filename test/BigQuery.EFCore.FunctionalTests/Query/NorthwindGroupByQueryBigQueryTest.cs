@@ -26,12 +26,12 @@ public class NorthwindGroupByQueryBigQueryTest : NorthwindGroupByQueryRelational
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_aggregate_from_multiple_query_in_same_projection_3(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_aggregate_from_multiple_query_in_same_projection_3(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Complex_query_with_groupBy_in_subquery4(bool async)
-        => Task.CompletedTask;
+        => base.Complex_query_with_groupBy_in_subquery4(async);
 
     #endregion
 
@@ -40,17 +40,17 @@ public class NorthwindGroupByQueryBigQueryTest : NorthwindGroupByQueryRelational
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_group_Distinct_Select_Distinct_aggregate(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_group_Distinct_Select_Distinct_aggregate(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_Property_Select_Count_with_predicate(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_Property_Select_Count_with_predicate(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_Property_Select_LongCount_with_predicate(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_Property_Select_LongCount_with_predicate(async);
 
     #endregion
 
@@ -62,7 +62,7 @@ public class NorthwindGroupByQueryBigQueryTest : NorthwindGroupByQueryRelational
     [ConditionalTheory(Skip = "BigQuery does not allow aggregate functions in WHERE clause")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_with_aggregate_containing_complex_where(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_with_aggregate_containing_complex_where(async);
 
     #endregion
 
@@ -74,17 +74,17 @@ public class NorthwindGroupByQueryBigQueryTest : NorthwindGroupByQueryRelational
     [ConditionalTheory(Skip = "BigQuery alias scope issue in correlated collection after GroupBy")]
     [MemberData(nameof(IsAsyncData))]
     public override Task AsEnumerable_in_subquery_for_GroupBy(bool async)
-        => Task.CompletedTask;
+        => base.AsEnumerable_in_subquery_for_GroupBy(async);
 
     [ConditionalTheory(Skip = "BigQuery alias scope issue in correlated collection after GroupBy")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Select_correlated_collection_after_GroupBy_aggregate_when_identifier_changes_to_complex(bool async)
-        => Task.CompletedTask;
+        => base.Select_correlated_collection_after_GroupBy_aggregate_when_identifier_changes_to_complex(async);
 
     [ConditionalTheory(Skip = "BigQuery SELECT references ungrouped column")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_aggregate_from_multiple_query_in_same_projection_2(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_aggregate_from_multiple_query_in_same_projection_2(async);
 
     #endregion
 
@@ -93,7 +93,7 @@ public class NorthwindGroupByQueryBigQueryTest : NorthwindGroupByQueryRelational
     [ConditionalTheory(Skip = "BigQuery GroupBy conditional produces different result")]
     [MemberData(nameof(IsAsyncData))]
     public override Task GroupBy_aggregate_projecting_conditional_expression(bool async)
-        => Task.CompletedTask;
+        => base.GroupBy_aggregate_projecting_conditional_expression(async);
 
     #endregion
 }

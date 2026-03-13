@@ -39,7 +39,7 @@ public class NorthwindSetOperationsQueryBigQueryTest
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with UNION")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Union_over_columns_with_different_nullability(bool async)
-        => Task.CompletedTask;
+        => base.Union_over_columns_with_different_nullability(async);
 
     #endregion
 }

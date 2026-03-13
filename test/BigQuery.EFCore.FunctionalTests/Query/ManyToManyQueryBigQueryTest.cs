@@ -20,7 +20,7 @@ public class ManyToManyQueryBigQueryTest : ManyToManyQueryRelationalTestBase<Man
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Skip_navigation_order_by_single_or_default(bool async)
-        => Task.CompletedTask;
+        => base.Skip_navigation_order_by_single_or_default(async);
 
     #endregion
 
@@ -29,12 +29,12 @@ public class ManyToManyQueryBigQueryTest : ManyToManyQueryRelationalTestBase<Man
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where(bool async)
-        => Task.CompletedTask;
+        => base.Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where_EF_Property(bool async)
-        => Task.CompletedTask;
+        => base.Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where_EF_Property(async);
 
     #endregion
 
@@ -46,22 +46,22 @@ public class ManyToManyQueryBigQueryTest : ManyToManyQueryRelationalTestBase<Man
     [ConditionalTheory(Skip = "BigQuery alias scope issue in skip navigation join")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Join_with_skip_navigation(bool async)
-        => Task.CompletedTask;
+        => base.Join_with_skip_navigation(async);
 
     [ConditionalTheory(Skip = "BigQuery alias scope issue in skip navigation join")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Join_with_skip_navigation_unidirectional(bool async)
-        => Task.CompletedTask;
+        => base.Join_with_skip_navigation_unidirectional(async);
 
     [ConditionalTheory(Skip = "BigQuery alias scope issue in skip navigation join")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Left_join_with_skip_navigation(bool async)
-        => Task.CompletedTask;
+        => base.Left_join_with_skip_navigation(async);
 
     [ConditionalTheory(Skip = "BigQuery alias scope issue in skip navigation join")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Left_join_with_skip_navigation_unidirectional(bool async)
-        => Task.CompletedTask;
+        => base.Left_join_with_skip_navigation_unidirectional(async);
 
     #endregion
 
@@ -70,7 +70,7 @@ public class ManyToManyQueryBigQueryTest : ManyToManyQueryRelationalTestBase<Man
     [ConditionalTheory(Skip = "BigQuery filtered include produces no results")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Filtered_include_on_skip_navigation_then_filtered_include_on_navigation_split(bool async)
-        => Task.CompletedTask;
+        => base.Filtered_include_on_skip_navigation_then_filtered_include_on_navigation_split(async);
 
     #endregion
 }

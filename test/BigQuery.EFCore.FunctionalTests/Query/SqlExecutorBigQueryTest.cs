@@ -146,7 +146,7 @@ public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQuer
     [InlineData(true)]
     public override async Task Query_with_positional_dbParameter_without_name(bool async)
     {
-        var city = CreateDbParameter(name: null, value: "London");
+        var city = CreateDbParameter(name: null!, value: "London");
 
         using var context = CreateContext();
 

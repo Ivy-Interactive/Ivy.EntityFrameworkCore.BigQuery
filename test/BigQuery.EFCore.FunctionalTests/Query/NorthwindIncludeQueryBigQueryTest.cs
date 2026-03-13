@@ -26,37 +26,37 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_take_no_order_by(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_take_no_order_by(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_skip_no_order_by(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_skip_no_order_by(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_skip_take_no_order_by(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_skip_take_no_order_by(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_with_take(bool async)
-        => Task.CompletedTask;
+        => base.Include_with_take(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_with_skip(bool async)
-        => Task.CompletedTask;
+        => base.Include_with_skip(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_empty_list_contains(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_OrderBy_empty_list_contains(async);
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_empty_list_does_not_contains(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_OrderBy_empty_list_does_not_contains(async);
 
     #endregion
 
@@ -65,17 +65,17 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_SelectMany_GroupBy_Select(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_SelectMany_GroupBy_Select(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_GroupBy_Select(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_GroupBy_Select(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_Join_GroupBy_Select(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_Join_GroupBy_Select(async);
 
     #endregion
 
@@ -87,22 +87,22 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     [ConditionalTheory(Skip = "BigQuery SQL generation creates alias conflict with boolean expression")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_list_does_not_contains(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_OrderBy_list_does_not_contains(async);
 
     [ConditionalTheory(Skip = "BigQuery SQL generation creates alias conflict with boolean expression")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_list_contains(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_OrderBy_list_contains(async);
 
     [ConditionalTheory(Skip = "BigQuery SQL generation creates alias conflict with boolean expression")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_with_multiple_conditional_order_by(bool async)
-        => Task.CompletedTask;
+        => base.Include_collection_with_multiple_conditional_order_by(async);
 
     [ConditionalTheory(Skip = "BigQuery SQL generation creates alias conflict with boolean expression")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Repro9735(bool async)
-        => Task.CompletedTask;
+        => base.Repro9735(async);
 
     #endregion
 
@@ -112,7 +112,7 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     [ConditionalTheory(Skip = "BigQuery filtered include produces different row count")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Filtered_include_with_multiple_ordering(bool async)
-        => Task.CompletedTask;
+        => base.Filtered_include_with_multiple_ordering(async);
 
     #endregion
 }

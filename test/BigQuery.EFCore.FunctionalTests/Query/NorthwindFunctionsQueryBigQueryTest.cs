@@ -23,22 +23,22 @@ public class NorthwindFunctionsQueryBigQueryTest : NorthwindFunctionsQueryRelati
     [ConditionalTheory(Skip = "BigQuery does not support casting BIGNUMERIC to BOOL")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Convert_ToBoolean(bool async)
-        => Task.CompletedTask;
+        => base.Convert_ToBoolean(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support casting BOOL to BIGNUMERIC")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Convert_ToDecimal(bool async)
-        => Task.CompletedTask;
+        => base.Convert_ToDecimal(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support casting BOOL to FLOAT64")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Convert_ToDouble(bool async)
-        => Task.CompletedTask;
+        => base.Convert_ToDouble(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support casting INTERVAL to FLOAT64")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Datetime_subtraction_TotalDays(bool async)
-        => Task.CompletedTask;
+        => base.Datetime_subtraction_TotalDays(async);
 
     #endregion
 

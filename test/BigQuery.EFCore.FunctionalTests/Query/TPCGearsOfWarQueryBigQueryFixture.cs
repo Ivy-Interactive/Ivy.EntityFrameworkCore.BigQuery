@@ -13,7 +13,7 @@ public class TPCGearsOfWarQueryBigQueryFixture : TPCGearsOfWarQueryRelationalFix
 
     protected override ITestStoreFactory TestStoreFactory => TPCBigQueryTestStoreFactory.Instance;
 
-    private GearsOfWarData _expectedData;
+    private GearsOfWarData _expectedData = null!;
 
     public override ISetSource GetExpectedData()
     {

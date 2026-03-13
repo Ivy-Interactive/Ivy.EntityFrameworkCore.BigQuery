@@ -55,7 +55,8 @@ public class BigQueryUpdateTest : IClassFixture<BigQueryUpdateTest.BigQueryUpdat
         {
             context.Database.EnsureCreated();
             var assembly = typeof(BigQueryUpdateTest).Assembly;
-            using var stream = assembly.GetManifestResourceStream("Ivy.EFCore.BigQuery.Tests.BigQueryUpdateTestSeed.sql");
+            using var stream = assembly.GetManifestResourceStream("Ivy.EFCore.BigQuery.Tests.BigQueryUpdateTestSeed.sql")
+                ?? throw new InvalidOperationException("Resource not found");
             using var reader = new StreamReader(stream);
             var sql = reader.ReadToEnd();
             context.Database.ExecuteSqlRaw(sql);

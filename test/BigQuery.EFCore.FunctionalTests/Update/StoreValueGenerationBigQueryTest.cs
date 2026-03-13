@@ -39,7 +39,7 @@ public class StoreValueGenerationBigQueryTest : StoreValueGenerationTestBase<
     [ConditionalTheory(Skip = "BigQuery does not support auto-increment integer IDs")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_with_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_with_generated_values(async);
 
     public override async Task Add_with_no_generated_values(bool async)
     {
@@ -92,17 +92,17 @@ WHERE `Id` = @p0;
     [ConditionalTheory(Skip = "BigQuery does not support auto-increment integer IDs")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_Add_with_same_entity_type_and_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_Add_with_same_entity_type_and_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support auto-increment integer IDs")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_Add_with_different_entity_types_and_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_Add_with_different_entity_types_and_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support auto-increment integer IDs")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Delete_Add_with_same_entity_types(bool async)
-        => Task.CompletedTask;
+        => base.Delete_Add_with_same_entity_types(async);
 
     #endregion
 
@@ -111,32 +111,32 @@ WHERE `Id` = @p0;
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_with_all_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_with_all_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Modify_with_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Modify_with_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_Add_with_same_entity_type_and_all_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_Add_with_same_entity_type_and_all_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Add_Add_with_different_entity_types_and_all_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Add_Add_with_different_entity_types_and_all_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Modify_Modify_with_same_entity_type_and_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Modify_Modify_with_same_entity_type_and_generated_values(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support computed columns")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Modify_Modify_with_different_entity_types_and_generated_values(bool async)
-        => Task.CompletedTask;
+        => base.Modify_Modify_with_different_entity_types_and_generated_values(async);
 
     #endregion
 

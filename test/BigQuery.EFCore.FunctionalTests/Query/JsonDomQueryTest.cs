@@ -54,7 +54,7 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
     {
         using var ctx = CreateContext();
 
-        var expected = ctx.JsonEntities.Find(1).CustomerDocument;
+        var expected = ctx.JsonEntities.Find(1)!.CustomerDocument;
         var actual = ctx.JsonEntities.Single(e => e.CustomerDocument == expected).CustomerDocument;
 
         Assert.NotNull(actual);
@@ -218,7 +218,7 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
     {
         using var ctx = CreateContext();
 
-        var x = ctx.JsonEntities.Single(e => e.CustomerElement.GetProperty("Name").GetString().StartsWith("J"));
+        var x = ctx.JsonEntities.Single(e => e.CustomerElement.GetProperty("Name").GetString()!.StartsWith("J"));
 
         Assert.Equal("Joe", x.CustomerElement.GetProperty("Name").GetString());
 
@@ -240,7 +240,7 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
 
     public class JsonDomQueryContext : PoolableDbContext
     {
-        public DbSet<JsonEntity> JsonEntities { get; set; }
+        public DbSet<JsonEntity> JsonEntities { get; set; } = null!;
 
         public JsonDomQueryContext(DbContextOptions options) : base(options) { }
 
@@ -344,7 +344,7 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
         public int Id { get; set; }
 
         [Column(TypeName = "JSON")]
-        public JsonDocument CustomerDocument { get; set; }
+        public JsonDocument CustomerDocument { get; set; } = null!;
 
         [Column(TypeName = "JSON")]
         public JsonElement CustomerElement { get; set; }

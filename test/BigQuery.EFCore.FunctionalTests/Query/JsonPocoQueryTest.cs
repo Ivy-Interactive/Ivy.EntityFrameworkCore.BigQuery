@@ -50,7 +50,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
     {
         using var ctx = CreateContext();
 
-        var expected = ctx.JsonEntities.Find(1).Customer;
+        var expected = ctx.JsonEntities.Find(1)!.Customer;
         var actual = ctx.JsonEntities.Single(e => e.Customer == expected).Customer;
 
         Assert.Equal(actual.Name, expected.Name);
@@ -304,7 +304,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
 
     public class JsonPocoQueryContext : PoolableDbContext
     {
-        public DbSet<JsonEntity> JsonEntities { get; set; }
+        public DbSet<JsonEntity> JsonEntities { get; set; } = null!;
 
         public JsonPocoQueryContext(DbContextOptions options) : base(options) { }
 
@@ -415,45 +415,45 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
         public int Id { get; set; }
 
         [Column(TypeName = "JSON")]
-        public Customer Customer { get; set; }
+        public Customer Customer { get; set; } = null!;
     }
 
     public class Customer
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
         public int Age { get; set; }
         public Guid ID { get; set; }
 
         [JsonPropertyName("is_vip")]
         public bool IsVip { get; set; }
 
-        public Statistics Statistics { get; set; }
-        public Order[] Orders { get; set; }
-        public VariousTypes VariousTypes { get; set; }
+        public Statistics Statistics { get; set; } = null!;
+        public Order[] Orders { get; set; } = null!;
+        public VariousTypes VariousTypes { get; set; } = null!;
     }
 
     public class Statistics
     {
         public long Visits { get; set; }
         public int Purchases { get; set; }
-        public NestedStatistics Nested { get; set; }
+        public NestedStatistics Nested { get; set; } = null!;
     }
 
     public class NestedStatistics
     {
         public int SomeProperty { get; set; }
-        public int[] IntArray { get; set; }
+        public int[] IntArray { get; set; } = null!;
     }
 
     public class Order
     {
         public double Price { get; set; }
-        public string ShippingAddress { get; set; }
+        public string ShippingAddress { get; set; } = null!;
     }
 
     public class VariousTypes
     {
-        public string String { get; set; }
+        public string String { get; set; } = null!;
         public int Int32 { get; set; }
         public long Int64 { get; set; }
         public bool Bool { get; set; }

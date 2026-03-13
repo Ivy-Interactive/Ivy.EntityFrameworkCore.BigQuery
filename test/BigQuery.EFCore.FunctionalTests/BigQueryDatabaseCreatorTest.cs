@@ -9,10 +9,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
-public class BigQueryDatabaseCreatorTest
-{
-
-}
+public class BigQueryDatabaseCreatorTest{}
 
 public abstract class BigQueryDatabaseCreatorTestBase
 {
@@ -84,14 +81,14 @@ public abstract class BigQueryDatabaseCreatorTestBase
                     b.Property(e => e.AndRow).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
                 });
 
-        public DbSet<Blog> Blogs { get; set; }
+        public DbSet<Blog> Blogs { get; set; } = null!;
     }
 
     public class Blog
     {
-        public string Key1 { get; set; }
-        public byte[] Key2 { get; set; }
-        public string Cheese { get; set; }
+        public string Key1 { get; set; } = null!;
+        public byte[] Key2 { get; set; } = null!;
+        public string Cheese { get; set; } = null!;
         public int ErMilan { get; set; }
         public bool George { get; set; }
         public Guid TheGu { get; set; }
@@ -101,8 +98,8 @@ public abstract class BigQueryDatabaseCreatorTestBase
         public short Fuse { get; set; }
         public long WayRound { get; set; }
         public float On { get; set; }
-        public byte[] AndChew { get; set; }
-        public byte[] AndRow { get; set; }
+        public byte[] AndChew { get; set; } = null!;
+        public byte[] AndRow { get; set; } = null!;
     }
 
     public class TestDatabaseCreator(

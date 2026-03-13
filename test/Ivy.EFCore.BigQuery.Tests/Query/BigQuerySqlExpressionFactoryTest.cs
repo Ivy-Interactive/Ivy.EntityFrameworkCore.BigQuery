@@ -46,7 +46,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Query
             var sqlFunctionExpression = Assert.IsType<SqlFunctionExpression>(result);
             Assert.Equal("DATETIME", sqlFunctionExpression.Name);
             Assert.Equal(typeof(DateTime), sqlFunctionExpression.Type);
-            Assert.Collection(sqlFunctionExpression.Arguments,
+            Assert.Collection(sqlFunctionExpression.Arguments!,
                 arg => Assert.Same(initialExpression, arg));
         }
 

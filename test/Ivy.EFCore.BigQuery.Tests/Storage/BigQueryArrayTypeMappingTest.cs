@@ -218,7 +218,7 @@ public class BigQueryArrayTypeMappingTest
         var mapping = _typeMappingSource.FindMapping(typeof(string[]));
         Assert.NotNull(mapping);
 
-        var literal = mapping.GenerateSqlLiteral(new string[] { "a", null, "b" });
+        var literal = mapping.GenerateSqlLiteral(new string?[] { "a", null, "b" });
 
         Assert.Equal("ARRAY<STRING>['a', NULL, 'b']", literal);
     }

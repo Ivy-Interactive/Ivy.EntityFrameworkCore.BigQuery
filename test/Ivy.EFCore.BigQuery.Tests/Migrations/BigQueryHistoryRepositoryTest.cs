@@ -29,7 +29,7 @@ CREATE TABLE `__EFMigrationsHistory` (
    public void GetCreateScript_works_with_schema()
     {
         throw new NotImplementedException();
-        var sql = CreateHistoryRepository("my").GetCreateScript();
+        //var sql = CreateHistoryRepository("my").GetCreateScript();
 
         //Assert.Equal("", sql, ignoreLineEndingDifferences: true);
     }
@@ -54,12 +54,12 @@ CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
     public void GetCreateIfNotExistsScript_works_with_schema()
     {
         throw new NotImplementedException();
-        var sql = CreateHistoryRepository("my").GetCreateIfNotExistsScript();
+        //var sql = CreateHistoryRepository("my").GetCreateIfNotExistsScript();
 
-        Assert.Equal("", sql, ignoreLineEndingDifferences: true);
+        //Assert.Equal("", sql, ignoreLineEndingDifferences: true);
     }
 
-    private static IHistoryRepository CreateHistoryRepository(string schema = null)
+    private static IHistoryRepository CreateHistoryRepository(string? schema = null)
         => new TestDbContext(
                 new DbContextOptionsBuilder()
                     .UseInternalServiceProvider(BigQueryTestHelpers.Instance.CreateServiceProvider())
@@ -134,7 +134,7 @@ END;
 
     private class TestDbContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<Blog> Blogs { get; set; }
+        public DbSet<Blog> Blogs { get; set; } = null!;
 
         [DbFunction("TableFunction")]
         public IQueryable<TableFunction> TableFunction()
@@ -154,6 +154,6 @@ END;
     {
         public int Id { get; set; }
         public int BlogId { get; set; }
-        public Blog Blog { get; set; }
+        public Blog Blog { get; set; } = null!;
     }
 }

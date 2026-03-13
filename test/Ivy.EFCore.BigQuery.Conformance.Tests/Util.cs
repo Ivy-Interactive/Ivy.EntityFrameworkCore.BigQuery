@@ -6,7 +6,8 @@ public class Util
 {
     public static void ExecuteNonQuery(IDbFactoryFixture factoryFixture, string sql)
     {
-        using var connection = factoryFixture.Factory.CreateConnection();
+        using var connection = factoryFixture.Factory.CreateConnection()
+            ?? throw new InvalidOperationException("Failed to create connection");
         connection.ConnectionString = Environment.GetEnvironmentVariable("ConnectionString") ?? factoryFixture.ConnectionString;
         connection.Open();
 

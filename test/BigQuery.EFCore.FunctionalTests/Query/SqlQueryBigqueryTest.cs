@@ -64,17 +64,17 @@ SELECT * FROM `Customers` WHERE `ContactName` LIKE '%z%'
     [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Bad_data_error_handling_null(bool async)
-        => Task.CompletedTask;
+        => base.Bad_data_error_handling_null(async);
 
     [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Bad_data_error_handling_null_projection(bool async)
-        => Task.CompletedTask;
+        => base.Bad_data_error_handling_null_projection(async);
 
     [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Bad_data_error_handling_null_no_tracking(bool async)
-        => Task.CompletedTask;
+        => base.Bad_data_error_handling_null_no_tracking(async);
 
     #endregion
 

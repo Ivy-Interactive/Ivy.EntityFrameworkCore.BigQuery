@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Xunit;
@@ -8,7 +7,6 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System.Reflection;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Tests.Query;
 
@@ -155,7 +153,7 @@ public class MathFunctionsTranslationTests
 
         var function = Assert.IsType<SqlFunctionExpression>(result);
         Assert.Equal("ROUND", function.Name);
-        Assert.Equal(2, function.Arguments.Count);
+        Assert.Equal(2, function.Arguments!.Count);
     }
 
     [Fact]
@@ -195,7 +193,7 @@ public class MathFunctionsTranslationTests
 
         var function = Assert.IsType<SqlFunctionExpression>(result);
         Assert.Equal("POW", function.Name);
-        Assert.Equal(2, function.Arguments.Count);
+        Assert.Equal(2, function.Arguments!.Count);
     }
 
     [Fact]
@@ -257,7 +255,7 @@ public class MathFunctionsTranslationTests
 
         var function = Assert.IsType<SqlFunctionExpression>(result);
         Assert.Equal("LOG", function.Name);
-        Assert.Equal(2, function.Arguments.Count);
+        Assert.Equal(2, function.Arguments!.Count);
     }
 
     #endregion
@@ -341,7 +339,7 @@ public class MathFunctionsTranslationTests
 
         var function = Assert.IsType<SqlFunctionExpression>(result);
         Assert.Equal("ATAN2", function.Name);
-        Assert.Equal(2, function.Arguments.Count);
+        Assert.Equal(2, function.Arguments!.Count);
     }
 
     #endregion
@@ -503,7 +501,7 @@ public class MathFunctionsTranslationTests
         Assert.NotNull(result);
         var function = Assert.IsType<SqlFunctionExpression>(result);
         Assert.Equal(expectedFunctionName, function.Name);
-        Assert.Single(function.Arguments);
+        Assert.Single(function.Arguments!);
     }
 
     #endregion

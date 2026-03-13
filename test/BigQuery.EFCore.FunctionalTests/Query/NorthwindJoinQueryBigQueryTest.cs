@@ -21,7 +21,7 @@ public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBa
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Take_in_collection_projection_with_FirstOrDefault_on_top_level(bool async)
-        => Task.CompletedTask;
+        => base.Take_in_collection_projection_with_FirstOrDefault_on_top_level(async);
 
     #endregion
 
@@ -44,7 +44,7 @@ public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBa
     [ConditionalTheory(Skip = "BigQuery SelectMany without ORDER BY produces non-deterministic first row")]
     [MemberData(nameof(IsAsyncData))]
     public override Task SelectMany_with_selecting_outer_entity_column_and_inner_column(bool async)
-        => Task.CompletedTask;
+        => base.SelectMany_with_selecting_outer_entity_column_and_inner_column(async);
 
     #endregion
 }

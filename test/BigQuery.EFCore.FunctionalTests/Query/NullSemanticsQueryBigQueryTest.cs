@@ -37,7 +37,7 @@ public class NullSemanticsQueryBigQueryTest : NullSemanticsQueryTestBase<NullSem
     [ConditionalTheory(Skip = "BigQuery CaseOpWhen predicate produces different row count due to null handling")]
     [MemberData(nameof(IsAsyncData))]
     public override Task CaseOpWhen_predicate(bool async)
-        => Task.CompletedTask;
+        => base.CaseOpWhen_predicate(async);
 
     #endregion
 
@@ -60,7 +60,7 @@ public class NullSemanticsQueryBigQueryTest : NullSemanticsQueryTestBase<NullSem
     [ConditionalTheory(Skip = "BigQuery JOIN produces different row count due to null handling")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Join_uses_database_semantics(bool async)
-        => Task.CompletedTask;
+        => base.Join_uses_database_semantics(async);
 
     #endregion
 }

@@ -21,102 +21,115 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
     [InlineData(ushort.MinValue, """{"Prop":0}""")]
     [InlineData(ushort.MaxValue, """{"Prop":65535}""")]
     [InlineData((ushort)1, """{"Prop":1}""")]
-    public override Task Can_read_write_ushort_JSON_values(ushort value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_ushort_JSON_values(ushort value, string json)
+        => base.Can_read_write_ushort_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(uint.MinValue, """{"Prop":0}""")]
     [InlineData(uint.MaxValue, """{"Prop":4294967295}""")]
     [InlineData((uint)1, """{"Prop":1}""")]
-    public override Task Can_read_write_uint_JSON_values(uint value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_uint_JSON_values(uint value, string json)
+        => base.Can_read_write_uint_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(ulong.MinValue, """{"Prop":0}""")]
     [InlineData(ulong.MaxValue, """{"Prop":18446744073709551615}""")]
     [InlineData((ulong)1, """{"Prop":1}""")]
-    public override Task Can_read_write_ulong_JSON_values(ulong value, string json) => Task.CompletedTask;
-    
+    public override Task Can_read_write_ulong_JSON_values(ulong value, string json)
+        => base.Can_read_write_ulong_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(EnumU16.Min, """{"Prop":0}""")]
     [InlineData(EnumU16.Max, """{"Prop":65535}""")]
     [InlineData(EnumU16.One, """{"Prop":1}""")]
-    public override Task Can_read_write_ushort_enum_JSON_values(EnumU16 value, string json) => Task.CompletedTask;
-
+    public override Task Can_read_write_ushort_enum_JSON_values(EnumU16 value, string json)
+        => base.Can_read_write_ushort_enum_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(EnumU32.Min, """{"Prop":0}""")]
     [InlineData(EnumU32.Max, """{"Prop":4294967295}""")]
     [InlineData(EnumU32.One, """{"Prop":1}""")]
-    public override Task Can_read_write_uint_enum_JSON_values(EnumU32 value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_uint_enum_JSON_values(EnumU32 value, string json)
+        => base.Can_read_write_uint_enum_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(EnumU64.Min, """{"Prop":0}""")]
     [InlineData(EnumU64.Max, """{"Prop":18446744073709551615}""")]
     [InlineData(EnumU64.One, """{"Prop":1}""")]
-    public override Task Can_read_write_ulong_enum_JSON_values(EnumU64 value, string json) => Task.CompletedTask;
-    
+    public override Task Can_read_write_ulong_enum_JSON_values(EnumU64 value, string json)
+        => base.Can_read_write_ulong_enum_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(ushort.MinValue, """{"Prop":0}""")]
     [InlineData(ushort.MaxValue, """{"Prop":65535}""")]
     [InlineData((ushort)1, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ushort_JSON_values(ushort? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ushort_JSON_values(ushort? value, string json)
+        => base.Can_read_write_nullable_ushort_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(uint.MinValue, """{"Prop":0}""")]
     [InlineData(uint.MaxValue, """{"Prop":4294967295}""")]
     [InlineData((uint)1, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_uint_JSON_values(uint? value, string json) => Task.CompletedTask;
-
+    public override Task Can_read_write_nullable_uint_JSON_values(uint? value, string json)
+        => base.Can_read_write_nullable_uint_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(ulong.MinValue, """{"Prop":0}""")]
     [InlineData(ulong.MaxValue, """{"Prop":18446744073709551615}""")]
     [InlineData((ulong)1, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ulong_JSON_values(ulong? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ulong_JSON_values(ulong? value, string json)
+        => base.Can_read_write_nullable_ulong_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((ushort)EnumU16.Min, """{"Prop":0}""")]
     [InlineData((ushort)EnumU16.Max, """{"Prop":65535}""")]
     [InlineData((ushort)EnumU16.One, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ushort_enum_JSON_values(object? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ushort_enum_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_ushort_enum_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((uint)EnumU32.Min, """{"Prop":0}""")]
     [InlineData((uint)EnumU32.Max, """{"Prop":4294967295}""")]
     [InlineData((uint)EnumU32.One, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_uint_enum_JSON_values(object? value, string json) => Task.CompletedTask;
-        
+    public override Task Can_read_write_nullable_uint_enum_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_uint_enum_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((ulong)EnumU64.Min, """{"Prop":0}""")]
     [InlineData((ulong)EnumU64.Max, """{"Prop":18446744073709551615}""")]
     [InlineData((ulong)EnumU64.One, """{"Prop":1}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ulong_enum_JSON_values(object? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ulong_enum_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_ulong_enum_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(ushort.MinValue, """{"Prop":"0"}""")]
     [InlineData(ushort.MaxValue, """{"Prop":"65535"}""")]
     [InlineData((ushort)1, """{"Prop":"1"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ushort_as_string_JSON_values(ushort? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ushort_as_string_JSON_values(ushort? value, string json)
+        => base.Can_read_write_nullable_ushort_as_string_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(uint.MinValue, """{"Prop":"0"}""")]
     [InlineData(uint.MaxValue, """{"Prop":"4294967295"}""")]
     [InlineData((uint)1, """{"Prop":"1"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_uint_as_string_JSON_values(uint? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_uint_as_string_JSON_values(uint? value, string json)
+        => base.Can_read_write_nullable_uint_as_string_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData(ulong.MinValue, """{"Prop":"0"}""")]
     [InlineData(ulong.MaxValue, """{"Prop":"18446744073709551615"}""")]
     [InlineData((ulong)1, """{"Prop":"1"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ulong_as_string_JSON_values(ulong? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ulong_as_string_JSON_values(ulong? value, string json)
+        => base.Can_read_write_nullable_ulong_as_string_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((ushort)EnumU16.Min, """{"Prop":"Min"}""")]
@@ -124,23 +137,26 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
     [InlineData((ushort)EnumU16.One, """{"Prop":"One"}""")]
     [InlineData((ushort)77, """{"Prop":"77"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ushort_enum_as_string_JSON_values(object? value, string json) => Task.CompletedTask;
-    
+    public override Task Can_read_write_nullable_ushort_enum_as_string_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_ushort_enum_as_string_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((uint)EnumU32.Min, """{"Prop":"Min"}""")]
     [InlineData((uint)EnumU32.Max, """{"Prop":"Max"}""")]
     [InlineData((uint)EnumU32.One, """{"Prop":"One"}""")]
     [InlineData((uint)77, """{"Prop":"77"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_uint_enum_as_string_JSON_values(object? value, string json) => Task.CompletedTask;
-    
+    public override Task Can_read_write_nullable_uint_enum_as_string_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_uint_enum_as_string_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData((ulong)EnumU64.Min, """{"Prop":"Min"}""")]
     [InlineData((ulong)EnumU64.Max, """{"Prop":"Max"}""")]
     [InlineData((ulong)EnumU64.One, """{"Prop":"One"}""")]
     [InlineData((ulong)77, """{"Prop":"77"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_ulong_enum_as_string_JSON_values(object? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_ulong_enum_as_string_JSON_values(object? value, string json)
+        => base.Can_read_write_nullable_ulong_enum_as_string_JSON_values(value, json);
 
     [ConditionalFact(Skip = "Unsupported type")]
     public override Task Can_read_write_collection_of_ushort_JSON_values() => Task.CompletedTask;
@@ -192,15 +208,17 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
     [InlineData("10675199.02:48:05.4775807", """{"Prop":"10675199:2:48:05.4775807"}""")]
     [InlineData("00:00:00", """{"Prop":"0:00:00"}""")]
     [InlineData("12:23:23.8018854", """{"Prop":"12:23:23.8018854"}""")]
-    public override Task Can_read_write_TimeSpan_JSON_values(string value, string json) => Task.CompletedTask;
-    
+    public override Task Can_read_write_TimeSpan_JSON_values(string value, string json)
+        => base.Can_read_write_TimeSpan_JSON_values(value, json);
+
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData("-10675199.02:48:05.4775808", """{"Prop":"-10675199:2:48:05.4775808"}""")]
     [InlineData("10675199.02:48:05.4775807", """{"Prop":"10675199:2:48:05.4775807"}""")]
     [InlineData("00:00:00", """{"Prop":"0:00:00"}""")]
     [InlineData("12:23:23.8018854", """{"Prop":"12:23:23.8018854"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_TimeSpan_JSON_values(string? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_TimeSpan_JSON_values(string? value, string json)
+        => base.Can_read_write_nullable_TimeSpan_JSON_values(value, json);
 
     [ConditionalTheory(Skip = "Unsupported type")]
     [InlineData("-10675199.02:48:05.4775808", """{"Prop":"-10675199.02:48:05.4775808"}""")]
@@ -208,7 +226,8 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
     [InlineData("00:00:00", """{"Prop":"00:00:00"}""")]
     [InlineData("12:23:23.8018854", """{"Prop":"12:23:23.8018854"}""")]
     [InlineData(null, """{"Prop":null}""")]
-    public override Task Can_read_write_nullable_TimeSpan_as_string_JSON_values(string? value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_nullable_TimeSpan_as_string_JSON_values(string? value, string json)
+        => base.Can_read_write_nullable_TimeSpan_as_string_JSON_values(value, json);
     [ConditionalFact(Skip = "Unsupported type")]
     public override Task Can_read_write_collection_of_TimeSpan_JSON_values() => Task.CompletedTask;
     [ConditionalFact(Skip = "Unsupported type")]
@@ -230,7 +249,8 @@ public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
     [ConditionalTheory(Skip = "BigQuery returns decimal as string causing type conversion failure")]
     [InlineData(0.0, """{"Prop":0.0}""")]
     [InlineData(1.1, """{"Prop":1.1}""")]
-    public override Task Can_read_write_decimal_JSON_values(decimal value, string json) => Task.CompletedTask;
+    public override Task Can_read_write_decimal_JSON_values(decimal value, string json)
+        => base.Can_read_write_decimal_JSON_values(value, json);
 
     [ConditionalFact(Skip = "BigQuery TimeOnly collection handling issue")]
     public override Task Can_read_write_collection_of_TimeOnly_JSON_values() => Task.CompletedTask;

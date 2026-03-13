@@ -53,17 +53,17 @@ WHERE `c`.`ContactName` LIKE `c`.`ContactName`
     [ConditionalTheory(Skip = "BigQuery does not support ESCAPE clause in LIKE expressions")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Like_literal_with_escape(bool async)
-        => Task.CompletedTask;
+        => base.Like_literal_with_escape(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support ESCAPE clause in LIKE expressions")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Like_all_literals(bool async)
-        => Task.CompletedTask;
+        => base.Like_all_literals(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support ESCAPE clause in LIKE expressions")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Like_all_literals_with_escape(bool async)
-        => Task.CompletedTask;
+        => base.Like_all_literals_with_escape(async);
 
     #endregion
 
@@ -87,12 +87,12 @@ WHERE (COLLATE(`c`.`ContactName`, 'und:ci')) = 'maria anders'
     [ConditionalTheory(Skip = "BigQuery only supports 'und:ci' collation, case-sensitive is the default. See BigQuery-specific tests below.")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Collate_case_sensitive(bool async)
-        => Task.CompletedTask;
+        => base.Collate_case_sensitive(async);
 
     [ConditionalTheory(Skip = "BigQuery only supports 'und:ci' collation, case-sensitive is the default. See BigQuery-specific tests below.")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Collate_case_sensitive_constant(bool async)
-        => Task.CompletedTask;
+        => base.Collate_case_sensitive_constant(async);
 
     public override async Task Collate_is_null(bool async)
     {

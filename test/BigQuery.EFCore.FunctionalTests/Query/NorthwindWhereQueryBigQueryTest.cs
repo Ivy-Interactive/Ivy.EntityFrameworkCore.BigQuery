@@ -36,12 +36,12 @@ END
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task ElementAtOrDefault_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.ElementAtOrDefault_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with OFFSET")]
     [MemberData(nameof(IsAsyncData))]
     public override Task ElementAt_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.ElementAt_over_custom_projection_compared_to_not_null(async);
 
     #endregion
 
@@ -50,7 +50,7 @@ END
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries (EXISTS with nested IN)")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Where_contains_on_navigation(bool async)
-        => Task.CompletedTask;
+        => base.Where_contains_on_navigation(async);
 
     #endregion
 

@@ -34,7 +34,7 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
               asserter: (e, a) =>
               {
                   Assert.Equal(e.HasValue, a.HasValue);
-                  if (e.HasValue)
+                  if (e.HasValue && a.HasValue)
                       Assert.Equal(e.Value, a.Value, precision: 10);
               });
 
@@ -103,12 +103,12 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Multiple_collection_navigation_with_FirstOrDefault_chained(bool async)
-        => Task.CompletedTask;
+        => base.Multiple_collection_navigation_with_FirstOrDefault_chained(async);
 
     [ConditionalTheory(Skip = "BigQuery does not support deeply nested correlated subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Multiple_collection_navigation_with_FirstOrDefault_chained_projecting_scalar(bool async)
-        => Task.CompletedTask;
+        => base.Multiple_collection_navigation_with_FirstOrDefault_chained_projecting_scalar(async);
 
     #endregion
 
@@ -142,7 +142,7 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
     [ConditionalTheory(Skip = "BigQuery does not support VALUES keyword in subqueries")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Contains_with_local_enumerable_inline(bool async)
-        => Task.CompletedTask;
+        => base.Contains_with_local_enumerable_inline(async);
 
     #endregion
 
@@ -151,7 +151,7 @@ public class NorthwindAggregateOperatorsQueryBigQueryTest : NorthwindAggregateOp
     [ConditionalTheory(Skip = "BigQuery throws different exception type for keyless entity Contains")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Contains_over_keyless_entity_throws(bool async)
-        => Task.CompletedTask;
+        => base.Contains_over_keyless_entity_throws(async);
 
     #endregion
 }

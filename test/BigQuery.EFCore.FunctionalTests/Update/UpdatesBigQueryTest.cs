@@ -26,10 +26,10 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
         var entityType = context.Model.FindEntityType(
             typeof(
                 LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly
-            ));
+            ))!;
         Assert.Equal(
             "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorki",
-            entityType!.GetTableName());
+            entityType.GetTableName());
         Assert.Equal(
             "PK_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWo",
             entityType.GetKeys().Single().GetName());
@@ -43,11 +43,11 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
         var entityType2 = context.Model.FindEntityType(
             typeof(
                 LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectlyDetails
-            ));
+            ))!;
 
         Assert.Equal(
             "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWor1",
-            entityType2!.GetTableName());
+            entityType2.GetTableName());
         Assert.Equal(
             "PK_LoginDetails",
             entityType2.GetKeys().Single().GetName());
@@ -84,7 +84,7 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
     [InlineData(false)]
     [InlineData(true)]
     public override Task Can_change_type_of_pk_to_pk_dependent_by_replacing_with_new_dependent(bool async)
-        => Task.CompletedTask;
+        => base.Can_change_type_of_pk_to_pk_dependent_by_replacing_with_new_dependent(async);
 
     [ConditionalFact(Skip = "BigQuery does not support optimistic concurrency")]
     public override Task Save_partial_update_on_concurrency_token_original_value_mismatch_throws()
@@ -178,7 +178,7 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
     [InlineData(false)]
     [InlineData(true)]
     public override Task Can_change_type_of__dependent_by_replacing_with_new_dependent(bool async)
-        => Task.CompletedTask;
+        => base.Can_change_type_of__dependent_by_replacing_with_new_dependent(async);
 
     // Note: Ignore_before_save_property_is_still_generated is not virtual, cannot be skipped
 

@@ -569,64 +569,66 @@ ALTER TABLE `People` RENAME TO `Person`;
 """);
     }
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void InsertDataOperation_all_args_spatial() => base.InsertDataOperation_all_args_spatial();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void InsertDataOperation_required_args() => base.InsertDataOperation_required_args();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void InsertDataOperation_required_args_composite() => base.InsertDataOperation_required_args_composite();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void InsertDataOperation_required_args_multiple_rows() => base.InsertDataOperation_required_args_multiple_rows();
 
     [ConditionalFact(Skip = "BigQuery supports all scalar types; provider does not restrict here.")]
     public override void InsertDataOperation_throws_for_unsupported_column_types() => base.InsertDataOperation_throws_for_unsupported_column_types();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void DeleteDataOperation_all_args() => base.DeleteDataOperation_all_args();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void DeleteDataOperation_all_args_composite() => base.DeleteDataOperation_all_args_composite();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void DeleteDataOperation_required_args() => base.DeleteDataOperation_required_args();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void DeleteDataOperation_required_args_composite() => base.DeleteDataOperation_required_args_composite();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_all_args() => base.UpdateDataOperation_all_args();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_all_args_composite() => base.UpdateDataOperation_all_args_composite();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_all_args_composite_multi() => base.UpdateDataOperation_all_args_composite_multi();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_all_args_multi() => base.UpdateDataOperation_all_args_multi();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_required_args() => base.UpdateDataOperation_required_args();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_required_args_multiple_rows() => base.UpdateDataOperation_required_args_multiple_rows();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_required_args_composite() => base.UpdateDataOperation_required_args_composite();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_required_args_composite_multi() => base.UpdateDataOperation_required_args_composite_multi();
 
-    [ConditionalFact(Skip = "Todo sql generator")]
+    
     public override void UpdateDataOperation_required_args_multi() => base.UpdateDataOperation_required_args_multi();
 
+    [ConditionalTheory]
     [InlineData(true)]
     [InlineData(false)]
     public override void DefaultValue_with_line_breaks(bool isUnicode) => base.DefaultValue_with_line_breaks(isUnicode);
 
+    [ConditionalTheory]
     [InlineData(true)]
     [InlineData(false)]
     public override void DefaultValue_with_line_breaks_2(bool isUnicode) => base.DefaultValue_with_line_breaks_2(isUnicode);
