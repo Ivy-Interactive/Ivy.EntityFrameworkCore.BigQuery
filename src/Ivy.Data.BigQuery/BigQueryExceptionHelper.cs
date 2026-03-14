@@ -4,7 +4,7 @@ namespace Ivy.Data.BigQuery;
 
 internal static class BigQueryExceptionHelper
 {
-    public static BigQueryException CreateException(Google.Apis.Bigquery.v2.Data.ErrorProto errorProto, string messagePrefix = null, Exception inner = null)
+    public static BigQueryException CreateException(Google.Apis.Bigquery.v2.Data.ErrorProto? errorProto, string? messagePrefix = null, Exception? inner = null)
     {
         if (errorProto == null)
         {
@@ -15,7 +15,7 @@ internal static class BigQueryExceptionHelper
         return new BigQueryException(message, errorProto, inner);
     }
 
-    public static BigQueryException CreateException(Google.GoogleApiException apiException, string messagePrefix = null)
+    public static BigQueryException CreateException(Google.GoogleApiException apiException, string? messagePrefix = null)
     {
         var message = string.IsNullOrEmpty(messagePrefix)
             ? $"BigQuery API Error: {apiException.Message}"
@@ -24,7 +24,7 @@ internal static class BigQueryExceptionHelper
         return new BigQueryException(message, apiException);
     }
 
-    private static string FormatErrorMessage(Google.Apis.Bigquery.v2.Data.ErrorProto errorProto, string messagePrefix)
+    private static string FormatErrorMessage(Google.Apis.Bigquery.v2.Data.ErrorProto errorProto, string? messagePrefix)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrEmpty(messagePrefix))

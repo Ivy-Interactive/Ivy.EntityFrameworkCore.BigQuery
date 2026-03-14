@@ -12,13 +12,13 @@ public class BigQueryParameterCollection : DbParameterCollection
     public override int Count => _parameters.Count;
     public override object SyncRoot => _syncRoot;
 
-    public BigQueryParameter this[string parameterName]
+    public new BigQueryParameter this[string parameterName]
     {
         get => (BigQueryParameter)GetParameter(parameterName);
         set => SetParameter(parameterName, value);
     }
 
-    public BigQueryParameter this[int index]
+    public new BigQueryParameter this[int index]
     {
         get => (BigQueryParameter)GetParameter(index);
         set => SetParameter(index, value);
@@ -258,7 +258,7 @@ public class BigQueryParameterCollection : DbParameterCollection
     public override void CopyTo(Array array, int index) => ((IList)_parameters).CopyTo(array, index);
     public void CopyTo(BigQueryParameter[] array, int index) => _parameters.CopyTo(array, index);
 
-    internal IList<Google.Cloud.BigQuery.V2.BigQueryParameter> ToBigQueryParameters(string? commandText = null)
+    internal IList<Google.Cloud.BigQuery.V2.BigQueryParameter>? ToBigQueryParameters(string? commandText = null)
     {
         if (Count == 0)
         {

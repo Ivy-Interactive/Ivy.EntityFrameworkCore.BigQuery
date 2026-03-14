@@ -11,24 +11,24 @@ namespace Ivy.Data.BigQuery
     {
         private string _connectionString = string.Empty;
         private ConnectionState _state = ConnectionState.Closed;
-        private BigQueryClient _client;
+        private BigQueryClient? _client;
         private readonly Dictionary<string, string> _parsedConnectionString = new(StringComparer.OrdinalIgnoreCase);
 
-        private string _dataSource;
-        private string _projectId;
-        private string _defaultDatasetId;
-        private string _location;
-        private string _credentialPath;
-        private string _credentialJson;
+        private string? _dataSource;
+        private string? _projectId;
+        private string? _defaultDatasetId;
+        private string? _location;
+        private string? _credentialPath;
+        private string? _credentialJson;
         private bool _useAdc;
         private int _connectionTimeoutSeconds = 15;
         private bool _isDisposed = false;
 
-        public override event StateChangeEventHandler StateChange;
+        public override event StateChangeEventHandler? StateChange;
 
         public BigQueryConnection() { }
 
-        public BigQueryConnection(string connectionString)
+        public BigQueryConnection(string? connectionString)
         {
             ConnectionString = connectionString;
         }
@@ -47,6 +47,7 @@ namespace Ivy.Data.BigQuery
         /// - JsonCredentials (Required if AuthMethod=JsonCredentials and CredentialsFile not provided): JSON service account credentials as a string.
         /// - Timeout (Optional): Seconds to wait for connection/authentication (default 15).
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString
         {
             get => _connectionString;
@@ -74,13 +75,13 @@ namespace Ivy.Data.BigQuery
 
         public override string ServerVersion => typeof(BigQueryClient).Assembly.GetName().Version?.ToString() ?? "Google.Cloud.BigQuery.V2";
 
-        internal BigQueryClient Client => _client;
+        internal BigQueryClient? Client => _client;
 
-        public string DefaultProjectId => _projectId;
+        public string? DefaultProjectId => _projectId;
 
-        public string DefaultDatasetId => _defaultDatasetId;
+        public string? DefaultDatasetId => _defaultDatasetId;
 
-        public string Location => _location;
+        public string? Location => _location;
 
         /// <summary>
         /// Gets the underlying BigQueryClient for advanced scenarios.
@@ -122,7 +123,7 @@ namespace Ivy.Data.BigQuery
 
             try
             {
-                GoogleCredential credential = null;
+                GoogleCredential? credential = null;
 
                 var authMethod = _parsedConnectionString.GetValueOrDefault("AuthMethod");
                 if (string.Equals(authMethod, "JsonCredentials", StringComparison.OrdinalIgnoreCase))
@@ -194,7 +195,7 @@ namespace Ivy.Data.BigQuery
             }
             catch (AggregateException ae) when (ae.InnerExceptions.Count == 1)
             {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerException).Throw();
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerExceptions[0]).Throw();
                 throw;
             }
         }
@@ -248,7 +249,7 @@ namespace Ivy.Data.BigQuery
         public override DataTable GetSchema(string collectionName)
            => GetSchema(collectionName, []);
 
-        public override DataTable GetSchema(string collectionName, string[]? restrictions)
+        public override DataTable GetSchema(string collectionName, string?[]? restrictions)
         {
             EnsureConnectionOpen();
 
@@ -336,7 +337,7 @@ namespace Ivy.Data.BigQuery
             };
         }
 
-        private DataTable GetTablesSchema(string[]? restrictionValues)
+        private DataTable GetTablesSchema(string?[]? restrictionValues)
         {
             string? datasetId = (restrictionValues?.Length > 1 && !string.IsNullOrWhiteSpace(restrictionValues[1])) ? restrictionValues[1] : DefaultDatasetId;
 
@@ -356,13 +357,13 @@ namespace Ivy.Data.BigQuery
             if (restrictionValues?.Length > 0 && !string.IsNullOrWhiteSpace(restrictionValues[0]))
             {
                 whereClauses.Add("table_catalog = @catalog");
-                parameters.Add(new BigQueryParameter("@catalog", BigQueryDbType.String, restrictionValues[0]));
+                parameters.Add(new BigQueryParameter("@catalog", BigQueryDbType.String, restrictionValues[0]!));
             }
 
             if (restrictionValues?.Length > 2 && !string.IsNullOrWhiteSpace(restrictionValues[2]))
             {
                 whereClauses.Add("table_name = @tableName");
-                parameters.Add(new BigQueryParameter("@tableName", BigQueryDbType.String, restrictionValues[2]));
+                parameters.Add(new BigQueryParameter("@tableName", BigQueryDbType.String, restrictionValues[2]!));
             }
 
             if (whereClauses.Any())
@@ -404,7 +405,7 @@ namespace Ivy.Data.BigQuery
             return resultTable;
         }
 
-        private DataTable GetColumnsSchema(string[]? restrictionValues)
+        private DataTable GetColumnsSchema(string?[]? restrictionValues)
         {
             string? datasetId = (restrictionValues?.Length > 1) ? restrictionValues[1] : DefaultDatasetId;
 
@@ -437,22 +438,22 @@ namespace Ivy.Data.BigQuery
             if (restrictionValues?.Length > 0 && !string.IsNullOrWhiteSpace(restrictionValues[0]))
             {
                 whereClauses.Add("table_catalog = @catalog");
-                parameters.Add(new BigQueryParameter("@catalog", BigQueryDbType.String, restrictionValues[0]));
+                parameters.Add(new BigQueryParameter("@catalog", BigQueryDbType.String, restrictionValues[0]!));
             }
             if (restrictionValues?.Length > 1 && !string.IsNullOrWhiteSpace(restrictionValues[1]))
             {
                 whereClauses.Add("table_schema = @schema");
-                parameters.Add(new BigQueryParameter("@schema", BigQueryDbType.String, restrictionValues[1]));
+                parameters.Add(new BigQueryParameter("@schema", BigQueryDbType.String, restrictionValues[1]!));
             }
             if (restrictionValues?.Length > 2 && !string.IsNullOrWhiteSpace(restrictionValues[2]))
             {
                 whereClauses.Add("table_name = @tableName");
-                parameters.Add(new BigQueryParameter("@tableName", BigQueryDbType.String, restrictionValues[2]));
+                parameters.Add(new BigQueryParameter("@tableName", BigQueryDbType.String, restrictionValues[2]!));
             }
             if (restrictionValues?.Length > 3 && !string.IsNullOrWhiteSpace(restrictionValues[3]))
             {
                 whereClauses.Add("column_name = @columnName");
-                parameters.Add(new BigQueryParameter("@columnName", BigQueryDbType.String, restrictionValues[3]));
+                parameters.Add(new BigQueryParameter("@columnName", BigQueryDbType.String, restrictionValues[3]!));
             }
 
             if (whereClauses.Count != 0)
@@ -581,7 +582,7 @@ namespace Ivy.Data.BigQuery
             _credentialPath = _parsedConnectionString.GetValueOrDefault("CredentialsFile");
             _credentialJson = _parsedConnectionString.GetValueOrDefault("JsonCredentials");
 
-            string authMethod = _parsedConnectionString.GetValueOrDefault("AuthMethod");
+            string? authMethod = _parsedConnectionString.GetValueOrDefault("AuthMethod");
             _useAdc = string.Equals(authMethod, "ApplicationDefaultCredentials", StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(authMethod); // Default to ADC if not specified
 
@@ -612,7 +613,7 @@ namespace Ivy.Data.BigQuery
             return previousState;
         }
 
-        protected virtual void OnStateChange(StateChangeEventArgs args)
+        protected override void OnStateChange(StateChangeEventArgs args)
         {
             StateChange?.Invoke(this, args);
         }
@@ -647,10 +648,9 @@ namespace Ivy.Data.BigQuery
 
     internal static class DictionaryExtensions
     {
-        public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
+        public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
         {
             return dictionary.TryGetValue(key, out var value) ? value : default;
         }
     }
 }
-

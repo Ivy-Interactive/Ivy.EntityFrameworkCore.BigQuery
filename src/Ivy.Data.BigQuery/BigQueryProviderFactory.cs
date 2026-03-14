@@ -30,13 +30,13 @@ public sealed class BigQueryProviderFactory : DbProviderFactory
         return new BigQueryConnectionStringBuilder();
     }
     
-    public override DbCommandBuilder CreateCommandBuilder()
+    public override DbCommandBuilder? CreateCommandBuilder()
     {
         // Todo?
         return null;
     }
 
-    public override DbDataAdapter CreateDataAdapter()
+    public override DbDataAdapter? CreateDataAdapter()
     {
         // Todo?
         return null;

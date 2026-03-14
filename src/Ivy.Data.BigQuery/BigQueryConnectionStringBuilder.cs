@@ -24,7 +24,7 @@ namespace Ivy.Data.BigQuery
         {
         }
 
-        public BigQueryConnectionStringBuilder(string connectionString)
+        public BigQueryConnectionStringBuilder(string? connectionString)
         {
             ConnectionString = connectionString;
         }
@@ -37,7 +37,7 @@ namespace Ivy.Data.BigQuery
 
         [DisplayName(ProjectIdKey)]
         [Description("The Google Cloud Project ID to connect to (Required).")]
-        public string ProjectId
+        public string? ProjectId
         {
             get => GetValueOrDefault<string>(ProjectIdKey, null);
             set => base[ProjectIdKey] = value;
@@ -45,7 +45,7 @@ namespace Ivy.Data.BigQuery
 
         [DisplayName(DefaultDatasetIdKey)]
         [Description("The default Google BigQuery Dataset ID for unqualified table names (Optional).")]
-        public string DefaultDatasetId
+        public string? DefaultDatasetId
         {
             get => GetValueOrDefault<string>(DefaultDatasetIdKey, null);
             set => SetOptionalStringValue(DefaultDatasetIdKey, value);
@@ -53,7 +53,7 @@ namespace Ivy.Data.BigQuery
 
         [DisplayName(LocationKey)]
         [Description("The geographic location hint where jobs should be run (e.g., 'US', 'EU', 'asia-northeast1') (Optional).")]
-        public string Location
+        public string? Location
         {
             get => GetValueOrDefault<string>(LocationKey, null);
             set => SetOptionalStringValue(LocationKey, value);
@@ -65,7 +65,7 @@ namespace Ivy.Data.BigQuery
         {
             get
             {
-                if (!base.TryGetValue(AuthMethodKey, out object value) || value is not string strValue)
+                if (!base.TryGetValue(AuthMethodKey, out object? value) || value is not string strValue)
                     return DefaultAuthMethod;
                 if (Enum.TryParse<BigQueryAuthMethod>(strValue, true, out var result))
                 {
@@ -79,7 +79,7 @@ namespace Ivy.Data.BigQuery
 
         [DisplayName(CredentialsFileKey)]
         [Description("Full path to the JSON service account key file (Required if AuthMethod is JsonCredentials).")]
-        public string CredentialsFile
+        public string? CredentialsFile
         {
             get => GetValueOrDefault<string>(CredentialsFileKey, null);
             set => SetOptionalStringValue(CredentialsFileKey, value);
@@ -91,7 +91,7 @@ namespace Ivy.Data.BigQuery
         {
             get
             {
-                if (!base.TryGetValue(TimeoutKey, out object value)) return DefaultTimeout;
+                if (!base.TryGetValue(TimeoutKey, out object? value)) return DefaultTimeout;
 
                 return value switch
                 {
@@ -114,9 +114,9 @@ namespace Ivy.Data.BigQuery
             return removed;
         }
 
-        private T GetValueOrDefault<T>(string key, T defaultValue)
+        private T? GetValueOrDefault<T>(string key, T? defaultValue)
         {
-            if (!base.TryGetValue(key, out object value)) return defaultValue;
+            if (!base.TryGetValue(key, out object? value)) return defaultValue;
 
             try
             {
@@ -128,7 +128,7 @@ namespace Ivy.Data.BigQuery
             }
         }
 
-        private void SetOptionalStringValue(string key, string value)
+        private void SetOptionalStringValue(string key, string? value)
         {
             if (!string.IsNullOrEmpty(value))
             {

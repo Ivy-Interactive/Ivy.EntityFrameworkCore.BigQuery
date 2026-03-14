@@ -100,7 +100,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             if (instance is ColumnExpression columnExpression)
             {
                 instance = _sqlExpressionFactory.JsonTraversal(
-                    columnExpression, typeof(JsonElement), mapping);
+                    columnExpression, typeof(JsonElement), mapping!);
             }
 
             if (method == GetProperty)

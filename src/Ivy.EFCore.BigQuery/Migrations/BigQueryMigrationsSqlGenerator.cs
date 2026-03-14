@@ -75,7 +75,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             MigrationCommandListBuilder builder)
         {
             var columnType = operation.ColumnType
-                ?? GetColumnType(schema, table, name, operation, model);
+                ?? GetColumnType(schema, table, name, operation, model)!;
 
             builder
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name))
@@ -147,9 +147,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                     {
                         var pkColumnNames = primaryKey.Properties
                             .Select(p => p.GetColumnName())
+                            .Where(n => n != null)
+                            .Cast<string>()
                             .ToList();
 
-                        if (!operation.PrincipalColumns.SequenceEqual(pkColumnNames))
+                        if (operation.PrincipalColumns == null || !operation.PrincipalColumns.SequenceEqual(pkColumnNames))
                         {
                             return;
                         }
@@ -163,7 +165,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
                 .Append(") REFERENCES ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.PrincipalTable, operation.PrincipalSchema))
                 .Append(" (")
-                .Append(ColumnList(operation.PrincipalColumns))
+                .Append(ColumnList(operation.PrincipalColumns!))
                 .Append(") NOT ENFORCED");
         }
 
@@ -468,7 +470,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             var old = operation.OldColumn;
 
             var columnType = operation.ColumnType
-                ?? GetColumnType(operation.Schema, operation.Table, operation.Name, operation, model);
+                ?? GetColumnType(operation.Schema, operation.Table, operation.Name, operation, model)!;
             var oldColumnType = old.ColumnType
                 ?? GetColumnType(operation.Schema, operation.Table, operation.Name, old, model);
 
@@ -714,7 +716,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Migrations
             builder
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
                 .Append(" ON ")
-                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table, operation.Schema));
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table!, operation.Schema));
 
             if (terminate)
             {

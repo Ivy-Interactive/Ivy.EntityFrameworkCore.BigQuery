@@ -15,7 +15,7 @@ public class BigQueryModelCacheKeyFactory : IModelCacheKeyFactory
 
 public class BigQueryModelCacheKey : ModelCacheKey
 {
-    private readonly string _defaultSchema;
+    private readonly string? _defaultSchema;
 
     public BigQueryModelCacheKey(DbContext context, bool designTime)
         : base(context, designTime)

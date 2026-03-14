@@ -7,7 +7,7 @@ namespace Ivy.Data.BigQuery
     public class BigQueryParameter : DbParameter
     {
         private string _parameterName = string.Empty;
-        private object _value;
+        private object? _value;
         private DbType _dbType = DbType.String;
         private BigQueryDbType? _bqDbType;
         private ParameterDirection _direction = ParameterDirection.Input;
@@ -87,6 +87,7 @@ namespace Ivy.Data.BigQuery
 
         public sealed override bool IsNullable { get; set; }
 
+        [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ParameterName
         {
             get => _parameterName;
@@ -107,11 +108,12 @@ namespace Ivy.Data.BigQuery
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string SourceColumn { get => _sourceColumn; set => _sourceColumn = value ?? string.Empty; }
         public override bool SourceColumnNullMapping { get; set; }
         public override DataRowVersion SourceVersion { get; set; } = DataRowVersion.Current;
 
-        public override object Value
+        public override object? Value
         {
             get => _value;
             set

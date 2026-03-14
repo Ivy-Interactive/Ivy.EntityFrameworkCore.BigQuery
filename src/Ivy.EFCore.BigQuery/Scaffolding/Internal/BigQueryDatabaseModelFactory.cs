@@ -326,6 +326,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     var pkColumns = pkColumnNames
                         .Select(name => table.Columns.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                         .Where(c => c != null)
+                        .Cast<DatabaseColumn>()
                         .ToList();
 
                     if (pkColumns.Count == pkColumnNames.Count)
@@ -369,11 +370,13 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding.Internal
                     var fkColumns = fkColumnNames
                         .Select(name => table.Columns.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                         .Where(c => c != null)
+                        .Cast<DatabaseColumn>()
                         .ToList();
 
                     var principalColumns = principalColumnNames
                         .Select(name => principalTable.Columns.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                         .Where(c => c != null)
+                        .Cast<DatabaseColumn>()
                         .ToList();
 
                     if (fkColumns.Count == fkColumnNames.Count && principalColumns.Count == principalColumnNames.Count)

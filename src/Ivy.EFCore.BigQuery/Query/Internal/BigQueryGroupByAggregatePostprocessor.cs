@@ -179,7 +179,7 @@ public class BigQueryGroupByAggregatePostprocessor : ExpressionVisitor
                     return new InExpression(
                         inExpr.Item,
                         visitedSubquery,
-                        inExpr.TypeMapping);
+                        inExpr.TypeMapping!);
                 }
             }
         }

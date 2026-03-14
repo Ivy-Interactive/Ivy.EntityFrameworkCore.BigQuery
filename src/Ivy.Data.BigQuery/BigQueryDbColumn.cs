@@ -18,8 +18,8 @@ public class BigQueryDbColumn : DbColumn
         bool isUnique = false,
         bool isKey = false,
         bool isLong = false,
-        string baseSchemaName = null,
-        string baseTableName = null
+        string? baseSchemaName = null,
+        string? baseTableName = null
         )
     {
         ColumnName = columnName;

@@ -20,7 +20,7 @@ public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQuer
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    private string GetDatasetName()
+    private string? GetDatasetName()
     {
         var builder = new BigQueryConnectionStringBuilder(Fixture.TestStore.ConnectionString);
         return builder.DefaultDatasetId;

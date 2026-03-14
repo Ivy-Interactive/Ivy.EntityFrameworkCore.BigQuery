@@ -152,7 +152,7 @@ namespace Ivy.Data.BigQuery
             return hasMoreRows;
         }
 
-        public override DataTable GetSchemaTable()
+        public override DataTable? GetSchemaTable()
         {
             EnsureNotClosed();
 
@@ -370,7 +370,7 @@ namespace Ivy.Data.BigQuery
             {
                 if (default(T) == null && Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
-                    return default;
+                    return default!;
                 }
                 throw new InvalidCastException($"Cannot cast DBNull.Value to type '{typeof(T)}'.");
             }
@@ -528,7 +528,7 @@ namespace Ivy.Data.BigQuery
                     string valueJson;
                     try { valueJson = System.Text.Json.JsonSerializer.Serialize(value); }
                     catch { valueJson = value?.ToString() ?? "null"; }
-                    throw new InvalidCastException($"Cannot convert geography value of type '{value.GetType()}' to '{typeof(T)}'. Value JSON: {valueJson}");
+                    throw new InvalidCastException($"Cannot convert geography value of type '{value!.GetType()}' to '{typeof(T)}'. Value JSON: {valueJson}");
                 }
 
                 // ARRAY
@@ -647,7 +647,7 @@ namespace Ivy.Data.BigQuery
                 throw new InvalidCastException($"Cannot get Stream for column '{GetName(ordinal)}' with BigQuery type '{bqType}'. Stream is only supported for BYTES type.");
             }
 
-            var value = _currentRow[ordinal];
+            var value = _currentRow![ordinal];
 
             if (value == null)
             {
@@ -670,7 +670,7 @@ namespace Ivy.Data.BigQuery
             EnsureNotClosed();
             EnsureHasData();
             ValidateOrdinal(ordinal);
-            return _currentRow[ordinal];
+            return _currentRow![ordinal];
         }
 
         public override int GetProviderSpecificValues(object[] values)
@@ -748,7 +748,7 @@ namespace Ivy.Data.BigQuery
             //Todo refactor
             ArgumentOutOfRangeException.ThrowIfNegative(dataOffset);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(dataOffset, int.MaxValue);
-            if (bufferOffset < 0 || bufferOffset >= buffer?.Length + 1)
+            if (buffer == null || bufferOffset < 0 || bufferOffset >= buffer.Length + 1)
                 throw new ArgumentOutOfRangeException($"bufferOffset must be between 0 and {buffer?.Length}");
             if (checked(bufferOffset + length) > buffer.Length)
             {

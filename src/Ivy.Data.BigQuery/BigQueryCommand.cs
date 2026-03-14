@@ -8,15 +8,15 @@ namespace Ivy.Data.BigQuery
 {
     public class BigQueryCommand : DbCommand
     {
-        private DbTransaction _transaction;
+        private DbTransaction? _transaction;
         private string _commandText = string.Empty;
         private int _commandTimeout = 30;
         private CommandType _commandType = CommandType.Text;
-        private BigQueryParameterCollection _parameters;
+        private BigQueryParameterCollection? _parameters;
         private bool _designTimeVisible = false;
         private UpdateRowSource _updatedRowSource = UpdateRowSource.None;
-        private CancellationTokenSource _cancellationTokenSource;
-        private BigQueryConnection _connection;
+        private CancellationTokenSource? _cancellationTokenSource;
+        private BigQueryConnection? _connection;
 
         public BigQueryCommand()
         {
@@ -37,6 +37,7 @@ namespace Ivy.Data.BigQuery
             Transaction = transaction;
         }
 
+        [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string CommandText
         {
             get => _commandText;
@@ -75,7 +76,7 @@ namespace Ivy.Data.BigQuery
             }
         }
 
-        public new virtual BigQueryConnection Connection
+        public new virtual BigQueryConnection? Connection
         {
             get => _connection;
             set
@@ -88,7 +89,7 @@ namespace Ivy.Data.BigQuery
             }
         }
 
-        protected override DbConnection DbConnection
+        protected override DbConnection? DbConnection
         {
             get => Connection;
             set
@@ -101,7 +102,7 @@ namespace Ivy.Data.BigQuery
 
         protected override DbParameterCollection DbParameterCollection => Parameters;
 
-        public new DbTransaction Transaction
+        public new DbTransaction? Transaction
         {
             get => _transaction;
             set
@@ -113,7 +114,7 @@ namespace Ivy.Data.BigQuery
             }
         }
 
-        protected override DbTransaction DbTransaction
+        protected override DbTransaction? DbTransaction
         {
             get => Transaction;
             set => Transaction = value;
@@ -130,7 +131,7 @@ namespace Ivy.Data.BigQuery
             }
             catch (AggregateException ae) when (ae.InnerExceptions.Count == 1)
             {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerException).Throw();
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerExceptions[0]).Throw();
                 throw;
             }
         }
@@ -218,7 +219,7 @@ namespace Ivy.Data.BigQuery
             }
             catch (AggregateException ae) when (ae.InnerExceptions.Count == 1)
             {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerException).Throw();
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerExceptions[0]).Throw();
                 throw;
             }
         }
@@ -310,7 +311,7 @@ namespace Ivy.Data.BigQuery
         }
 
 
-        public override object ExecuteScalar()
+        public override object? ExecuteScalar()
         {
             try
             {
@@ -318,12 +319,12 @@ namespace Ivy.Data.BigQuery
             }
             catch (AggregateException ae) when (ae.InnerExceptions.Count == 1)
             {
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerException).Throw();
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ae.InnerExceptions[0]).Throw();
                 throw;
             }
         }
 
-        public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+        public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -421,7 +422,7 @@ namespace Ivy.Data.BigQuery
                 Debug.WriteLine("Parameters:");
                 foreach (BigQueryParameter p in Parameters)
                 {
-                    string valueStr = p.Value == null ? "NULL" : p.Value == DBNull.Value ? "DBNull" : p.Value.ToString();
+                    string? valueStr = p.Value == null ? "NULL" : p.Value == DBNull.Value ? "DBNull" : p.Value.ToString();
                     string typeStr = p.BigQueryDbType.HasValue ? p.BigQueryDbType.Value.ToString() : p.DbType.ToString() ?? "Unknown";
                     Debug.WriteLine($"  {p.ParameterName} ({typeStr}) = {valueStr}");
                 }
