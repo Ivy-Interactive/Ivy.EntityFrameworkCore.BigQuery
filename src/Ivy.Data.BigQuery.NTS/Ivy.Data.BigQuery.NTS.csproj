@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
 		<AssemblyName>Ivy.Data.BigQuery.NetTopologySuite</AssemblyName>
 		<RootNamespace>Ivy.Data.BigQuery.NetTopologySuite</RootNamespace>
 		<PackageId>Ivy.Data.BigQuery.NetTopologySuite</PackageId>
@@ -25,7 +22,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
-		<PackageReference Include="NetTopologySuite" Version="2.5.0" />
+		<PackageReference Include="NetTopologySuite" Version="2.6.0" />
 	</ItemGroup>
 
 	<ItemGroup>
