@@ -17,23 +17,16 @@ public class BigQueryParameterBasedSqlProcessor : RelationalParameterBasedSqlPro
             dependencies.TypeMappingSource);
     }
 
-    public override Expression Optimize(
-        Expression queryExpression,
-        IReadOnlyDictionary<string, object?> parametersValues,
-        out bool canCache)
+    /// <inheritdoc />
+    public override Expression Process(Expression queryExpression, ParametersCacheDecorator parametersDecorator)
     {
         // Transform correlated JOINs - handles CrossJoinExpression with correlated inner SELECTs
         queryExpression = _correlatedJoinPostprocessor.Visit(queryExpression);
 
-        return base.Optimize(queryExpression, parametersValues, out canCache);
+        return base.Process(queryExpression, parametersDecorator);
     }
 
-    protected override Expression ProcessSqlNullability(
-        Expression selectExpression,
-        IReadOnlyDictionary<string, object?> parametersValues,
-        out bool canCache)
-    {
-        return new BigQuerySqlNullabilityProcessor(Dependencies, Parameters)
-            .Process(selectExpression, parametersValues, out canCache);
-    }
+    /// <inheritdoc />
+    protected override Expression ProcessSqlNullability(Expression queryExpression, ParametersCacheDecorator decorator)
+        => new BigQuerySqlNullabilityProcessor(Dependencies, Parameters).Process(queryExpression, decorator);
 }
