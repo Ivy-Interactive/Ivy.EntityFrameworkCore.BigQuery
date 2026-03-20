@@ -1,11 +1,15 @@
 using Ivy.EntityFrameworkCore.BigQuery.Extensions.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
+
+#pragma warning disable EF1001 // Internal EF Core API usage
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQueryableMethodTranslatingExpressionVisitor
@@ -176,4 +180,174 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
         return base.TranslateElementAtOrDefault(source, index, returnDefault);
     }
 
+    /// <summary>
+    /// Transforms a JsonQueryExpression (representing a JSON collection) into a table-valued expression
+    /// using BigQuery's UNNEST(JSON_QUERY_ARRAY(...)) WITH OFFSET
+    /// This enables LINQ operators over JSON collections.
+    /// </summary>
+    protected override ShapedQueryExpression? TransformJsonQueryToTable(JsonQueryExpression jsonQueryExpression)
+    {
+        var lastNamedPathSegment = jsonQueryExpression.Path.LastOrDefault(ps => ps.PropertyName is not null);
+        var tableAlias = _queryCompilationContext.SqlAliasManager.GenerateTableAlias(
+            lastNamedPathSegment.PropertyName ?? jsonQueryExpression.JsonColumn.Name);
+
+        var jsonPath = BuildJsonPath(jsonQueryExpression.Path);
+
+        var jsonTypeMapping = jsonQueryExpression.JsonColumn.TypeMapping
+                              ?? _typeMappingSource.FindMapping(typeof(string));
+
+        SqlExpression jsonArrayExpression;
+        if (jsonPath == "$")
+        {
+            jsonArrayExpression = _sqlExpressionFactory.Function(
+                "JSON_QUERY_ARRAY", // JSON_QUERY_ARRAY returns ARRAY<JSON>
+                new[] { jsonQueryExpression.JsonColumn },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true },
+                typeof(object),
+                jsonTypeMapping);
+        }
+        else
+        {
+            jsonArrayExpression = _sqlExpressionFactory.Function(
+                "JSON_QUERY_ARRAY",
+                new SqlExpression[]
+                {
+                    jsonQueryExpression.JsonColumn,
+                    _sqlExpressionFactory.Constant(jsonPath)
+                },
+                nullable: true,
+                argumentsPropagateNullability: new[] { true, false },
+                typeof(object), 
+                jsonTypeMapping);
+        }
+
+        // UNNEST(JSON_QUERY_ARRAY(json_col, '$.path')) WITH OFFSET AS offset
+        var unnestExpression = new BigQueryJsonUnnestExpression(
+            jsonArrayExpression,
+            tableAlias,
+            jsonQueryExpression,
+            withOffset: true,
+            offsetAlias: "offset");
+
+        var selectExpression = CreateSelect(
+            jsonQueryExpression,
+            unnestExpression,
+            "offset",
+            typeof(long),
+            _typeMappingSource.FindMapping(typeof(long))!);
+
+        return new ShapedQueryExpression(
+            selectExpression,
+            new RelationalStructuralTypeShaperExpression(
+                jsonQueryExpression.StructuralType,
+                new ProjectionBindingExpression(
+                    selectExpression,
+                    new ProjectionMember(),
+                    typeof(ValueBuffer)),
+                nullable: false));
+    }
+
+    /// <summary>
+    /// Builds a JSON path string from the path segments.
+    /// </summary>
+    private static string BuildJsonPath(IReadOnlyList<PathSegment> pathSegments)
+    {
+        if (pathSegments.Count == 0)
+        {
+            return "$";
+        }
+
+        var path = "$";
+        foreach (var segment in pathSegments)
+        {
+            if (segment.PropertyName != null)
+            {
+                path += $".{segment.PropertyName}";
+            }
+            else if (segment.ArrayIndex != null)
+            {
+                path += $"[{segment.ArrayIndex}]";
+            }
+        }
+        return path;
+    }
+
+    /// <summary>
+    /// Override CreateSelect to handle BigQuery JSON UNNEST specially.
+    /// For BigQueryJsonUnnestExpression, we use BigQueryJsonElementAccessExpression for property access
+    /// instead of regular ColumnExpression, because BigQuery UNNEST produces JSON elements, not columns.
+    /// </summary>
+
+    protected override SelectExpression CreateSelect(
+        JsonQueryExpression jsonQueryExpression,
+        TableExpressionBase tableExpressionBase,
+        string identifierColumnName,
+        Type identifierColumnType,
+        RelationalTypeMapping identifierColumnTypeMapping)
+    {
+        if (tableExpressionBase is not BigQueryJsonUnnestExpression jsonUnnest)
+        {
+            return base.CreateSelect(jsonQueryExpression, tableExpressionBase, identifierColumnName, identifierColumnType, identifierColumnTypeMapping);
+        }
+
+        var structuralType = jsonQueryExpression.StructuralType;
+        var tableAlias = tableExpressionBase.Alias!;
+
+        var jsonElementColumn = new ColumnExpression(
+            tableAlias,
+            tableAlias,
+            typeof(string),
+            _typeMappingSource.FindMapping(typeof(string)),
+            nullable: true);
+
+        var propertyExpressions = new Dictionary<IProperty, ColumnExpression>();
+
+        foreach (var property in structuralType.GetPropertiesInHierarchy())
+        {
+            // For properties that map to parent keys, use the existing key columns
+            if (jsonQueryExpression.KeyPropertyMap?.TryGetValue(property, out var ownerKeyColumn) == true)
+            {
+                propertyExpressions[property] = ownerKeyColumn;
+                continue;
+            }
+
+            // Properties without JSON names (shadow keys for collection index)
+            if (property.GetJsonPropertyName() is not { } jsonPropertyName)
+            {
+                continue;
+            }
+
+            var typeMapping = property.GetRelationalTypeMapping();
+
+            var unwrappedType = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+            propertyExpressions[property] = new ColumnExpression(
+                jsonPropertyName,
+                tableAlias,
+                unwrappedType,
+                typeMapping,
+                property.IsNullable || jsonQueryExpression.IsNullable);
+        }
+
+        var table = structuralType.GetViewOrTableMappings().SingleOrDefault()?.Table
+                    ?? structuralType.GetDefaultMappings().Single().Table;
+        var tableMap = new Dictionary<ITableBase, string> { [table] = tableAlias };
+
+        var projection = new StructuralTypeProjectionExpression(structuralType, propertyExpressions, tableMap);
+
+        var identifierUnwrappedType = Nullable.GetUnderlyingType(identifierColumnType) ?? identifierColumnType;
+        var identifierIsNullable = Nullable.GetUnderlyingType(identifierColumnType) != null || !identifierColumnType.IsValueType;
+        var identifierColumn = new ColumnExpression(
+            identifierColumnName,
+            tableAlias,
+            identifierUnwrappedType,
+            identifierColumnTypeMapping,
+            identifierIsNullable);
+
+        return new SelectExpression(
+            [tableExpressionBase],
+            projection,
+            [(identifierColumn, identifierColumnTypeMapping.Comparer)],
+            _queryCompilationContext.SqlAliasManager);
+    }
 }

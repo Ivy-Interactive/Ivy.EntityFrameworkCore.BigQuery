@@ -13,6 +13,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
         private readonly IRelationalTypeMappingSource _typeMappingSource;
 
+        // Columns from JSON UNNEST tables need JSON_VALUE extraction
+        private readonly HashSet<string> _jsonUnnestAliases = new();
+
         public BigQueryQuerySqlGenerator(
         QuerySqlGeneratorDependencies dependencies,
         IRelationalTypeMappingSource typeMappingSource)
@@ -41,7 +44,51 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 return columnExpression;
             }
 
+            // 3. Column from JSON UNNEST table: generate JSON_VALUE extraction
+            if (_jsonUnnestAliases.Contains(columnExpression.TableAlias))
+            {                
+                var isScalar = IsScalarType(columnExpression.Type);
+
+                var castType = isScalar ? GetBigQueryCastType(columnExpression.Type) : null;
+
+                if (castType != null)
+                {
+                    Sql.Append("CAST(");
+                }
+
+                Sql.Append(isScalar ? "JSON_VALUE" : "JSON_QUERY");
+                Sql.Append("(");
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.TableAlias));
+                Sql.Append(", '$.");
+                Sql.Append(columnExpression.Name);
+                Sql.Append("')");
+
+                if (castType != null)
+                {
+                    Sql.Append(" AS ");
+                    Sql.Append(castType);
+                    Sql.Append(")");
+                }
+
+                return columnExpression;
+            }
+
             return base.VisitColumn(columnExpression);
+        }
+
+        private static bool IsScalarType(Type type)
+        {
+            var unwrapped = Nullable.GetUnderlyingType(type) ?? type;
+            return unwrapped.IsPrimitive
+                   || unwrapped == typeof(string)
+                   || unwrapped == typeof(decimal)
+                   || unwrapped == typeof(DateTime)
+                   || unwrapped == typeof(DateTimeOffset)
+                   || unwrapped == typeof(DateOnly)
+                   || unwrapped == typeof(TimeOnly)
+                   || unwrapped == typeof(TimeSpan)
+                   || unwrapped == typeof(Guid)
+                   || unwrapped.IsEnum;
         }
 
         protected override Expression VisitSqlBinary(SqlBinaryExpression binary)
@@ -177,6 +224,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             return extensionExpression switch
             {
                 BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
+                BigQueryJsonUnnestExpression jsonUnnestExpression => VisitBigQueryJsonUnnest(jsonUnnestExpression),
+                BigQueryJsonElementAccessExpression jsonElementAccess => VisitBigQueryJsonElementAccess(jsonElementAccess),
                 BigQueryArrayIndexExpression arrayIndexExpression => VisitBigQueryArrayIndex(arrayIndexExpression),
                 BigQueryArrayLiteralExpression arrayLiteralExpression => VisitBigQueryArrayLiteral(arrayLiteralExpression),
                 BigQueryInUnnestExpression inUnnestExpression => VisitBigQueryInUnnest(inUnnestExpression),
@@ -259,6 +308,72 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
 
             return unnestExpression;
+        }
+
+        /// <summary>
+        /// Generates SQL for JSON array UNNEST expressions.
+        /// This handles UNNEST(JSON_QUERY_ARRAY(...)) for expanding JSON arrays into rows.
+        /// </summary>
+        protected virtual Expression VisitBigQueryJsonUnnest(BigQueryJsonUnnestExpression jsonUnnestExpression)
+        {
+            if (!string.IsNullOrEmpty(jsonUnnestExpression.Alias))
+            {
+                _jsonUnnestAliases.Add(jsonUnnestExpression.Alias);
+            }
+
+            Sql.Append("UNNEST(");
+            Visit(jsonUnnestExpression.JsonArrayExpression);
+            Sql.Append(")");
+
+            if (!string.IsNullOrEmpty(jsonUnnestExpression.Alias))
+            {
+                Sql.Append(AliasSeparator);
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(jsonUnnestExpression.Alias));
+            }
+
+            if (jsonUnnestExpression.WithOffset)
+            {
+                Sql.Append(" WITH OFFSET");
+                if (!string.IsNullOrEmpty(jsonUnnestExpression.OffsetAlias))
+                {
+                    Sql.Append(AliasSeparator);
+                    Sql.Append(_sqlGenerationHelper.DelimitIdentifier(jsonUnnestExpression.OffsetAlias));
+                }
+            }
+
+            return jsonUnnestExpression;
+        }
+
+        /// <summary>
+        /// Generates SQL for JSON element property access.
+        /// This outputs JSON_VALUE(element, '$.property') or JSON_QUERY(element, '$.property').
+        /// </summary>
+        protected virtual Expression VisitBigQueryJsonElementAccess(BigQueryJsonElementAccessExpression expression)
+        {
+            var functionName = expression.IsScalar ? "JSON_VALUE" : "JSON_QUERY";
+
+            var castType = expression.IsScalar ? GetBigQueryCastType(expression.Type) : null;
+
+            if (castType != null)
+            {
+                Sql.Append("CAST(");
+            }
+
+            Sql.Append(functionName);
+            Sql.Append("(");
+            Visit(expression.JsonElement);
+            Sql.Append(", '$.");
+            Sql.Append(expression.PropertyName);
+            Sql.Append("')");
+
+            if (castType != null)
+            {
+                Sql.Append(" AS ");
+                Sql.Append(castType);
+                Sql.Append(")");
+            }
+
+            return expression;
         }
 
         protected virtual Expression VisitBigQueryArrayIndex(BigQueryArrayIndexExpression arrayIndexExpression)
