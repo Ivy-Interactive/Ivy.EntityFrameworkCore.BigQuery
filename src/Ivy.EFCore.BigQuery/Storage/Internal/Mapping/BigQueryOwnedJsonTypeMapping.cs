@@ -5,10 +5,13 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
+#pragma warning disable EF1001
+
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {
     /// <summary>
-    /// Type mapping for JSON columns in BigQuery
+    /// Type mapping for JSON columns in BigQuery (structural types: owned entities, complex types).
+    /// Extends JsonTypeMapping for EF Core's owned JSON support (ToJson()).
     /// </summary>
     public class BigQueryOwnedJsonTypeMapping : JsonTypeMapping
     {
@@ -76,8 +79,6 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             parameter.Direction = direction;
             parameter.ParameterName = name;
 
-            // EF Core's owned JSON infrastructure passes serialized JSON strings
-            // Handle strings directly without trying to convert to JsonElement
             if (value is string stringValue)
             {
                 parameter.Value = stringValue;

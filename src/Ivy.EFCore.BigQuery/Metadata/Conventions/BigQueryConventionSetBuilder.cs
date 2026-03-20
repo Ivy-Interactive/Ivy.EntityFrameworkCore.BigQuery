@@ -32,6 +32,7 @@ public class BigQueryConventionSetBuilder : RelationalConventionSetBuilder
         conventionSet.PropertyAddedConventions.Add(structPropertyConvention);
         conventionSet.ComplexPropertyAddedConventions.Add(structPropertyConvention);
 
+        conventionSet.ModelFinalizingConventions.Add(new BigQueryJsonColumnTypeConvention());
         return conventionSet;
     }
 }
