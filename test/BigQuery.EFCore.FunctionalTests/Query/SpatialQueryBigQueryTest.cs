@@ -158,9 +158,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (0.25 0.25)' (DbType = Object)
+@point='POINT (0.25 0.25)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_CONTAINS(`p`.`Polygon`, @__point_0) AS `Contains`
+SELECT `p`.`Id`, ST_CONTAINS(`p`.`Polygon`, @point) AS `Contains`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -207,9 +207,9 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((-1 -1, 2 -1, 2 2, -1 2, -1 -1))' (DbType = Object)
+@polygon='POLYGON ((-1 -1, 2 -1, 2 2, -1 2, -1 -1))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_COVEREDBY(`p`.`Point`, @__polygon_0) AS `CoveredBy`
+SELECT `p`.`Id`, ST_COVEREDBY(`p`.`Point`, @polygon) AS `CoveredBy`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -220,14 +220,15 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (0.25 0.25)' (DbType = Object)
+@point='POINT (0.25 0.25)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_COVERS(`p`.`Polygon`, @__point_0) AS `Covers`
+SELECT `p`.`Id`, ST_COVERS(`p`.`Polygon`, @point) AS `Covers`
 FROM `PolygonEntity` AS `p`
 """);
     }
 
-    [ConditionalFact(Skip = "No BigQuery translation for ST_CROSSES")]
+    [ConditionalTheory(Skip = "No BigQuery translation for ST_CROSSES")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Crosses(bool async)
         => base.Crosses(async);
 
@@ -237,9 +238,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
+@polygon='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DIFFERENCE(`p`.`Polygon`, @__polygon_0) AS `Difference`
+SELECT `p`.`Id`, ST_DIFFERENCE(`p`.`Polygon`, @polygon) AS `Difference`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -261,9 +262,9 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (1 1)' (DbType = Object)
+@point='POINT (1 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DISJOINT(`p`.`Polygon`, @__point_0) AS `Disjoint`
+SELECT `p`.`Id`, ST_DISJOINT(`p`.`Polygon`, @point) AS `Disjoint`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -274,11 +275,11 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (1 1)' (DbType = Object)
+@point='POINT (1 1)' (DbType = Object)
 
 SELECT `p`.`Id`, CASE
     WHEN `p`.`Polygon` IS NULL THEN NULL
-    ELSE ST_DISJOINT(`p`.`Polygon`, @__point_0)
+    ELSE ST_DISJOINT(`p`.`Polygon`, @point)
 END AS `Disjoint`
 FROM `PolygonEntity` AS `p`
 """);
@@ -290,9 +291,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (0 1)' (DbType = Object)
+@point='POINT (0 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DISTANCE(`p`.`Point`, @__point_0) AS `Distance`
+SELECT `p`.`Id`, ST_DISTANCE(`p`.`Point`, @point) AS `Distance`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -303,9 +304,9 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (0 1)' (DbType = Object)
+@point='POINT (0 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DISTANCE(`p`.`Point`, @__point_0) AS `Distance`
+SELECT `p`.`Id`, ST_DISTANCE(`p`.`Point`, @point) AS `Distance`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -316,9 +317,9 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__point_0='POINT (0 1)' (DbType = Object)
+@point='POINT (0 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DISTANCE(`p`.`Geometry`, @__point_0) AS `Distance`
+SELECT `p`.`Id`, ST_DISTANCE(`p`.`Geometry`, @point) AS `Distance`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -367,9 +368,9 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__point_0='POINT (0 0)' (DbType = Object)
+@point='POINT (0 0)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_EQUALS(`p`.`Point`, @__point_0) AS `EqualsTopologically`
+SELECT `p`.`Id`, ST_EQUALS(`p`.`Point`, @point) AS `EqualsTopologically`
 FROM `PointEntity` AS `p`
 """);
     }
@@ -410,7 +411,8 @@ FROM `MultiLineStringEntity` AS `m`
     public override Task GetGeometryN_with_null_argument(bool async)
         => base.GetGeometryN_with_null_argument(async);
 
-    [ConditionalFact(Skip = "No BigQuery translation for interior ring access")]
+    [ConditionalTheory(Skip = "No BigQuery translation for interior ring access")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task GetInteriorRingN(bool async)
         => base.GetInteriorRingN(async);
 
@@ -434,9 +436,9 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
+@polygon='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_INTERSECTION(`p`.`Polygon`, @__polygon_0) AS `Intersection`
+SELECT `p`.`Id`, ST_INTERSECTION(`p`.`Polygon`, @polygon) AS `Intersection`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -447,9 +449,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__lineString_0='LINESTRING (0.5 -0.5, 0.5 0.5)' (DbType = Object)
+@lineString='LINESTRING (0.5 -0.5, 0.5 0.5)' (DbType = Object)
 
-SELECT `l`.`Id`, ST_INTERSECTS(`l`.`LineString`, @__lineString_0) AS `Intersects`
+SELECT `l`.`Id`, ST_INTERSECTS(`l`.`LineString`, @lineString) AS `Intersects`
 FROM `LineStringEntity` AS `l`
 """);
     }
@@ -502,14 +504,15 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__point_0='POINT (0 1)' (DbType = Object)
+@point='POINT (0 1)' (DbType = Object)
 
-SELECT `p`.`Id`, ST_DWITHIN(`p`.`Point`, @__point_0, 1) AS `IsWithinDistance`
+SELECT `p`.`Id`, ST_DWITHIN(`p`.`Point`, @point, 1) AS `IsWithinDistance`
 FROM `PointEntity` AS `p`
 """);
     }
 
-    [ConditionalFact(Skip = "Item/indexer - different syntax needed")]
+    [ConditionalTheory(Skip = "Item/indexer - different syntax needed")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Item(bool async)
         => base.Item(async);
 
@@ -527,7 +530,8 @@ FROM `LineStringEntity` AS `l`
     public override Task M(bool async)
         => base.M(async);
 
-    [ConditionalFact(Skip = "No BigQuery translation for ST_NORMALIZE")]
+    [ConditionalTheory(Skip = "No BigQuery translation for ST_NORMALIZE")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Normalized(bool async)
         => base.Normalized(async);
 
@@ -574,9 +578,9 @@ FROM `LineStringEntity` AS `l`
         // BigQuery doesn't have ST_OVERLAPS, implemented as ST_INTERSECTS && !ST_TOUCHES
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
+@polygon='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_INTERSECTS(`p`.`Polygon`, @__polygon_0) AND NOT (ST_TOUCHES(`p`.`Polygon`, @__polygon_0)) AS `Overlaps`
+SELECT `p`.`Id`, ST_INTERSECTS(`p`.`Polygon`, @polygon) AND NOT (ST_TOUCHES(`p`.`Polygon`, @polygon)) AS `Overlaps`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -584,18 +588,23 @@ FROM `PolygonEntity` AS `p`
     public override Task PointOnSurface(bool async)
         => base.PointOnSurface(async);
 
-    [ConditionalFact(Skip = "No BigQuery translation for ST_RELATE")]
+    [ConditionalTheory(Skip = "No BigQuery translation for ST_RELATE")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Relate(bool async)
         => base.Relate(async);
 
-    [ConditionalFact(Skip = "No BigQuery translation for ST_REVERSE")]
+    [ConditionalTheory(Skip = "No BigQuery translation for ST_REVERSE")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Reverse(bool async)
         => base.Reverse(async);
 
-    [ConditionalFact(Skip = "BigQuery geography doesn't support SRID property (always 4326)")]
+    [ConditionalTheory(Skip = "BigQuery geography doesn't support SRID property (always 4326)")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task SRID(bool async)
         => base.SRID(async);
 
+    [ConditionalTheory(Skip = "BigQuery geography doesn't support SRID property (always 4326)")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task SRID_geometry(bool async)
         => base.SRID_geometry(async);
 
@@ -616,9 +625,9 @@ FROM `LineStringEntity` AS `l`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
+@polygon='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_UNION(ST_DIFFERENCE(`p`.`Polygon`, @__polygon_0), ST_DIFFERENCE(@__polygon_0, `p`.`Polygon`)) AS `SymmetricDifference`
+SELECT `p`.`Id`, ST_UNION(ST_DIFFERENCE(`p`.`Polygon`, @polygon), ST_DIFFERENCE(@polygon, `p`.`Polygon`)) AS `SymmetricDifference`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -663,9 +672,9 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 1, 1 0, 1 1, 0 1))' (DbType = Object)
+@polygon='POLYGON ((0 1, 1 0, 1 1, 0 1))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_TOUCHES(`p`.`Polygon`, @__polygon_0) AS `Touches`
+SELECT `p`.`Id`, ST_TOUCHES(`p`.`Polygon`, @polygon) AS `Touches`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -676,9 +685,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
+@polygon='POLYGON ((0 0, 1 0, 1 1, 0 0))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_UNION(`p`.`Polygon`, @__polygon_0) AS `Union`
+SELECT `p`.`Id`, ST_UNION(`p`.`Polygon`, @polygon) AS `Union`
 FROM `PolygonEntity` AS `p`
 """);
     }
@@ -686,7 +695,8 @@ FROM `PolygonEntity` AS `p`
     public override Task Union_aggregate(bool async)
         => base.Union_aggregate(async);
 
-    [ConditionalFact(Skip = "Union without parameter (self-union) - not supported")]
+    [ConditionalTheory(Skip = "Union without parameter (self-union) - not supported")]
+    [MemberData(nameof(IsAsyncData))]
     public override Task Union_void(bool async)
         => base.Union_void(async);
 
@@ -696,9 +706,9 @@ FROM `PolygonEntity` AS `p`
 
         AssertSql(
             """
-@__polygon_0='POLYGON ((-1 -1, 2 -1, 2 2, -1 2, -1 -1))' (DbType = Object)
+@polygon='POLYGON ((-1 -1, 2 -1, 2 2, -1 2, -1 -1))' (DbType = Object)
 
-SELECT `p`.`Id`, ST_WITHIN(`p`.`Point`, @__polygon_0) AS `Within`
+SELECT `p`.`Id`, ST_WITHIN(`p`.`Point`, @polygon) AS `Within`
 FROM `PointEntity` AS `p`
 """);
     }

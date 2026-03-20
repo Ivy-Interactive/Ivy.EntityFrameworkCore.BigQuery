@@ -338,14 +338,14 @@ public class BigQueryTestStore : RelationalTestStore
     protected override string CloseDelimiter
         => "`";
 
-    public override void Dispose()
+    public override async ValueTask DisposeAsync()
     {
-        using var controlConnection = new BigQueryConnection(TestEnvironment.DefaultConnection);
-        controlConnection.Open();
-        using var dropCmd = controlConnection.CreateCommand();
+        await using var controlConnection = new BigQueryConnection(TestEnvironment.DefaultConnection);
+        await controlConnection.OpenAsync();
+        await using var dropCmd = controlConnection.CreateCommand();
         dropCmd.CommandText = $"DROP SCHEMA IF EXISTS `{_testDatasetName}` CASCADE";
-        dropCmd.ExecuteNonQuery();
+        await dropCmd.ExecuteNonQueryAsync();
 
-        base.Dispose();
+        await base.DisposeAsync();
     }
 }

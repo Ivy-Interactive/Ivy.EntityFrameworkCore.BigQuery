@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
-public class JsonTypesBigQueryTest : JsonTypesRelationalTestBase
+public class JsonTypesBigQueryTest(NonSharedFixture fixture) : JsonTypesRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;

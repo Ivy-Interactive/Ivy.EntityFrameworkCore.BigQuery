@@ -1,12 +1,11 @@
 using Ivy.EntityFrameworkCore.BigQuery.Design.Internal;
+using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Scaffolding;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 
@@ -36,8 +35,7 @@ public class BigQueryDatabaseCleaner : RelationalDatabaseCleaner
             facade.EnsureCreated();
             return;
         }
-
-        //BQdoesn't support TRUNCATE
+        
         var databaseModelFactory = CreateDatabaseModelFactory(loggerFactory);
         var databaseModel = databaseModelFactory.Create(
             connection.DbConnection,
@@ -53,7 +51,7 @@ public class BigQueryDatabaseCleaner : RelationalDatabaseCleaner
                     : $"`{table.Name}`";
 
                 using var command = connection.DbConnection.CreateCommand();
-                command.CommandText = $"DELETE FROM {tableName} WHERE true";
+                command.CommandText = $"DROP TABLE IF EXISTS {tableName}";
                 command.ExecuteNonQuery();
             }
         }
