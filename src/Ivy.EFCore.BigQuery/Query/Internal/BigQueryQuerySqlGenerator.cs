@@ -538,13 +538,13 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 return jsonScalarExpression;
             }
 
-            // JSON_EXTRACT for objects/arrays, JSON_EXTRACT_SCALAR for primitives
+            // JSON_QUERY for objects/arrays, JSON_VALUE for primitives
             var isScalar = jsonScalarExpression.TypeMapping is not Storage.Internal.Mapping.BigQueryOwnedJsonTypeMapping
                 && jsonScalarExpression.TypeMapping?.ElementTypeMapping is null;
 
             if (isScalar)
             {
-                // JSON_EXTRACT_SCALAR always returns STRING in BQ
+                // JSON_VALUE always returns STRING in BQ
                 // We need to cast to the appropriate type for non-string types
                 var castType = GetBigQueryCastType(jsonScalarExpression.Type);
                 if (castType != null)
@@ -552,7 +552,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                     Sql.Append("CAST(");
                 }
 
-                Sql.Append("JSON_EXTRACT_SCALAR(");
+                Sql.Append("JSON_VALUE(");
                 Visit(jsonScalarExpression.Json);
                 Sql.Append(", ");
                 GenerateJsonPath(path);
@@ -565,7 +565,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
             else
             {
-                Sql.Append("JSON_EXTRACT(");
+                Sql.Append("JSON_QUERY(");
                 Visit(jsonScalarExpression.Json);
                 Sql.Append(", ");
                 GenerateJsonPath(path);
