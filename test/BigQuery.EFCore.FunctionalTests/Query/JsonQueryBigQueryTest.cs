@@ -79,7 +79,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')
+SELECT JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.Name')
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -90,7 +90,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
 //        AssertSql(
 //            """
-//SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch'), `j`.`Id`
+//SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch'), `j`.`Id`
 //FROM `JsonEntitiesBasic` AS `j`
 //""");
 //    }
@@ -101,7 +101,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
 //        AssertSql(
 //            """
-//SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedCollectionBranch'), `j`.`Id`
+//SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedCollectionBranch'), `j`.`Id`
 //FROM `JsonEntitiesBasic` AS `j`
 //""");
 //    }
@@ -112,7 +112,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedReferenceLeaf'), `j`.`Id`
+SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedReferenceLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -123,7 +123,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedCollectionLeaf'), `j`.`Id`
+SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedCollectionLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -165,7 +165,7 @@ FROM `JsonEntitiesBasic` AS `j`
             """
 SELECT `j`.`Name`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE LENGTH(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
+WHERE LENGTH(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
 """);
     }
 
@@ -181,7 +181,7 @@ WHERE LENGTH(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
             """
 SELECT `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE (CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Fraction') AS BIGNUMERIC)) < BIGNUMERIC '20.5'
+WHERE (CAST(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Fraction') AS BIGNUMERIC)) < BIGNUMERIC '20.5'
 """);
     }
 
@@ -195,7 +195,7 @@ WHERE (CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranc
 
         AssertSql(
             """
-SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Enum') AS INT64) AS `Enum`
+SELECT `j`.`Id`, CAST(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Enum') AS INT64) AS `Enum`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -206,7 +206,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`json_reference_custom_naming`, '$.1CustomEnum') AS INT64) AS `Enum`
+SELECT `j`.`Id`, CAST(JSON_VALUE(`j`.`json_reference_custom_naming`, '$.1CustomEnum') AS INT64) AS `Enum`
 FROM `JsonEntitiesCustomNaming` AS `j`
 """);
     }

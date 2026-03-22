@@ -373,4 +373,5 @@ doc/
 
 # Test dashboard and npm files
 dashboard.html
+report.html
 package-lock.json

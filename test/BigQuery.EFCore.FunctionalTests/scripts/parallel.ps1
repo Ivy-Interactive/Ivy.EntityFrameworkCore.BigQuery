@@ -116,14 +116,17 @@ if ($ListHistory) {
             $runIdFromTimestamp = ""
 
             # Extract run ID from timestamp - handle both DateTime and string
+            $formattedDate = ""
             if ($timestamp) {
                 if ($timestamp -is [DateTime]) {
                     $runIdFromTimestamp = $timestamp.ToString("yyyyMMdd_HHmmss")
+                    $formattedDate = $timestamp.ToString("yyyy/MM/dd HH:mm")
                 } else {
                     # String format: try to parse as DateTime
                     $dt = [DateTime]::MinValue
                     if ([DateTime]::TryParse($timestamp, [ref]$dt)) {
                         $runIdFromTimestamp = $dt.ToString("yyyyMMdd_HHmmss")
+                        $formattedDate = $dt.ToString("yyyy/MM/dd HH:mm")
                     } else {
                         $runIdFromTimestamp = $timestamp.ToString().Substring(0, [Math]::Min(19, $timestamp.ToString().Length))
                     }
@@ -142,6 +145,9 @@ if ($ListHistory) {
             Write-Host "  [$index] " -NoNewline -ForegroundColor White
             Write-Host "$runIdFromTimestamp" -NoNewline -ForegroundColor Yellow
             Write-Host " (git: $gitHash)" -NoNewline -ForegroundColor Gray
+            if ($formattedDate) {
+                Write-Host " $formattedDate" -NoNewline -ForegroundColor DarkGray
+            }
             Write-Host ""
             Write-Host "      Passed: $passedStr  Failed: $failedStr  Skipped: $skippedStr  Total: $totalStr" -ForegroundColor $statusColor
             Write-Host ""
@@ -150,19 +156,6 @@ if ($ListHistory) {
         Write-Host "To compare with a specific run, use:" -ForegroundColor Cyan
         Write-Host "  .\parallel.ps1 -CompareRunId `"<run_id>`"" -ForegroundColor Gray
         Write-Host ""
-
-        # List report files
-        $reportsPath = Join-Path $testResultsDir "reports"
-        if (Test-Path $reportsPath) {
-            $reports = Get-ChildItem -Path $reportsPath -Filter "tests_*.html" | Sort-Object Name
-            if ($reports.Count -gt 0) {
-                Write-Host "Report files:" -ForegroundColor Cyan
-                foreach ($d in $reports) {
-                    Write-Host "  $($d.Name)" -ForegroundColor Gray
-                }
-                Write-Host ""
-            }
-        }
     } catch {
         Write-Host "Error reading history: $_" -ForegroundColor Red
         exit 1
