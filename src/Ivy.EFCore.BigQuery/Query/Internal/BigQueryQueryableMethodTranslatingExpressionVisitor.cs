@@ -158,19 +158,67 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
     /// <summary>
     /// Translates ElementAt/ElementAtOrDefault on array properties to array indexing syntax array[OFFSET(index)].
     /// This handles arr[i] and arr.ElementAt(i) operations.
+    /// For JSON arrays, it appends the index to the JSON path instead.
     /// </summary>
     protected override ShapedQueryExpression? TranslateElementAtOrDefault(
         ShapedQueryExpression source,
         Expression index,
         bool returnDefault)
     {
-        // Simplify x.Array[i] => x.Array[OFFSET(i)] instead of a subquery with LIMIT/OFFSET
+        // JSON primitive arrays (int[], string[], etc. in JSON): append index to JSON path
+        // These go through TranslatePrimitiveCollection and get wrapped in BigQueryUnnestExpression
         if (!returnDefault
-            && source.TryExtractArray(out var array, out var projectedColumn)
+            && source.TryExtractJsonPrimitiveArray(out var jsonScalar, out var projectedColumn)
+            && TranslateExpression(index) is { } jsonPrimitiveIndex)
+        {
+            // Append the index to the JSON path: '$.IntArray' + [0] => '$.IntArray[0]'
+            var newPath = jsonScalar.Path.Append(new PathSegment(jsonPrimitiveIndex)).ToArray();
+
+            var translation = new JsonScalarExpression(
+                jsonScalar.Json,
+                newPath,
+                projectedColumn.Type,
+                projectedColumn.TypeMapping,
+                jsonScalar.IsNullable || projectedColumn.IsNullable);
+
+            var selectExpression = new SelectExpression(translation, _queryCompilationContext.SqlAliasManager);
+
+            return source.Update(
+                selectExpression,
+                source.ShaperExpression);
+        }
+
+        // BQ native arrays: x.Array[i] => x.Array[OFFSET(i)]
+        if (!returnDefault
+            && source.TryExtractArray(out var array, out projectedColumn)
             && TranslateExpression(index) is { } translatedIndex)
         {
             var arrayIndexExpression = _sqlExpressionFactory.ArrayIndex(array, translatedIndex);
             var selectExpression = new SelectExpression(arrayIndexExpression, _queryCompilationContext.SqlAliasManager);
+
+            return source.Update(
+                selectExpression,
+                source.ShaperExpression);
+        }
+
+        // Handle JSON entity arrays (owned entities in JSON): append index to JSON path
+        // These use BigQueryJsonUnnestExpression
+        if (!returnDefault
+            && source.TryExtractJsonArray(out var jsonArray, out var projectedElement, out var isElementNullable)
+            && TranslateExpression(index) is { } jsonTranslatedIndex)
+        {
+            var (json, path) = jsonArray is JsonScalarExpression innerJsonScalarExpression
+                ? (innerJsonScalarExpression.Json, innerJsonScalarExpression.Path.Append(new PathSegment(jsonTranslatedIndex)).ToArray())
+                : (jsonArray, new[] { new PathSegment(jsonTranslatedIndex) });
+
+            var translation = new JsonScalarExpression(
+                json,
+                path,
+                projectedElement.Type,
+                projectedElement.TypeMapping,
+                isElementNullable);
+
+            var selectExpression = new SelectExpression(translation, _queryCompilationContext.SqlAliasManager);
 
             return source.Update(
                 selectExpression,
