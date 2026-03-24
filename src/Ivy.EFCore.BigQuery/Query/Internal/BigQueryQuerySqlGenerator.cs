@@ -1076,5 +1076,53 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
             return base.VisitScalarSubquery(scalarSubqueryExpression);
         }
+
+        /// <summary>
+        /// Replaces
+        /// SELECT @p1 AS `Value` UNION ALL VALUES (@p2), (@p3)
+        /// With
+        /// SELECT @p1 AS `Value` UNION ALL SELECT @p2 UNION ALL SELECT @p3
+        /// </summary>
+        protected override void GenerateValues(ValuesExpression valuesExpression)
+        {
+            if (valuesExpression.RowValues is null || valuesExpression.RowValues.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    RelationalStrings.EmptyCollectionNotSupportedAsInlineQueryRoot);
+            }
+
+            var rowValues = valuesExpression.RowValues;
+
+            Sql.Append("SELECT ");
+
+            var firstRowValues = rowValues[0].Values;
+            for (var i = 0; i < firstRowValues.Count; i++)
+            {
+                if (i > 0)
+                {
+                    Sql.Append(", ");
+                }
+
+                Visit(firstRowValues[i]);
+                Sql.Append(AliasSeparator);
+                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(valuesExpression.ColumnNames[i]));
+            }
+
+            for (var rowIndex = 1; rowIndex < rowValues.Count; rowIndex++)
+            {
+                Sql.Append(" UNION ALL SELECT ");
+
+                var rowValue = rowValues[rowIndex].Values;
+                for (var colIndex = 0; colIndex < rowValue.Count; colIndex++)
+                {
+                    if (colIndex > 0)
+                    {
+                        Sql.Append(", ");
+                    }
+
+                    Visit(rowValue[colIndex]);
+                }
+            }
+        }
     }
 }
