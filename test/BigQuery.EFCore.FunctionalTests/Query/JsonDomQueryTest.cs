@@ -204,11 +204,11 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
 
         AssertSql(
             """
-            @__i_0='1'
+            @i='1'
 
             SELECT `j`.`Id`, `j`.`CustomerDocument`, `j`.`CustomerElement`
             FROM `JsonEntities` AS `j`
-            WHERE INT64(`j`.`CustomerElement`.Statistics.Nested.IntArray[@__i_0]) = 4
+            WHERE INT64(`j`.`CustomerElement`.Statistics.Nested.IntArray[@i]) = 4
             LIMIT 2
             """);
     }

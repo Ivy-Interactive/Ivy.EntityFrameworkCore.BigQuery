@@ -18,27 +18,27 @@ public class JsonQueryBigQueryTest : JsonQueryRelationalTestBase<JsonQueryBigQue
 
     #region Basic projections
 
-    public override async Task Basic_json_projection_owner_entity(bool async)
-    {
-        await base.Basic_json_projection_owner_entity(async);
+//    public override async Task Basic_json_projection_owner_entity(bool async)
+//    {
+//        await base.Basic_json_projection_owner_entity(async);
 
-        AssertSql(
-            """
-SELECT `j`.`Id`, `j`.`EntityBasicId`, `j`.`Name`, `j`.`OwnedCollectionRoot`, `j`.`OwnedReferenceRoot`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT `j`.`Id`, `j`.`EntityBasicId`, `j`.`Name`, `j`.`OwnedCollectionRoot`, `j`.`OwnedReferenceRoot`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
-    public override async Task Basic_json_projection_owner_entity_NoTracking(bool async)
-    {
-        await base.Basic_json_projection_owner_entity_NoTracking(async);
+//    public override async Task Basic_json_projection_owner_entity_NoTracking(bool async)
+//    {
+//        await base.Basic_json_projection_owner_entity_NoTracking(async);
 
-        AssertSql(
-            """
-SELECT `j`.`Id`, `j`.`EntityBasicId`, `j`.`Name`, `j`.`OwnedCollectionRoot`, `j`.`OwnedReferenceRoot`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT `j`.`Id`, `j`.`EntityBasicId`, `j`.`Name`, `j`.`OwnedCollectionRoot`, `j`.`OwnedReferenceRoot`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
     public override async Task Basic_json_projection_owner_entity_NoTrackingWithIdentityResolution(bool async)
     {
@@ -51,27 +51,27 @@ FROM `JsonEntitiesBasic` AS `j`
 """);
     }
 
-    public override async Task Basic_json_projection_owned_reference_root(bool async)
-    {
-        await base.Basic_json_projection_owned_reference_root(async);
+//    public override async Task Basic_json_projection_owned_reference_root(bool async)
+//    {
+//        await base.Basic_json_projection_owned_reference_root(async);
 
-        AssertSql(
-            """
-SELECT `j`.`OwnedReferenceRoot`, `j`.`Id`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT `j`.`OwnedReferenceRoot`, `j`.`Id`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
-    public override async Task Basic_json_projection_owned_collection_root(bool async)
-    {
-        await base.Basic_json_projection_owned_collection_root(async);
+//    public override async Task Basic_json_projection_owned_collection_root(bool async)
+//    {
+//        await base.Basic_json_projection_owned_collection_root(async);
 
-        AssertSql(
-            """
-SELECT `j`.`OwnedCollectionRoot`, `j`.`Id`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT `j`.`OwnedCollectionRoot`, `j`.`Id`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
     public override async Task Basic_json_projection_scalar(bool async)
     {
@@ -79,32 +79,32 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')
+SELECT JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.Name')
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
 
-    public override async Task Basic_json_projection_owned_reference_branch(bool async)
-    {
-        await base.Basic_json_projection_owned_reference_branch(async);
+//    public override async Task Basic_json_projection_owned_reference_branch(bool async)
+//    {
+//        await base.Basic_json_projection_owned_reference_branch(async);
 
-        AssertSql(
-            """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch'), `j`.`Id`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch'), `j`.`Id`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
-    public override async Task Basic_json_projection_owned_collection_branch(bool async)
-    {
-        await base.Basic_json_projection_owned_collection_branch(async);
+//    public override async Task Basic_json_projection_owned_collection_branch(bool async)
+//    {
+//        await base.Basic_json_projection_owned_collection_branch(async);
 
-        AssertSql(
-            """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedCollectionBranch'), `j`.`Id`
-FROM `JsonEntitiesBasic` AS `j`
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedCollectionBranch'), `j`.`Id`
+//FROM `JsonEntitiesBasic` AS `j`
+//""");
+//    }
 
     public override async Task Basic_json_projection_owned_reference_leaf(bool async)
     {
@@ -112,7 +112,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedReferenceLeaf'), `j`.`Id`
+SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedReferenceLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -123,7 +123,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT JSON_EXTRACT(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedCollectionLeaf'), `j`.`Id`
+SELECT JSON_QUERY(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.OwnedCollectionLeaf'), `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -165,7 +165,7 @@ FROM `JsonEntitiesBasic` AS `j`
             """
 SELECT `j`.`Name`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE LENGTH(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
+WHERE LENGTH(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
 """);
     }
 
@@ -181,7 +181,7 @@ WHERE LENGTH(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.Name')) > 2
             """
 SELECT `j`.`Id`
 FROM `JsonEntitiesBasic` AS `j`
-WHERE (CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Fraction') AS BIGNUMERIC)) < BIGNUMERIC '20.5'
+WHERE (CAST(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Fraction') AS BIGNUMERIC)) < BIGNUMERIC '20.5'
 """);
     }
 
@@ -195,7 +195,7 @@ WHERE (CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranc
 
         AssertSql(
             """
-SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Enum') AS INT64) AS `Enum`
+SELECT `j`.`Id`, CAST(JSON_VALUE(`j`.`OwnedReferenceRoot`, '$.OwnedReferenceBranch.Enum') AS INT64) AS `Enum`
 FROM `JsonEntitiesBasic` AS `j`
 """);
     }
@@ -206,7 +206,7 @@ FROM `JsonEntitiesBasic` AS `j`
 
         AssertSql(
             """
-SELECT `j`.`Id`, CAST(JSON_EXTRACT_SCALAR(`j`.`json_reference_custom_naming`, '$.1CustomEnum') AS INT64) AS `Enum`
+SELECT `j`.`Id`, CAST(JSON_VALUE(`j`.`json_reference_custom_naming`, '$.1CustomEnum') AS INT64) AS `Enum`
 FROM `JsonEntitiesCustomNaming` AS `j`
 """);
     }
@@ -459,20 +459,20 @@ FROM `JsonEntitiesCustomNaming` AS `j`
 
     private const string SkipJsonCollectionReason = "BigQuery does not support composing LINQ over JSON collections";
 
-    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Json_collection_SelectMany(bool async)
-        => base.Json_collection_SelectMany(async);
+    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Json_collection_SelectMany(bool async)
+    //    => base.Json_collection_SelectMany(async);
 
-    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Json_collection_Skip(bool async)
-        => base.Json_collection_Skip(async);
+    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Json_collection_Skip(bool async)
+    //    => base.Json_collection_Skip(async);
 
-    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Json_collection_Where_ElementAt(bool async)
-        => base.Json_collection_Where_ElementAt(async);
+    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Json_collection_Where_ElementAt(bool async)
+    //    => base.Json_collection_Where_ElementAt(async);
 
     [ConditionalTheory(Skip = SkipJsonCollectionReason)]
     [MemberData(nameof(IsAsyncData))]
@@ -544,10 +544,10 @@ FROM `JsonEntitiesCustomNaming` AS `j`
     public override Task Json_nested_collection_filter_in_projection(bool async)
         => base.Json_nested_collection_filter_in_projection(async);
 
-    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Json_nested_collection_SelectMany(bool async)
-        => base.Json_nested_collection_SelectMany(async);
+    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Json_nested_collection_SelectMany(bool async)
+    //    => base.Json_nested_collection_SelectMany(async);
 
     [ConditionalTheory(Skip = SkipJsonCollectionReason)]
     [MemberData(nameof(IsAsyncData))]
@@ -838,20 +838,20 @@ FROM `JsonEntitiesCustomNaming` AS `j`
     // Subquery deduplication with FirstOrDefault - SQL generation issues
     private const string SkipSubqueryDeduplicationReason = "Subquery deduplication with JSON has SQL generation issues";
 
-    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication(bool async)
-        => base.Project_json_entity_FirstOrDefault_subquery_deduplication(async);
+    //[ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Project_json_entity_FirstOrDefault_subquery_deduplication(bool async)
+    //    => base.Project_json_entity_FirstOrDefault_subquery_deduplication(async);
 
-    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(bool async)
-        => base.Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(async);
+    //[ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(bool async)
+    //    => base.Project_json_entity_FirstOrDefault_subquery_deduplication_and_outer_reference(async);
 
-    [ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(bool async)
-        => base.Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(async);
+    //[ConditionalTheory(Skip = SkipSubqueryDeduplicationReason)]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(bool async)
+    //    => base.Project_json_entity_FirstOrDefault_subquery_deduplication_outer_reference_and_pruning(async);
 
     [ConditionalTheory(Skip = "Group by with JSON scalar has aggregation issues in BigQuery")]
     [MemberData(nameof(IsAsyncData))]

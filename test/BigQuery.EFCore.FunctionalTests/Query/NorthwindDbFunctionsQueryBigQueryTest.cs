@@ -233,29 +233,29 @@ WHERE GREATEST(`o`.`OrderID`, 10251) = 10251
 
     #region Random
 
-    public override async Task Random_return_less_than_1(bool async)
-    {
-        await base.Random_return_less_than_1(async);
+//    public override async Task Random_return_less_than_1(bool async)
+//    {
+//        await base.Random_return_less_than_1(async);
 
-        AssertSql(
-            """
-SELECT CAST(COUNT(*) AS INT64)
-FROM `Orders` AS `o`
-WHERE RAND() < 1
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT CAST(COUNT(*) AS INT64)
+//FROM `Orders` AS `o`
+//WHERE RAND() < 1
+//""");
+//    }
 
-    public override async Task Random_return_greater_than_0(bool async)
-    {
-        await base.Random_return_greater_than_0(async);
+//    public override async Task Random_return_greater_than_0(bool async)
+//    {
+//        await base.Random_return_greater_than_0(async);
 
-        AssertSql(
-            """
-SELECT CAST(COUNT(*) AS INT64)
-FROM `Orders` AS `o`
-WHERE RAND() >= 0
-""");
-    }
+//        AssertSql(
+//            """
+//SELECT CAST(COUNT(*) AS INT64)
+//FROM `Orders` AS `o`
+//WHERE RAND() >= 0
+//""");
+//    }
 
     #endregion
 

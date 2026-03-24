@@ -190,11 +190,23 @@ public class BigQuerySqlExpressionFactory : SqlExpressionFactory
     /// <summary>
     /// Array element access expression: array[OFFSET(index)]
     /// </summary>
+    /// <remarks>
+    /// This should NOT be used for JSON arrays. For JSON arrays, the array index should be
+    /// incorporated into the JSON path (e.g., '$.IntArray[0]') via JsonScalarExpression.
+    /// </remarks>
     public virtual BigQueryArrayIndexExpression ArrayIndex(
         SqlExpression array,
         SqlExpression index,
         RelationalTypeMapping? elementTypeMapping = null)
     {
+        // Don't use [OFFSET()] for JSON arrays - the index should be in the JSON path
+        if (array is JsonScalarExpression)
+        {
+            throw new InvalidOperationException(
+                "Array indexing on JSON arrays should use JSON path syntax (e.g., '$.IntArray[0]'), " +
+                "not BigQuery's [OFFSET()] syntax. Ensure the array index is part of the JsonScalarExpression path.");
+        }
+
         // Validate array is actually an array type
         if (array.TypeMapping is not Storage.Internal.Mapping.BigQueryArrayTypeMapping arrayMapping)
         {

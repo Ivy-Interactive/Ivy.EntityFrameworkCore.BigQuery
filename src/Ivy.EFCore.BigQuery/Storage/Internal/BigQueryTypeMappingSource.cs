@@ -5,6 +5,8 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 
+#pragma warning disable EF1001
+
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
 {
     public class BigQueryTypeMappingSource : RelationalTypeMappingSource
@@ -564,6 +566,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal
         {
             var clrType = mappingInfo.ClrType;
             var storeTypeName = mappingInfo.StoreTypeName;
+
+            // EFCore 10 JSON column type mapping
+            if (clrType == typeof(JsonTypePlaceholder))
+            {
+                if (storeTypeName == null || storeTypeName.Equals("JSON", StringComparison.OrdinalIgnoreCase))
+                {
+                    return _jsonElementOwned;
+                }
+                return null;
+            }
 
             if (storeTypeName != null)
             {

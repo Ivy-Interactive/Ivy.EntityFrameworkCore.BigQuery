@@ -166,12 +166,113 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
                             var nestedType = property.PropertyType;
                             fieldValue = ConvertNestedStructFromDict(nestedDict, nestedType, nestedStructMapping.Fields);
                         }
+                        else
+                        {
+                            // Convert the field value to the property type if they don't match
+                            fieldValue = ConvertFieldValue(fieldValue, property.PropertyType);
+                        }
 
                         property.SetValue(instance, fieldValue);
                     }
                 }
 
                 return instance;
+            }
+
+            /// <summary>
+            /// Converts a field value from the BigQuery SDK type to the target CLR property type.
+            /// BigQuery SDK returns TIMESTAMP as DateTime inside STRUCTs, but CLR properties may be DateTimeOffset.
+            /// </summary>
+            private static object? ConvertFieldValue(object? value, Type targetType)
+            {
+                if (value == null)
+                    return null;
+
+                var valueType = value.GetType();
+                var underlyingTargetType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+                if (valueType == underlyingTargetType || underlyingTargetType.IsAssignableFrom(valueType))
+                    return value;
+
+                if (value is DateTime dateTime && underlyingTargetType == typeof(DateTimeOffset))
+                {
+                    return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc));
+                }
+
+                if (value is DateTimeOffset dateTimeOffset && underlyingTargetType == typeof(DateTime))
+                {
+                    return dateTimeOffset.UtcDateTime;
+                }
+
+                // INT64 and aliases
+                if (value is long longValue)
+                {
+                    if (underlyingTargetType == typeof(int))
+                        return Convert.ToInt32(longValue);
+                    if (underlyingTargetType == typeof(short))
+                        return Convert.ToInt16(longValue);
+                    if (underlyingTargetType == typeof(byte))
+                        return Convert.ToByte(longValue);
+                    if (underlyingTargetType == typeof(sbyte))
+                        return Convert.ToSByte(longValue);
+                    if (underlyingTargetType == typeof(uint))
+                        return Convert.ToUInt32(longValue);
+                    if (underlyingTargetType == typeof(ushort))
+                        return Convert.ToUInt16(longValue);
+                    if (underlyingTargetType == typeof(ulong))
+                        return Convert.ToUInt64(longValue);
+                }
+
+                if (value is double doubleValue && underlyingTargetType == typeof(float))
+                {
+                    return Convert.ToSingle(doubleValue);
+                }
+
+                if (value is BigQueryNumeric numericValue)
+                {
+                    if (underlyingTargetType == typeof(decimal))
+                        return numericValue.ToDecimal(LossOfPrecisionHandling.Truncate);
+                    if (underlyingTargetType == typeof(double))
+                        return double.Parse(numericValue.ToString(), System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                if (value is BigQueryBigNumeric bigNumericValue)
+                {
+                    if (underlyingTargetType == typeof(decimal))
+                        return bigNumericValue.ToDecimal(LossOfPrecisionHandling.Truncate);
+                    if (underlyingTargetType == typeof(double))
+                        return double.Parse(bigNumericValue.ToString(), System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                if (value is string stringValue)
+                {
+                    if (underlyingTargetType == typeof(Guid))
+                        return Guid.Parse(stringValue);
+                    if (underlyingTargetType == typeof(char) && stringValue.Length > 0)
+                        return stringValue[0];
+                }
+
+                if (value is TimeSpan timeSpan && underlyingTargetType == typeof(TimeOnly))
+                {
+                    return TimeOnly.FromTimeSpan(timeSpan);
+                }
+
+                if (value is DateTime dt)
+                {
+                    if (underlyingTargetType == typeof(DateOnly))
+                        return DateOnly.FromDateTime(dt);
+                    if (underlyingTargetType == typeof(TimeOnly))
+                        return TimeOnly.FromDateTime(dt);
+                }
+
+                try
+                {
+                    return Convert.ChangeType(value, underlyingTargetType, System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                    return value;
+                }
             }
 
             private static object? ConvertNestedStructFromDict(
@@ -208,6 +309,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
                             && fieldValue is IDictionary<string, object> nestedDict)
                         {
                             fieldValue = ConvertNestedStructFromDict(nestedDict, property.PropertyType, nestedStructMapping.Fields);
+                        }
+                        else
+                        {
+                            fieldValue = ConvertFieldValue(fieldValue, property.PropertyType);
                         }
 
                         property.SetValue(instance, fieldValue);

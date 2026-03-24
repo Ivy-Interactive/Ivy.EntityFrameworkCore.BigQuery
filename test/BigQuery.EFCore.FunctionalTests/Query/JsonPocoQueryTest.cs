@@ -240,7 +240,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
     {
         using var ctx = CreateContext();
 
-        var x = ctx.JsonEntities.Single(e => e.Customer.Name.StartsWith("J"));
+        var x = ctx.JsonEntities.Single(e => EF.Functions.Like(e.Customer.Name, "J%"));
 
         Assert.Equal("Joe", x.Customer.Name);
 
@@ -266,7 +266,7 @@ public class JsonPocoQueryTest : IClassFixture<JsonPocoQueryTest.JsonPocoQueryFi
             """
             SELECT `j`.`Id`, `j`.`Customer`
             FROM `JsonEntities` AS `j`
-            WHERE STRING(`j`.`Customer`.Name) LIKE '%Jo%'
+            WHERE STRPOS(STRING(`j`.`Customer`.Name), 'Jo') > 0
             LIMIT 2
             """);
     }

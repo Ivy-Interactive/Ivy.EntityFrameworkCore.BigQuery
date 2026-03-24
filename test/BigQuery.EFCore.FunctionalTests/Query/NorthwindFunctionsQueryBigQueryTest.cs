@@ -20,25 +20,25 @@ public class NorthwindFunctionsQueryBigQueryTest : NorthwindFunctionsQueryRelati
     // BigQuery does not support certain type conversions that work in SQL Server
     // e.g., CAST(BIGNUMERIC AS BOOL) is not supported
 
-    [ConditionalTheory(Skip = "BigQuery does not support casting BIGNUMERIC to BOOL")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Convert_ToBoolean(bool async)
-        => base.Convert_ToBoolean(async);
+    //[ConditionalTheory(Skip = "BigQuery does not support casting BIGNUMERIC to BOOL")]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Convert_ToBoolean(bool async)
+    //    => base.Convert_ToBoolean(async);
 
-    [ConditionalTheory(Skip = "BigQuery does not support casting BOOL to BIGNUMERIC")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Convert_ToDecimal(bool async)
-        => base.Convert_ToDecimal(async);
+    //[ConditionalTheory(Skip = "BigQuery does not support casting BOOL to BIGNUMERIC")]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Convert_ToDecimal(bool async)
+    //    => base.Convert_ToDecimal(async);
 
-    [ConditionalTheory(Skip = "BigQuery does not support casting BOOL to FLOAT64")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Convert_ToDouble(bool async)
-        => base.Convert_ToDouble(async);
+    //[ConditionalTheory(Skip = "BigQuery does not support casting BOOL to FLOAT64")]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Convert_ToDouble(bool async)
+    //    => base.Convert_ToDouble(async);
 
-    [ConditionalTheory(Skip = "BigQuery does not support casting INTERVAL to FLOAT64")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Datetime_subtraction_TotalDays(bool async)
-        => base.Datetime_subtraction_TotalDays(async);
+    //[ConditionalTheory(Skip = "BigQuery does not support casting INTERVAL to FLOAT64")]
+    //[MemberData(nameof(IsAsyncData))]
+    //public override Task Datetime_subtraction_TotalDays(bool async)
+    //    => base.Datetime_subtraction_TotalDays(async);
 
     #endregion
 

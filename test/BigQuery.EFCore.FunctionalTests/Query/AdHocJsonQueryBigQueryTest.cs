@@ -1,12 +1,16 @@
+#pragma warning disable EF8001 // ToJson on owned entities is obsolete
+
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
+using Xunit.Sdk;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public class AdHocJsonQueryBigQueryTest : AdHocJsonQueryRelationalTestBase
+#nullable disable
+
+public class AdHocJsonQueryBigQueryTest(NonSharedFixture fixture) : AdHocJsonQueryRelationalTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
@@ -14,91 +18,47 @@ public class AdHocJsonQueryBigQueryTest : AdHocJsonQueryRelationalTestBase
     // BigQuery JSON column type
     protected override string JsonColumnType => "JSON";
 
-    #region Skipped tests - BigQuery limitations
+    #region BadJsonProperties
 
-    // BigQuery doesn't support [OFFSET()] subscript access on JSON values.
-    // Would need to use JSON_QUERY_ARRAY + OFFSET instead.
-    [ConditionalTheory(Skip = "BigQuery doesn't support [OFFSET()] subscript access on JSON values")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Project_element_of_json_array_of_primitives(bool async)
-        => base.Project_element_of_json_array_of_primitives(async);
+    // BigQuery stores JSON properly, which doesn't allow badly-formed JSON; so the following tests are irrelevant.
 
-    [ConditionalTheory(Skip = "BigQuery doesn't support [OFFSET()] subscript access on JSON values")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Predicate_based_on_element_of_json_array_of_primitives1(bool async)
-        => base.Predicate_based_on_element_of_json_array_of_primitives1(async);
-
-    [ConditionalTheory(Skip = "BigQuery doesn't support [OFFSET()] subscript access on JSON values")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Predicate_based_on_element_of_json_array_of_primitives2(bool async)
-        => base.Predicate_based_on_element_of_json_array_of_primitives2(async);
-
-    [ConditionalTheory(Skip = "BigQuery doesn't support [OFFSET()] subscript access on JSON values")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Predicate_based_on_element_of_json_array_of_primitives3(bool async)
-        => base.Predicate_based_on_element_of_json_array_of_primitives3(async);
-
-    // BigQuery returns JSON arrays as strings, not actual CLR arrays.
-    // Would need custom type mapping/conversion for primitive arrays in JSON.
-    [ConditionalTheory(Skip = "BigQuery doesn't support reading JSON arrays as CLR arrays directly")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Project_json_array_of_primitives_on_reference(bool async)
-        => base.Project_json_array_of_primitives_on_reference(async);
-
-    // BigQuery doesn't have auto-increment/identity columns.
-    // The base test seed doesn't set the Id property.
-    [ConditionalTheory(Skip = "BigQuery doesn't have auto-increment identity columns")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Contains_on_nested_collection_with_init_only_navigation(bool async)
-        => base.Contains_on_nested_collection_with_init_only_navigation(async);
-
-    #endregion
-
-    // BigQuery requires owned entities to be stored as JSON columns, not separate tables.
-    // Override model configuration to add .ToJson() to all owned entity configurations.
-
-    protected override void OnModelCreating21006(ModelBuilder modelBuilder)
+    public override async Task Bad_json_properties_duplicated_navigations(bool noTracking)
     {
-        base.OnModelCreating21006(modelBuilder);
-
-        modelBuilder.Entity<Context21006.Entity>(
-            b =>
-            {
-                b.Property(x => x.Id).ValueGeneratedNever();
-                b.OwnsOne(
-                    x => x.OptionalReference, bb =>
-                    {
-                        bb.OwnsOne(x => x.NestedOptionalReference);
-                        bb.OwnsOne(x => x.NestedRequiredReference);
-                        bb.Navigation(x => x.NestedRequiredReference).IsRequired();
-                        bb.OwnsMany(x => x.NestedCollection);
-                    });
-                b.OwnsOne(
-                    x => x.RequiredReference, bb =>
-                    {
-                        bb.OwnsOne(x => x.NestedOptionalReference);
-                        bb.OwnsOne(x => x.NestedRequiredReference);
-                        bb.Navigation(x => x.NestedRequiredReference).IsRequired();
-                        bb.OwnsMany(x => x.NestedCollection);
-                    });
-                b.Navigation(x => x.RequiredReference).IsRequired();
-                b.OwnsMany(
-                    x => x.Collection, bb =>
-                    {
-                        bb.OwnsOne(x => x.NestedOptionalReference);
-                        bb.OwnsOne(x => x.NestedRequiredReference);
-                        bb.Navigation(x => x.NestedRequiredReference).IsRequired();
-                        bb.OwnsMany(x => x.NestedCollection);
-                    });
-            });
+        if (noTracking)
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(() => base.Bad_json_properties_duplicated_navigations(noTracking: true));
+        }
+        else
+        {
+            await base.Bad_json_properties_duplicated_navigations(noTracking: false);
+        }
     }
+
+    public override Task Bad_json_properties_duplicated_scalars(bool noTracking)
+        => Assert.ThrowsAsync<NotSupportedException>(() => base.Bad_json_properties_duplicated_scalars(noTracking));
+
+    public override Task Bad_json_properties_empty_navigations(bool noTracking)
+        => Assert.ThrowsAsync<NotSupportedException>(() => base.Bad_json_properties_empty_navigations(noTracking));
+
+    public override Task Bad_json_properties_empty_scalars(bool noTracking)
+        => Assert.ThrowsAsync<NotSupportedException>(() => base.Bad_json_properties_empty_scalars(noTracking));
+
+    public override Task Bad_json_properties_null_navigations(bool noTracking)
+        => Assert.ThrowsAsync<ThrowsAnyException>(() => base.Bad_json_properties_null_navigations(noTracking));
+
+    public override Task Bad_json_properties_null_scalars(bool noTracking)
+        => Assert.ThrowsAsync<ThrowsAnyException>(() => base.Bad_json_properties_null_scalars(noTracking));
+
+    protected override Task SeedBadJsonProperties(ContextBadJsonProperties ctx)
+        => throw new NotSupportedException("BigQuery stores JSON properly, doesn't allow badly-formed JSON");
+
+    #endregion BadJsonProperties
 
     protected override async Task Seed21006(Context21006 context)
     {
         await base.Seed21006(context);
 
-        // missing scalar on top level (Id=2)
-        // BigQuery requires JSON values to be wrapped with PARSE_JSON() or JSON constructor
+        // missing scalar on top level (Id = 2) - Number is missing from all JSON objects
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
@@ -110,7 +70,7 @@ PARSE_JSON('{"Text":"e2 rr","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Te
 'e2')
 """);
 
-        // missing scalar on nested level (Id=3)
+        // missing scalar on nested level (Id = 3)
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
@@ -122,7 +82,7 @@ PARSE_JSON('{"Number":7,"Text":"e3 rr","NestedCollection":[{"Text":"e3 rr c1"},{
 'e3')
 """);
 
-        // null scalar on top level (Id=4)
+        // null scalar on top level (Id = 4)
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
@@ -134,7 +94,7 @@ PARSE_JSON('{"Number":null,"Text":"e4 rr","NestedCollection":[{"Text":"e4 rr c1"
 'e4')
 """);
 
-        // missing required navigation (Id=5)
+        // missing required navigation (Id = 5)
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
@@ -146,7 +106,7 @@ PARSE_JSON('{"Number":7,"Text":"e5 rr","NestedCollection":[{"DoB":"2000-01-01T00
 'e5')
 """);
 
-        // null required navigation (Id=6)
+        // null required navigation (Id = 6)
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
@@ -161,32 +121,25 @@ PARSE_JSON('{"Number":7,"Text":"e6 rr","NestedCollection":[{"DoB":"2000-01-01T00
 
     protected override async Task Seed29219(DbContext ctx)
     {
-        var entity1 = new MyEntity29219
-        {
-            Id = 1,
-            Reference = new MyJsonEntity29219 { NonNullableScalar = 10, NullableScalar = 11 },
-            Collection =
-            [
-                new() { NonNullableScalar = 100, NullableScalar = 101 },
-                new() { NonNullableScalar = 200, NullableScalar = 201 },
-                new() { NonNullableScalar = 300, NullableScalar = null }
-            ]
-        };
-
-        var entity2 = new MyEntity29219
-        {
-            Id = 2,
-            Reference = new MyJsonEntity29219 { NonNullableScalar = 20, NullableScalar = null },
-            Collection = [new() { NonNullableScalar = 1001, NullableScalar = null }]
-        };
-
-        ctx.AddRange(entity1, entity2);
-        await ctx.SaveChangesAsync();
-
+        // Entity 1: Complete data with all scalars
         await ctx.Database.ExecuteSqlAsync(
             $$"""
 INSERT INTO `Entities` (`Id`, `Reference`, `Collection`)
-VALUES(3, PARSE_JSON('{ "NonNullableScalar" : 30 }'), PARSE_JSON('[{ "NonNullableScalar" : 10001 }]'))
+VALUES(1, PARSE_JSON('{"NonNullableScalar":10,"NullableScalar":11}'), PARSE_JSON('[{"NonNullableScalar":100,"NullableScalar":101},{"NonNullableScalar":200,"NullableScalar":201},{"NonNullableScalar":300,"NullableScalar":null}]'))
+""");
+
+        // Entity 2: NullableScalar is null in reference
+        await ctx.Database.ExecuteSqlAsync(
+            $$"""
+INSERT INTO `Entities` (`Id`, `Reference`, `Collection`)
+VALUES(2, PARSE_JSON('{"NonNullableScalar":20,"NullableScalar":null}'), PARSE_JSON('[{"NonNullableScalar":1001,"NullableScalar":null}]'))
+""");
+
+        // Entity 3: Missing NullableScalar in JSON (tests missing properties)
+        await ctx.Database.ExecuteSqlAsync(
+            $$"""
+INSERT INTO `Entities` (`Id`, `Reference`, `Collection`)
+VALUES(3, PARSE_JSON('{"NonNullableScalar":30}'), PARSE_JSON('[{"NonNullableScalar":10001}]'))
 """);
     }
 
@@ -235,52 +188,6 @@ PARSE_JSON('{"RootName":"e4","Collection":[{"BranchName":"e4 c1","Nested":{"Leaf
 INSERT INTO `Reviews` (`Rounds`, `Id`)
 VALUES(PARSE_JSON('[{"RoundNumber":11,"SubRounds":[{"SubRoundNumber":111},{"SubRoundNumber":112}]}]'), 1)
 """);
-
-    protected override async Task SeedArrayOfPrimitives(DbContext ctx)
-    {
-        var entity1 = new MyEntityArrayOfPrimitives
-        {
-            Id = 1,
-            Reference = new MyJsonEntityArrayOfPrimitives
-            {
-                IntArray = [1, 2, 3],
-                ListOfString =
-                [
-                    "Foo",
-                    "Bar",
-                    "Baz"
-                ]
-            },
-            Collection =
-            [
-                new() { IntArray = [111, 112, 113], ListOfString = ["Foo11", "Bar11"] },
-                new() { IntArray = [211, 212, 213], ListOfString = ["Foo12", "Bar12"] }
-            ]
-        };
-
-        var entity2 = new MyEntityArrayOfPrimitives
-        {
-            Id = 2,
-            Reference = new MyJsonEntityArrayOfPrimitives
-            {
-                IntArray = [10, 20, 30],
-                ListOfString =
-                [
-                    "A",
-                    "B",
-                    "C"
-                ]
-            },
-            Collection =
-            [
-                new() { IntArray = [110, 120, 130], ListOfString = ["A1", "Z1"] },
-                new() { IntArray = [210, 220, 230], ListOfString = ["A2", "Z2"] }
-            ]
-        };
-
-        ctx.AddRange(entity1, entity2);
-        await ctx.SaveChangesAsync();
-    }
 
     protected override async Task SeedJunkInJson(DbContext ctx)
         => await ctx.Database.ExecuteSqlAsync(
@@ -333,4 +240,68 @@ PARSE_JSON('{"Collection":[{"Bar":21,"Foo":"c21"},{"Bar":22,"Foo":"c22"}]}'),
 2)
 """);
     }
+
+    // Override to explicitly configure the Name property
+    // EF Core 10 may not auto-discover regular properties when owned entities are mapped to JSON
+    protected override void OnModelCreating21006(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating21006(modelBuilder);
+
+        modelBuilder.Entity<Context21006.Entity>(b =>
+        {
+            b.Property(x => x.Name).HasColumnName("Name").HasColumnType("STRING");
+        });
+    }
+
+    // BigQuery doesn't support auto-increment IDs, so we need to set them explicitly
+    protected override async Task Seed32310(DbContext context)
+    {
+        await context.Database.ExecuteSqlAsync(
+            $$"""
+INSERT INTO `Pub` (`Id`, `Name`, `Visits`)
+VALUES(1, 'FBI', PARSE_JSON('{"LocationTag":"tag","DaysVisited":["2023-01-01"]}'))
+""");
+    }
+
+    // Override to use raw SQL since BigQuery doesn't support auto-increment IDs
+    public override async Task HasJsonPropertyName()
+    {
+        var contextFactory = await InitializeAsync<Context37009>(
+            onConfiguring: b => b.ConfigureWarnings(ConfigureWarnings),
+            onModelCreating: m => m.Entity<Context37009.Entity>().ComplexProperty(e => e.Json, b =>
+            {
+                b.ToJson();
+
+                b.Property(j => j.String).HasJsonPropertyName("string");
+
+                b.ComplexProperty(j => j.Nested, b =>
+                {
+                    b.HasJsonPropertyName("nested");
+                    b.Property(x => x.Int).HasJsonPropertyName("int");
+                });
+
+                b.ComplexCollection(a => a.NestedCollection, b =>
+                {
+                    b.HasJsonPropertyName("nested_collection");
+                    b.Property(x => x.Int).HasJsonPropertyName("int");
+                });
+            }),
+            seed: async context =>
+            {
+                await context.Database.ExecuteSqlAsync(
+                    $$"""
+INSERT INTO `Entities` (`Id`, `Json`)
+VALUES(1, PARSE_JSON('{"string":"foo","nested":{"int":1},"nested_collection":[{"int":2}]}'))
+""");
+            });
+
+        await using var context = contextFactory.CreateContext();
+
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.String == "foo"));
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.Nested.Int == 1));
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.NestedCollection.Any(x => x.Int == 2)));
+    }
+
+    protected void AssertSql(params string[] expected)
+        => TestSqlLoggerFactory.AssertBaseline(expected);
 }

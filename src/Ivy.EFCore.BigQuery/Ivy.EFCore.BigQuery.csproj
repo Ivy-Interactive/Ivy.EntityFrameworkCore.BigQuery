@@ -3,9 +3,6 @@
 	<PropertyGroup>
 		<AssemblyName>Ivy.EntityFrameworkCore.BigQuery</AssemblyName>
 		<RootNamespace>Ivy.EntityFrameworkCore.BigQuery</RootNamespace>
-		<TargetFramework>net9.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>Ivy.EntityFrameworkCore.BigQuery</Title>
 		<Authors>Ivy Interactive AB</Authors>
@@ -21,9 +18,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.2" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>

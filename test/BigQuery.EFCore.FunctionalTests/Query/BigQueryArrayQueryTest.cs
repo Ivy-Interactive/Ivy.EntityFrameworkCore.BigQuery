@@ -27,11 +27,11 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
 
         AssertSql(
             """
-@__index_0='0'
+@index='0'
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@__index_0)] = 1
+WHERE `a`.`IntArray`[OFFSET(@index)] = 1
 """);
     }
 
@@ -80,11 +80,11 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
 
         AssertSql(
             """
-@__index_0='1'
+@index='1'
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@__index_0)] = 2
+WHERE `a`.`IntArray`[OFFSET(@index)] = 2
 """);
     }
 
@@ -274,11 +274,11 @@ WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND (
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@__p_0)] = 2
+WHERE `a`.`IntArray`[OFFSET(@p)] = 2
 """);
     }
 
@@ -423,11 +423,11 @@ CROSS JOIN UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 
         AssertSql(
             """
-@__arr_0='[1,2,3]' (DbType = Object)
+@arr='[1,2,3]' (DbType = Object)
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray` = @__arr_0
+WHERE `a`.`IntArray` = @arr
 """);
     }
 
@@ -437,11 +437,11 @@ WHERE `a`.`IntArray` = @__arr_0
 
         AssertSql(
             """
-@__arr_0='[4,5,6,7]' (DbType = Object)
+@arr='[4,5,6,7]' (DbType = Object)
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray` = @__arr_0
+WHERE `a`.`IntArray` = @arr
 """);
     }
 
@@ -470,11 +470,11 @@ WHERE 1 IN (
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE @__p_0 IN (
+WHERE @p IN (
     SELECT `i`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 )
@@ -529,9 +529,12 @@ WHERE `a`.`Id` IN (1, 2)
 
         AssertSql(
             """
+@arr1='1'
+@arr2='2'
+
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`Id` IN (1, 2)
+WHERE `a`.`Id` IN (@arr1, @arr2)
 """);
     }
 

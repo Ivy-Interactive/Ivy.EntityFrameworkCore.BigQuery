@@ -34,10 +34,10 @@ WHERE `o`.`OrderID` < 10300
 
         AssertSql(
             """
-@__quantity_0='1' (Nullable = true) (DbType = Int64)
+@quantity='1' (Nullable = true) (DbType = Int64)
 
 DELETE FROM `Order Details` AS `o`
-WHERE `o`.`Quantity` = @__quantity_0
+WHERE `o`.`Quantity` = @quantity
 """,
             //
             """
@@ -69,8 +69,10 @@ WHERE `o`.`OrderID` < 10300
 
         AssertExecuteUpdateSql(
             """
+@p='Updated'
+
 UPDATE `Customers` AS `c`
-SET `ContactName` = 'Updated'
+SET `ContactName` = @p
 WHERE STARTS_WITH(`c`.`CustomerID`, 'F')
 """);
     }
@@ -81,10 +83,12 @@ WHERE STARTS_WITH(`c`.`CustomerID`, 'F')
 
         AssertExecuteUpdateSql(
             """
+@p='Updated'
+
 -- MyUpdate
 
 UPDATE `Customers` AS `c`
-SET `ContactName` = 'Updated'
+SET `ContactName` = @p
 WHERE STARTS_WITH(`c`.`CustomerID`, 'F')
 """);
     }

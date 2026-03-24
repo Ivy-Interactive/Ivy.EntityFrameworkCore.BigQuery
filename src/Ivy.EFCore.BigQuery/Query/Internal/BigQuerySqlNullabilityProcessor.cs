@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;
 
@@ -12,50 +13,42 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
     {
     }
 
-    /// <summary>
-    /// Visits a join predicate with more permissive handling than the base class.
-    /// The base ProcessJoinPredicate only handles specific SqlBinaryExpression types,
-    /// but BigQuery queries can have SqlUnaryExpression and other types in join predicates.
-    /// </summary>
-    private SqlExpression VisitJoinPredicate(SqlExpression predicate)
+    /// <inheritdoc />
+    protected override Expression VisitExtension(Expression node)
     {
-        // For join predicates, we visit with optimized expansion allowed
-        // This handles all expression types that the base ProcessJoinPredicate doesn't support
-        return Visit(predicate, allowOptimizedExpansion: true, out _);
-    }
-
-    protected override TableExpressionBase Visit(TableExpressionBase tableExpressionBase)
-    {
-        switch (tableExpressionBase)
+        // Handle BigQuery-specific table expressions
+        if (node is BigQueryUnnestExpression unnestExpression)
         {
-            case BigQueryUnnestExpression unnestExpression:
-            {
-                // Visit the array expression inside UNNEST
-                var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
-                return unnestExpression.Update((SqlExpression)visitedArray);
-            }
-
-            case InnerJoinExpression innerJoinExpression:
-            {
-                var newTable = Visit(innerJoinExpression.Table);
-                var newJoinPredicate = VisitJoinPredicate(innerJoinExpression.JoinPredicate);
-
-                return innerJoinExpression.Update(newTable, newJoinPredicate);
-            }
-
-            case LeftJoinExpression leftJoinExpression:
-            {
-                var newTable = Visit(leftJoinExpression.Table);
-                var newJoinPredicate = VisitJoinPredicate(leftJoinExpression.JoinPredicate);
-
-                return leftJoinExpression.Update(newTable, newJoinPredicate);
-            }
-
-            default:
-                return base.Visit(tableExpressionBase);
+            // Visit the array expression inside UNNEST
+            var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
+            return unnestExpression.Update((SqlExpression)visitedArray);
         }
+        
+        if (node is PredicateJoinExpressionBase join)
+        {
+            var newTable = VisitAndConvert(join.Table, nameof(VisitExtension));
+            var newPredicate = ProcessJoinPredicate(join.JoinPredicate);
+            return join.Update(newTable, newPredicate);
+        }
+
+        return base.VisitExtension(node);
     }
 
+    /// <summary>
+    /// Processes a join predicate for nullability, handling SqlConstantExpression which the base class doesn't support.
+    /// </summary>
+    private SqlExpression ProcessJoinPredicate(SqlExpression predicate)
+    {
+        // e.g., ON TRUE from OUTER APPLY -> LEFT JOIN conversion
+        if (predicate is SqlConstantExpression)
+        {
+            return predicate;
+        }
+
+        return (SqlExpression)Visit(predicate, allowOptimizedExpansion: true, out _);
+    }
+
+    /// <inheritdoc />
     protected override SqlExpression VisitCustomSqlExpression(
         SqlExpression sqlExpression,
         bool allowOptimizedExpansion,

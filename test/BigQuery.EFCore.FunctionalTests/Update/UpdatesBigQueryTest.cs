@@ -2,6 +2,7 @@ using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestModels.UpdatesModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -18,7 +19,7 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
         Fixture.TestSqlLoggerFactory.Clear();
     }
 
-    // BigQuery has a 128 character limit for identifiers
+    // BigQuery supports long identifiers (1024 chars for tables, 300 for columns)
     public override void Identifiers_are_generated_correctly()
     {
         using var context = CreateContext();
@@ -28,16 +29,16 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
                 LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly
             ))!;
         Assert.Equal(
-            "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorki",
+            "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly",
             entityType.GetTableName());
         Assert.Equal(
-            "PK_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWo",
+            "PK_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly",
             entityType.GetKeys().Single().GetName());
         Assert.Equal(
-            "FK_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWo",
+            "FK_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly_Profile_ProfileId_ProfileId1_ProfileId3_ProfileId4_ProfileId5_ProfileId6_ProfileId7_ProfileId8_ProfileId9_ProfileId10_ProfileId11_ProfileId12_ProfileId13_ProfileId14",
             entityType.GetForeignKeys().Single().GetConstraintName());
         Assert.Equal(
-            "IX_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWo",
+            "IX_LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectly_ProfileId_ProfileId1_ProfileId3_ProfileId4_ProfileId5_ProfileId6_ProfileId7_ProfileId8_ProfileId9_ProfileId10_ProfileId11_ProfileId12_ProfileId13_ProfileId14_ExtraProperty",
             entityType.GetIndexes().Single().GetDatabaseName());
 
         var entityType2 = context.Model.FindEntityType(
@@ -46,7 +47,7 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
             ))!;
 
         Assert.Equal(
-            "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWor1",
+            "LoginEntityTypeWithAnExtremelyLongAndOverlyConvolutedNameThatIsUsedToVerifyThatTheStoreIdentifierGenerationLengthLimitIsWorkingCorrectlyDetails",
             entityType2.GetTableName());
         Assert.Equal(
             "PK_LoginDetails",
@@ -211,6 +212,15 @@ public class UpdatesBigQueryTest : UpdatesRelationalTestBase<UpdatesBigQueryTest
 
             // BigQuery doesn't support auto-increment integer IDs - use explicit IDs
             modelBuilder.Entity<Category>().Property(c => c.Id).ValueGeneratedNever();
+
+            modelBuilder.Entity<Baked>().Property(e => e.Id).ValueGeneratedNever()
+                .Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Save);
+            modelBuilder.Entity<Tin>().Property(e => e.Id).ValueGeneratedNever()
+                .Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Save);
+            modelBuilder.Entity<Ingredient>().Property(e => e.Id).ValueGeneratedNever()
+                .Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Save);
+            modelBuilder.Entity<Top>().Property(e => e.Id).ValueGeneratedNever()
+                .Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Save);
         }
 
         protected override async Task SeedAsync(UpdatesContext context)

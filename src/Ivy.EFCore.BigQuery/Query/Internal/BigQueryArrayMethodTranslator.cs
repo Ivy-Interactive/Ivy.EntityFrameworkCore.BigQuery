@@ -18,43 +18,38 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
         #region MethodInfo Definitions
 
+        private static readonly Dictionary<string, List<MethodInfo>> EnumerableMethodGroups
+            = typeof(Enumerable)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .GroupBy(mi => mi.Name)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
         private static readonly MethodInfo ArrayLengthGetter
             = typeof(Array).GetProperty(nameof(Array.Length))!.GetMethod!;
 
         private static readonly MethodInfo EnumerableCountWithoutPredicate
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.Count) &&
-                             m.GetParameters().Length == 1 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.Count), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0])]);
 
         private static readonly MethodInfo EnumerableElementAt
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.ElementAt) &&
-                             m.GetParameters().Length == 2 &&
-                             m.IsGenericMethod &&
-                             m.GetParameters()[1].ParameterType == typeof(int));
+            = GetEnumerableMethod(nameof(Enumerable.ElementAt), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0]), typeof(int)]);
 
         private static readonly MethodInfo EnumerableFirstWithoutPredicate
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.First) &&
-                             m.GetParameters().Length == 1 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.First), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0])]);
 
         private static readonly MethodInfo EnumerableFirstOrDefaultWithoutPredicate
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.FirstOrDefault) &&
-                             m.GetParameters().Length == 1 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.FirstOrDefault), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0])]);
 
         private static readonly MethodInfo EnumerableContains
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.Contains) &&
-                             m.GetParameters().Length == 2 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.Contains), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0]), types[0]]);
 
         private static readonly MethodInfo EnumerableSequenceEqual
-            = typeof(Enumerable).GetTypeInfo().GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
-                .Single(m => m.Name == nameof(Enumerable.SequenceEqual) && m.GetParameters().Length == 2);
+            = GetEnumerableMethod(nameof(Enumerable.SequenceEqual), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0]), typeof(IEnumerable<>).MakeGenericType(types[0])]);
 
         private static readonly MethodInfo ListGetItem
             = typeof(List<>).GetProperty("Item")!.GetMethod!;
@@ -63,16 +58,25 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             = typeof(IList<>).GetProperty("Item")!.GetMethod!;
 
         private static readonly MethodInfo EnumerableConcat
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.Concat) &&
-                             m.GetParameters().Length == 2 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.Concat), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0]), typeof(IEnumerable<>).MakeGenericType(types[0])]);
 
         private static readonly MethodInfo EnumerableReverse
-            = typeof(Enumerable).GetRuntimeMethods()
-                .Single(m => m.Name == nameof(Enumerable.Reverse) &&
-                             m.GetParameters().Length == 1 &&
-                             m.IsGenericMethod);
+            = GetEnumerableMethod(nameof(Enumerable.Reverse), 1,
+                types => [typeof(IEnumerable<>).MakeGenericType(types[0])]);
+
+        /// <summary>
+        /// Gets an Enumerable method by exact parameter type matching.
+        /// </summary>
+        private static MethodInfo GetEnumerableMethod(
+            string name,
+            int genericParameterCount,
+            Func<Type[], Type[]> parameterGenerator)
+            => EnumerableMethodGroups[name].Single(
+                mi => ((genericParameterCount == 0 && !mi.IsGenericMethod)
+                        || (mi.IsGenericMethod && mi.GetGenericArguments().Length == genericParameterCount))
+                    && mi.GetParameters().Select(e => e.ParameterType).SequenceEqual(
+                        parameterGenerator(mi.IsGenericMethod ? mi.GetGenericArguments() : [])));
 
         #endregion
 
@@ -200,6 +204,17 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
         private bool IsArrayOrList(SqlExpression expression)
         {
+            if (expression is JsonScalarExpression)
+            {
+                return false;
+            }
+
+            // Cases where the expression has been transformed but still represents a JSON array
+            if (expression.TypeMapping is { ElementTypeMapping: not null } and not BigQueryArrayTypeMapping)
+            {
+                return false;
+            }
+
             var type = expression.Type;
             return expression.TypeMapping is BigQueryArrayTypeMapping ||
                    (type.IsArray && type != typeof(byte[])) ||

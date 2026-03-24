@@ -31,6 +31,15 @@ public class BigQueryConventionSetBuilder : RelationalConventionSetBuilder
         var structPropertyConvention = new BigQueryStructPropertyConvention(_typeMappingSource);
         conventionSet.PropertyAddedConventions.Add(structPropertyConvention);
         conventionSet.ComplexPropertyAddedConventions.Add(structPropertyConvention);
+        
+        conventionSet.ModelFinalizingConventions.Add(new BigQueryJsonColumnTypeConvention());
+
+        ValueGenerationConvention valueGenerationConvention = new BigQueryValueGenerationConvention(Dependencies, RelationalDependencies);
+        ReplaceConvention(conventionSet.EntityTypeBaseTypeChangedConventions, valueGenerationConvention);
+        ReplaceConvention(conventionSet.EntityTypePrimaryKeyChangedConventions, valueGenerationConvention);
+        ReplaceConvention(conventionSet.ForeignKeyAddedConventions, valueGenerationConvention);
+        ReplaceConvention(conventionSet.ForeignKeyRemovedConventions, valueGenerationConvention);
+        ReplaceConvention(conventionSet.PropertyAnnotationChangedConventions, (RelationalValueGenerationConvention)valueGenerationConvention);
 
         return conventionSet;
     }

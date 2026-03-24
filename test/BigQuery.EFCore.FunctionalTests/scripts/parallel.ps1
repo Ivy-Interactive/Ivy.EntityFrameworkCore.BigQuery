@@ -116,14 +116,17 @@ if ($ListHistory) {
             $runIdFromTimestamp = ""
 
             # Extract run ID from timestamp - handle both DateTime and string
+            $formattedDate = ""
             if ($timestamp) {
                 if ($timestamp -is [DateTime]) {
                     $runIdFromTimestamp = $timestamp.ToString("yyyyMMdd_HHmmss")
+                    $formattedDate = $timestamp.ToString("yyyy/MM/dd HH:mm")
                 } else {
                     # String format: try to parse as DateTime
                     $dt = [DateTime]::MinValue
                     if ([DateTime]::TryParse($timestamp, [ref]$dt)) {
                         $runIdFromTimestamp = $dt.ToString("yyyyMMdd_HHmmss")
+                        $formattedDate = $dt.ToString("yyyy/MM/dd HH:mm")
                     } else {
                         $runIdFromTimestamp = $timestamp.ToString().Substring(0, [Math]::Min(19, $timestamp.ToString().Length))
                     }
@@ -142,6 +145,9 @@ if ($ListHistory) {
             Write-Host "  [$index] " -NoNewline -ForegroundColor White
             Write-Host "$runIdFromTimestamp" -NoNewline -ForegroundColor Yellow
             Write-Host " (git: $gitHash)" -NoNewline -ForegroundColor Gray
+            if ($formattedDate) {
+                Write-Host " $formattedDate" -NoNewline -ForegroundColor DarkGray
+            }
             Write-Host ""
             Write-Host "      Passed: $passedStr  Failed: $failedStr  Skipped: $skippedStr  Total: $totalStr" -ForegroundColor $statusColor
             Write-Host ""
@@ -150,19 +156,6 @@ if ($ListHistory) {
         Write-Host "To compare with a specific run, use:" -ForegroundColor Cyan
         Write-Host "  .\parallel.ps1 -CompareRunId `"<run_id>`"" -ForegroundColor Gray
         Write-Host ""
-
-        # List report files
-        $reportsPath = Join-Path $testResultsDir "reports"
-        if (Test-Path $reportsPath) {
-            $reports = Get-ChildItem -Path $reportsPath -Filter "tests_*.html" | Sort-Object Name
-            if ($reports.Count -gt 0) {
-                Write-Host "Report files:" -ForegroundColor Cyan
-                foreach ($d in $reports) {
-                    Write-Host "  $($d.Name)" -ForegroundColor Gray
-                }
-                Write-Host ""
-            }
-        }
     } catch {
         Write-Host "Error reading history: $_" -ForegroundColor Red
         exit 1
@@ -404,7 +397,6 @@ if ($selectedGroups.Count -eq 0) {
 # These groups take >10 minutes and should start first to minimize total wall time
 $slowTestGroups = @(
     "Ivy.EntityFrameworkCore.BigQuery.Query.AdHocJsonQueryBigQueryTest"             # ~27m
-    "Ivy.EntityFrameworkCore.BigQuery.Update.ComplexTypeBulkUpdatesBigQueryTest"    # ~23m
     "Ivy.EntityFrameworkCore.BigQuery.Query.TPCGearsOfWarQueryBigQueryTest"         # ~23m
     "Ivy.EntityFrameworkCore.BigQuery.Query.GearsOfWarQueryBigQueryTest"            # ~23m
     "Ivy.EntityFrameworkCore.BigQuery.Query.NullSemanticsQueryBigQueryTest"         # ~22m
@@ -462,6 +454,17 @@ if ($Merge) {
 }
 # Test project path
 $testProject = Join-Path $PSScriptRoot ".." "Ivy.EFCore.BigQuery.FunctionalTests.csproj"
+
+# Build the project once before running parallel tests to avoid file locking issues
+Write-Host "Building test project..." -ForegroundColor Cyan
+dotnet build $testProject --configuration Debug --verbosity quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed with exit code $LASTEXITCODE" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "Build complete." -ForegroundColor Green
+Write-Host ""
+
 # Start time
 $startTime = Get-Date
 $results = @()
@@ -580,7 +583,7 @@ try {
     $job = Start-Job -Name $group.Name -ScriptBlock {
         param($ProjectId, $AuthMethod, $Dataset, $Filter, $TestProject, $TrxPath)
         $env:BQ_EFCORE_TEST_CONN_STRING = "AuthMethod=$AuthMethod;ProjectId=$ProjectId;DefaultDatasetId=$Dataset"
-        $cmdArgs = @("test", $TestProject, "--filter", $Filter, "--logger", "trx;LogFileName=$TrxPath", "--verbosity", "normal")
+        $cmdArgs = @("test", $TestProject, "--filter", $Filter, "--logger", "trx;LogFileName=$TrxPath", "--verbosity", "normal", "--no-build")
         # Always stream output so Receive-Job -Keep can track progress
         dotnet @cmdArgs 2>&1 | ForEach-Object { Write-Output $_ }
         return @{ ExitCode = $LASTEXITCODE; TrxPath = $TrxPath }

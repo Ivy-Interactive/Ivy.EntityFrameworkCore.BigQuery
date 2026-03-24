@@ -29,6 +29,11 @@ public class OwnedQueryBigQueryTest : OwnedQueryRelationalTestBase<OwnedQueryBig
     public override Task Navigation_rewrite_on_owned_collection_with_composition_complex(bool async)
         => base.Navigation_rewrite_on_owned_collection_with_composition_complex(async);
 
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task OrderBy_ElementAt_over_owned_collection(bool async)
+        => base.OrderBy_ElementAt_over_owned_collection(async);
+
     #endregion
 
     public class OwnedQueryBigQueryFixture : RelationalOwnedQueryFixture

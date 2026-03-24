@@ -467,7 +467,8 @@ public class BigQueryCorrelatedSubqueryPostprocessor : ExpressionVisitor
             distinct: false,
             orderings: Array.Empty<OrderingExpression>(),
             offset: null,
-            limit: null);
+            limit: null,
+            _sqlAliasManager);
 
         // Build the join predicate: outer.col = subq.partition_col (AND subq.rn = 1 for non-aggregate)
         SqlExpression? joinPredicate = null;

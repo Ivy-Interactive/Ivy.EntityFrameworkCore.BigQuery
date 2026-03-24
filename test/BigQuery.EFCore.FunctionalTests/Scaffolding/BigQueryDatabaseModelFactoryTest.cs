@@ -170,7 +170,7 @@ CREATE TABLE PrimaryKeyTable (
     {
         var pk = dbModel.Tables.Single().PrimaryKey!;
 
-        Assert.Equal("BigQueryDatabaseModelFactoryTest", pk.Table!.Schema);
+        Assert.Equal(Fixture.TestStore.DatasetName, pk.Table!.Schema);
         Assert.Equal("PrimaryKeyTable", pk.Table.Name);
         Assert.StartsWith("PK_PrimaryKeyTable", pk.Name);
         Assert.Equal(["Id"], pk.Columns.Select(ic => ic.Name).ToList());
@@ -497,6 +497,482 @@ CREATE TABLE GeographyTable (
             }
         }
     }
+
+    #endregion
+
+    #region Filtering
+
+    [ConditionalFact]
+    public void Filters_tables_by_name()
+        => Test(
+            """
+CREATE TABLE IncludedTable (Id INT64 NOT NULL);
+CREATE TABLE ExcludedTable (Id INT64 NOT NULL);
+CREATE TABLE AnotherExcluded (Id INT64 NOT NULL);
+""",
+            ["IncludedTable"],
+            [],
+            dbModel =>
+            {
+                var table = Assert.Single(dbModel.Tables);
+                Assert.Equal("IncludedTable", table.Name);
+            },
+            """
+DROP TABLE IncludedTable;
+DROP TABLE ExcludedTable;
+DROP TABLE AnotherExcluded;
+""");
+
+    [ConditionalFact]
+    public void Filters_multiple_tables_by_name()
+        => Test(
+            """
+CREATE TABLE Alpha (Id INT64 NOT NULL);
+CREATE TABLE Beta (Id INT64 NOT NULL);
+CREATE TABLE Gamma (Id INT64 NOT NULL);
+""",
+            ["Alpha", "Gamma"],
+            [],
+            dbModel =>
+            {
+                Assert.Equal(2, dbModel.Tables.Count);
+                Assert.Contains(dbModel.Tables, t => t.Name == "Alpha");
+                Assert.Contains(dbModel.Tables, t => t.Name == "Gamma");
+                Assert.DoesNotContain(dbModel.Tables, t => t.Name == "Beta");
+            },
+            """
+DROP TABLE Alpha;
+DROP TABLE Beta;
+DROP TABLE Gamma;
+""");
+
+    #endregion
+
+    #region Views
+
+    [ConditionalFact]
+    public void Scaffolds_view_columns()
+        => Test(
+            """
+CREATE VIEW ProductSummary AS
+SELECT 1 AS ProductId, 'Widget' AS ProductName, 99.99 AS Price;
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var view = Assert.Single(dbModel.Tables);
+                Assert.IsType<DatabaseView>(view);
+                Assert.Equal("ProductSummary", view.Name);
+                Assert.Equal(3, view.Columns.Count);
+
+                Assert.Contains(view.Columns, c => c.Name == "ProductId");
+                Assert.Contains(view.Columns, c => c.Name == "ProductName");
+                Assert.Contains(view.Columns, c => c.Name == "Price");
+
+                // Views don't have primary keys
+                Assert.Null(view.PrimaryKey);
+            },
+            "DROP VIEW ProductSummary;");
+
+    #endregion
+
+    #region ColumnFacets
+
+    [ConditionalFact]
+    public void Numeric_columns_preserve_precision_and_scale()
+        => Test(
+            """
+CREATE TABLE PrecisionTable (
+    Id INT64 NOT NULL,
+    DefaultNumeric NUMERIC,
+    PreciseNumeric NUMERIC(10, 4),
+    DefaultBigNumeric BIGNUMERIC,
+    PreciseBigNumeric BIGNUMERIC(30, 10)
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                var columns = table.Columns;
+
+                var defaultNum = columns.Single(c => c.Name == "DefaultNumeric");
+                Assert.Equal("NUMERIC", defaultNum.StoreType);
+
+                var preciseNum = columns.Single(c => c.Name == "PreciseNumeric");
+                Assert.Equal("NUMERIC(10, 4)", preciseNum.StoreType);
+
+                var defaultBigNum = columns.Single(c => c.Name == "DefaultBigNumeric");
+                Assert.Equal("BIGNUMERIC", defaultBigNum.StoreType);
+
+                var preciseBigNum = columns.Single(c => c.Name == "PreciseBigNumeric");
+                Assert.Equal("BIGNUMERIC(30, 10)", preciseBigNum.StoreType);
+            },
+            "DROP TABLE PrecisionTable;");
+
+    [ConditionalFact]
+    public void String_and_bytes_columns_preserve_max_length()
+        => Test(
+            """
+CREATE TABLE LengthConstrainedTable (
+    Id INT64 NOT NULL,
+    UnboundedString STRING,
+    BoundedString STRING(100),
+    UnboundedBytes BYTES,
+    BoundedBytes BYTES(256)
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                var columns = table.Columns;
+
+                Assert.Equal("STRING", columns.Single(c => c.Name == "UnboundedString").StoreType);
+                Assert.Equal("STRING(100)", columns.Single(c => c.Name == "BoundedString").StoreType);
+                Assert.Equal("BYTES", columns.Single(c => c.Name == "UnboundedBytes").StoreType);
+                Assert.Equal("BYTES(256)", columns.Single(c => c.Name == "BoundedBytes").StoreType);
+            },
+            "DROP TABLE LengthConstrainedTable;");
+
+    [ConditionalFact]
+    public void All_bigquery_types_scaffold_correctly()
+        => Test(
+            """
+CREATE TABLE AllTypesTable (
+    ColInt64 INT64,
+    ColFloat64 FLOAT64,
+    ColBool BOOL,
+    ColString STRING,
+    ColBytes BYTES,
+    ColDate DATE,
+    ColTime TIME,
+    ColDateTime DATETIME,
+    ColTimestamp TIMESTAMP,
+    ColNumeric NUMERIC,
+    ColBigNumeric BIGNUMERIC,
+    ColJson JSON,
+    ColGeography GEOGRAPHY
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var columns = dbModel.Tables.Single().Columns;
+
+                Assert.Equal("INT64", columns.Single(c => c.Name == "ColInt64").StoreType);
+                Assert.Equal("FLOAT64", columns.Single(c => c.Name == "ColFloat64").StoreType);
+                Assert.Equal("BOOL", columns.Single(c => c.Name == "ColBool").StoreType);
+                Assert.Equal("STRING", columns.Single(c => c.Name == "ColString").StoreType);
+                Assert.Equal("BYTES", columns.Single(c => c.Name == "ColBytes").StoreType);
+                Assert.Equal("DATE", columns.Single(c => c.Name == "ColDate").StoreType);
+                Assert.Equal("TIME", columns.Single(c => c.Name == "ColTime").StoreType);
+                Assert.Equal("DATETIME", columns.Single(c => c.Name == "ColDateTime").StoreType);
+                Assert.Equal("TIMESTAMP", columns.Single(c => c.Name == "ColTimestamp").StoreType);
+                Assert.Equal("NUMERIC", columns.Single(c => c.Name == "ColNumeric").StoreType);
+                Assert.Equal("BIGNUMERIC", columns.Single(c => c.Name == "ColBigNumeric").StoreType);
+                Assert.Equal("JSON", columns.Single(c => c.Name == "ColJson").StoreType);
+                Assert.Equal("GEOGRAPHY", columns.Single(c => c.Name == "ColGeography").StoreType);
+            },
+            "DROP TABLE AllTypesTable;");
+
+    [ConditionalFact]
+    public void Column_nullability_is_captured()
+        => Test(
+            """
+CREATE TABLE NullabilityTable (
+    RequiredId INT64 NOT NULL,
+    OptionalValue INT64,
+    RequiredName STRING NOT NULL,
+    OptionalDescription STRING
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var columns = dbModel.Tables.Single().Columns;
+
+                Assert.False(columns.Single(c => c.Name == "RequiredId").IsNullable);
+                Assert.True(columns.Single(c => c.Name == "OptionalValue").IsNullable);
+                Assert.False(columns.Single(c => c.Name == "RequiredName").IsNullable);
+                Assert.True(columns.Single(c => c.Name == "OptionalDescription").IsNullable);
+            },
+            "DROP TABLE NullabilityTable;");
+
+    [ConditionalFact]
+    public void Default_values_are_captured()
+        => Test(
+            """
+CREATE TABLE DefaultValuesTable (
+    Id INT64 NOT NULL,
+    Status STRING DEFAULT 'pending',
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    Counter INT64 DEFAULT 0
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var columns = dbModel.Tables.Single().Columns;
+
+                var statusCol = columns.Single(c => c.Name == "Status");
+                Assert.NotNull(statusCol.DefaultValueSql);
+                Assert.Contains("pending", statusCol.DefaultValueSql);
+
+                var createdAtCol = columns.Single(c => c.Name == "CreatedAt");
+                Assert.NotNull(createdAtCol.DefaultValueSql);
+
+                var counterCol = columns.Single(c => c.Name == "Counter");
+                Assert.NotNull(counterCol.DefaultValueSql);
+            },
+            "DROP TABLE DefaultValuesTable;");
+
+    #endregion
+
+    #region PrimaryKeyFacets
+
+    [ConditionalFact]
+    public void Composite_primary_key_columns_are_ordered()
+        => Test(
+            """
+CREATE TABLE CompositeKeyTable (
+    TenantId INT64 NOT NULL,
+    UserId INT64 NOT NULL,
+    RecordId INT64 NOT NULL,
+    Data STRING,
+    PRIMARY KEY (TenantId, UserId, RecordId) NOT ENFORCED
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var pk = dbModel.Tables.Single().PrimaryKey;
+                Assert.NotNull(pk);
+
+                var keyColumns = pk.Columns.Select(c => c.Name).ToList();
+                Assert.Equal(["TenantId", "UserId", "RecordId"], keyColumns);
+            },
+            "DROP TABLE CompositeKeyTable;");
+
+    #endregion
+
+    #region ForeignKeyFacets
+
+    [ConditionalFact]
+    public void Composite_foreign_key_is_scaffolded()
+        => Test(
+            """
+CREATE TABLE ParentWithCompositeKey (
+    KeyPartA INT64 NOT NULL,
+    KeyPartB INT64 NOT NULL,
+    PRIMARY KEY (KeyPartA, KeyPartB) NOT ENFORCED
+);
+
+CREATE TABLE ChildWithCompositeFK (
+    Id INT64 NOT NULL,
+    RefA INT64,
+    RefB INT64,
+    PRIMARY KEY (Id) NOT ENFORCED,
+    FOREIGN KEY (RefA, RefB) REFERENCES ParentWithCompositeKey(KeyPartA, KeyPartB) NOT ENFORCED
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var childTable = dbModel.Tables.Single(t => t.Name == "ChildWithCompositeFK");
+                var fk = Assert.Single(childTable.ForeignKeys);
+
+                Assert.Equal("ParentWithCompositeKey", fk.PrincipalTable.Name);
+                Assert.Equal(["RefA", "RefB"], fk.Columns.Select(c => c.Name).ToList());
+                Assert.Equal(["KeyPartA", "KeyPartB"], fk.PrincipalColumns.Select(c => c.Name).ToList());
+            },
+            """
+DROP TABLE ChildWithCompositeFK;
+DROP TABLE ParentWithCompositeKey;
+""");
+
+    [ConditionalFact]
+    public void Multiple_foreign_keys_on_single_table()
+        => Test(
+            """
+CREATE TABLE Authors (
+    AuthorId INT64 NOT NULL,
+    PRIMARY KEY (AuthorId) NOT ENFORCED
+);
+
+CREATE TABLE Categories (
+    CategoryId INT64 NOT NULL,
+    PRIMARY KEY (CategoryId) NOT ENFORCED
+);
+
+CREATE TABLE Articles (
+    ArticleId INT64 NOT NULL,
+    AuthorId INT64,
+    CategoryId INT64,
+    PRIMARY KEY (ArticleId) NOT ENFORCED,
+    FOREIGN KEY (AuthorId) REFERENCES Authors(AuthorId) NOT ENFORCED,
+    FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId) NOT ENFORCED
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var articles = dbModel.Tables.Single(t => t.Name == "Articles");
+                Assert.Equal(2, articles.ForeignKeys.Count);
+
+                var authorFk = articles.ForeignKeys.Single(fk => fk.PrincipalTable.Name == "Authors");
+                Assert.Equal(["AuthorId"], authorFk.Columns.Select(c => c.Name).ToList());
+
+                var categoryFk = articles.ForeignKeys.Single(fk => fk.PrincipalTable.Name == "Categories");
+                Assert.Equal(["CategoryId"], categoryFk.Columns.Select(c => c.Name).ToList());
+            },
+            """
+DROP TABLE Articles;
+DROP TABLE Categories;
+DROP TABLE Authors;
+""");
+
+    [ConditionalFact]
+    public void Foreign_key_constraint_name_is_captured()
+        => Test(
+            """
+CREATE TABLE Orders (
+    OrderId INT64 NOT NULL,
+    PRIMARY KEY (OrderId) NOT ENFORCED
+);
+
+CREATE TABLE OrderItems (
+    ItemId INT64 NOT NULL,
+    OrderId INT64,
+    PRIMARY KEY (ItemId) NOT ENFORCED,
+    CONSTRAINT FK_OrderItems_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId) NOT ENFORCED
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var orderItems = dbModel.Tables.Single(t => t.Name == "OrderItems");
+                var fk = Assert.Single(orderItems.ForeignKeys);
+
+                Assert.Equal("FK_OrderItems_Orders", fk.Name);
+                Assert.Equal("Orders", fk.PrincipalTable.Name);
+            },
+            """
+DROP TABLE OrderItems;
+DROP TABLE Orders;
+""");
+
+    [ConditionalFact]
+    public void All_foreign_keys_have_no_action_delete_behavior()
+        => Test(
+            """
+CREATE TABLE Referenced (
+    Id INT64 NOT NULL,
+    PRIMARY KEY (Id) NOT ENFORCED
+);
+
+CREATE TABLE Referencing (
+    Id INT64 NOT NULL,
+    RefId INT64,
+    PRIMARY KEY (Id) NOT ENFORCED,
+    FOREIGN KEY (RefId) REFERENCES Referenced(Id) NOT ENFORCED
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var fk = dbModel.Tables.Single(t => t.Name == "Referencing").ForeignKeys.Single();
+
+                // BigQuery foreign keys are NOT ENFORCED, so they always map to NoAction
+                Assert.Equal(ReferentialAction.NoAction, fk.OnDelete);
+            },
+            """
+DROP TABLE Referencing;
+DROP TABLE Referenced;
+""");
+
+    #endregion
+
+    #region Comments
+
+    //Todo
+//    [ConditionalFact]
+//    public void Table_and_column_descriptions_are_captured()
+//        => Test(
+//            """
+//CREATE TABLE DescribedTable (
+//    Id INT64 NOT NULL OPTIONS(description='Unique identifier for each record'),
+//    Name STRING OPTIONS(description='Display name of the entity')
+//)
+//OPTIONS(description='A table with descriptions for testing scaffolding');
+//""",
+//            [],
+//            [],
+//            dbModel =>
+//            {
+//                var table = dbModel.Tables.Single();
+//                Assert.Equal("A table with descriptions for testing scaffolding", table.Comment);
+
+//                var idCol = table.Columns.Single(c => c.Name == "Id");
+//                Assert.Equal("Unique identifier for each record", idCol.Comment);
+
+//                var nameCol = table.Columns.Single(c => c.Name == "Name");
+//                Assert.Equal("Display name of the entity", nameCol.Comment);
+//            },
+//            "DROP TABLE DescribedTable;");
+
+    #endregion
+
+    #region EdgeCases
+
+    [ConditionalFact]
+    public void Table_with_no_primary_key_is_scaffolded()
+        => Test(
+            """
+CREATE TABLE HeapTable (
+    Col1 INT64,
+    Col2 STRING
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                Assert.Equal("HeapTable", table.Name);
+                Assert.Null(table.PrimaryKey);
+                Assert.Equal(2, table.Columns.Count);
+            },
+            "DROP TABLE HeapTable;");
+
+    [ConditionalFact]
+    public void Empty_table_is_scaffolded()
+        => Test(
+            """
+CREATE TABLE EmptyStructure (
+    Placeholder INT64
+);
+""",
+            [],
+            [],
+            dbModel =>
+            {
+                var table = dbModel.Tables.Single();
+                Assert.Equal("EmptyStructure", table.Name);
+                Assert.Single(table.Columns);
+            },
+            "DROP TABLE EmptyStructure;");
 
     #endregion
 

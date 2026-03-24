@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 // Generates an HTML dashboard from one or more TRX files.
 // Usage:
+//   node build-dashboard.js --out TestResults\\reports\\dashboard.html
 //   node build-dashboard.js --file TestResults\\trx\\TestResults.trx --history TestResults\\history.json --out TestResults\\reports\\dashboard.html
 //   node build-dashboard.js --dir TestResults\\trx --history TestResults\\history.json --out TestResults\\reports\\dashboard.html
+// Defaults:
+//   --file: TestResults\\trx\\TestResults.trx (if no --file or --dir specified)
+//   --history: TestResults\\history.json
+//   --out: report.html
 
 const fs = require("fs");
 const path = require("path");
 const { XMLParser } = require("fast-xml-parser");
 
 function parseArgs(argv) {
-    const args = { files: [], dir: null, out: "dashboard.html", history: null, hideChildren: false, compareRun: null };
+    const args = { files: [], dir: null, out: "report.html", history: "TestResults\\history.json", hideChildren: false, compareRun: null };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if ((arg === "--file" || arg === "--merged" || arg === "--in") && argv[i + 1]) {
@@ -1190,9 +1195,15 @@ function main() {
     if (args.dir) {
         files = files.concat(findTrxFiles(args.dir));
     }
+    // Default to TestResults\trx\TestResults.trx if no files specified
     if (files.length === 0) {
-        console.error("No TRX files provided. Use --merged <file> or --dir <folder>.");
-        process.exit(1);
+        const defaultFile = "TestResults\\trx\\TestResults.trx";
+        if (fs.existsSync(defaultFile)) {
+            files.push(defaultFile);
+        } else {
+            console.error("No TRX files provided and default file not found. Use --file <file> or --dir <folder>.");
+            process.exit(1);
+        }
     }
 
     const model = buildModel(files);

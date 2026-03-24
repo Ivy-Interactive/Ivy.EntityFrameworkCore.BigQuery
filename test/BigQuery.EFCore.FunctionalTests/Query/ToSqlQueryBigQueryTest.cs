@@ -1,10 +1,11 @@
 ﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
-public class ToSqlQueryBigQueryTest : ToSqlQueryTestBase
+public class ToSqlQueryBigQueryTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fixture)
 {
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;

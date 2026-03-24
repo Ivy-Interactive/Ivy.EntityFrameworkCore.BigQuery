@@ -1,12 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-	</PropertyGroup>
-
-	<PropertyGroup>
 		<Title>Ivy.Data.BigQuery</Title>
 		<Description>ADO.NET provider for Google BigQuery</Description>
 		<Authors>Ivy Interactive AB</Authors>
