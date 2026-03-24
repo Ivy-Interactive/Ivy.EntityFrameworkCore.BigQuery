@@ -1,4 +1,5 @@
-﻿using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
+﻿using System.Globalization;
+using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
@@ -21,6 +22,55 @@ public class BuiltInDataTypesBigQueryTest : BuiltInDataTypesTestBase<BuiltInData
     // No No DateTimeOffset in BigQuery
     public override Task Can_query_with_null_parameters_using_any_nullable_data_type()
         => Task.CompletedTask;
+
+    // BigQuery CAST to STRING uses invariant format (dot as decimal separator),
+    // so we override to compare against invariant culture formatting
+    public override async Task Object_to_string_conversion()
+    {
+        using var context = CreateContext();
+        var expected = (await context.Set<BuiltInDataTypes>()
+                .Where(e => e.Id == 13)
+                .ToListAsync())
+            .Select(b => new
+            {
+                Sbyte = b.TestSignedByte.ToString(CultureInfo.InvariantCulture),
+                Byte = b.TestByte.ToString(CultureInfo.InvariantCulture),
+                Short = b.TestInt16.ToString(CultureInfo.InvariantCulture),
+                Int = b.TestInt32.ToString(CultureInfo.InvariantCulture),
+                Long = b.TestInt64.ToString(CultureInfo.InvariantCulture),
+                Float = b.TestSingle.ToString(CultureInfo.InvariantCulture),
+                Double = b.TestDouble.ToString(CultureInfo.InvariantCulture),
+                Decimal = b.TestDecimal.ToString(CultureInfo.InvariantCulture),
+                Char = b.TestCharacter.ToString(CultureInfo.InvariantCulture),
+                DateTime = b.TestDateTime.ToString(CultureInfo.InvariantCulture),
+            })
+            .First();
+
+        var actual = await context.Set<BuiltInDataTypes>()
+            .Where(e => e.Id == 13)
+            .Select(b => new
+            {
+                Sbyte = b.TestSignedByte.ToString(),
+                Byte = b.TestByte.ToString(),
+                Short = b.TestInt16.ToString(),
+                Int = b.TestInt32.ToString(),
+                Long = b.TestInt64.ToString(),
+                Float = b.TestSingle.ToString(),
+                Double = b.TestDouble.ToString(),
+                Decimal = b.TestDecimal.ToString(),
+                Char = b.TestCharacter.ToString(),
+                DateTime = b.TestDateTime.ToString(),
+            })
+            .SingleAsync();
+
+        Assert.Equal(expected.Sbyte, actual.Sbyte);
+        Assert.Equal(expected.Byte, actual.Byte);
+        Assert.Equal(expected.Short, actual.Short);
+        Assert.Equal(expected.Int, actual.Int);
+        Assert.Equal(expected.Long, actual.Long);
+        Assert.Equal(expected.Decimal, actual.Decimal);
+        Assert.Equal(expected.Char, actual.Char);
+    }
 
     public class BuiltInDataTypesBigQueryFixture : BuiltInDataTypesFixtureBase, ITestSqlLoggerFactory
     {

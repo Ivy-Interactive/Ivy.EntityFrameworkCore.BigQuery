@@ -58,12 +58,12 @@ public class AdHocJsonQueryBigQueryTest(NonSharedFixture fixture) : AdHocJsonQue
     {
         await base.Seed21006(context);
 
-        // missing scalar on top level (Id = 2)
+        // missing scalar on top level (Id = 2) - Number is missing from all JSON objects
         await context.Database.ExecuteSqlAsync(
             $$$"""
 INSERT INTO `Entities` (`Collection`, `OptionalReference`, `RequiredReference`, `Id`, `Name`)
 VALUES (
-PARSE_JSON('[{"Number":7,"Text":"e2 c1","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 nrr"}},{"Number":7,"Text":"e2 c2","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 nrr"}}]'),
+PARSE_JSON('[{"Text":"e2 c1","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c1 nrr"}},{"Text":"e2 c2","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 c2 nrr"}}]'),
 PARSE_JSON('{"Text":"e2 or","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 or c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 or c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 or nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 or nrr"}}'),
 PARSE_JSON('{"Text":"e2 rr","NestedCollection":[{"DoB":"2000-01-01T00:00:00","Text":"e2 rr c1"},{"DoB":"2000-01-01T00:00:00","Text":"e2 rr c2"}],"NestedOptionalReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 rr nor"},"NestedRequiredReference":{"DoB":"2000-01-01T00:00:00","Text":"e2 rr nrr"}}'),
 2,
@@ -251,6 +251,55 @@ PARSE_JSON('{"Collection":[{"Bar":21,"Foo":"c21"},{"Bar":22,"Foo":"c22"}]}'),
         {
             b.Property(x => x.Name).HasColumnName("Name").HasColumnType("STRING");
         });
+    }
+
+    // BigQuery doesn't support auto-increment IDs, so we need to set them explicitly
+    protected override async Task Seed32310(DbContext context)
+    {
+        await context.Database.ExecuteSqlAsync(
+            $$"""
+INSERT INTO `Pub` (`Id`, `Name`, `Visits`)
+VALUES(1, 'FBI', PARSE_JSON('{"LocationTag":"tag","DaysVisited":["2023-01-01"]}'))
+""");
+    }
+
+    // Override to use raw SQL since BigQuery doesn't support auto-increment IDs
+    public override async Task HasJsonPropertyName()
+    {
+        var contextFactory = await InitializeAsync<Context37009>(
+            onConfiguring: b => b.ConfigureWarnings(ConfigureWarnings),
+            onModelCreating: m => m.Entity<Context37009.Entity>().ComplexProperty(e => e.Json, b =>
+            {
+                b.ToJson();
+
+                b.Property(j => j.String).HasJsonPropertyName("string");
+
+                b.ComplexProperty(j => j.Nested, b =>
+                {
+                    b.HasJsonPropertyName("nested");
+                    b.Property(x => x.Int).HasJsonPropertyName("int");
+                });
+
+                b.ComplexCollection(a => a.NestedCollection, b =>
+                {
+                    b.HasJsonPropertyName("nested_collection");
+                    b.Property(x => x.Int).HasJsonPropertyName("int");
+                });
+            }),
+            seed: async context =>
+            {
+                await context.Database.ExecuteSqlAsync(
+                    $$"""
+INSERT INTO `Entities` (`Id`, `Json`)
+VALUES(1, PARSE_JSON('{"string":"foo","nested":{"int":1},"nested_collection":[{"int":2}]}'))
+""");
+            });
+
+        await using var context = contextFactory.CreateContext();
+
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.String == "foo"));
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.Nested.Int == 1));
+        Assert.Equal(1, await context.Set<Context37009.Entity>().CountAsync(e => e.Json.NestedCollection.Any(x => x.Int == 2)));
     }
 
     protected void AssertSql(params string[] expected)

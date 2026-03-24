@@ -20,6 +20,8 @@ public class BigQueryTestStore : RelationalTestStore
     private string? _scriptDatasetName;
     public const int CommandTimeout = 300;
 
+    public string DatasetName => _testDatasetName;
+
     public BigQueryTestStore(string name, bool shared = true, string? scriptPath = null, string? scriptDatasetName = null) : base(name, shared, CreateConnection(name))
     {
         var builder = new BigQueryConnectionStringBuilder(TestEnvironment.DefaultConnection);

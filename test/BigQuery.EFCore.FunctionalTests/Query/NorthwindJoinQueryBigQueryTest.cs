@@ -16,6 +16,9 @@ public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBa
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
 
+    private void AssertSql(params string[] expected)
+        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+
     #region Unsupported: Correlated subqueries with LIMIT/OFFSET
 
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET")]
@@ -25,12 +28,29 @@ public class NorthwindJoinQueryBigQueryTest : NorthwindJoinQueryRelationalTestBa
 
     #endregion
 
-    #region Unsupported: Join with local collection (EF Core issue #14672)
+    #region Join with local collection
 
     public override async Task Join_local_collection_int_closure_is_cached_correctly(bool async)
     {
-        // Join with local collection. Issue #14672.
-        await AssertTranslationFailed(() => base.Join_local_collection_int_closure_is_cached_correctly(async));
+        await base.Join_local_collection_int_closure_is_cached_correctly(async);
+
+        AssertSql(
+            """
+@p1='1'
+@p2='2'
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value` UNION ALL SELECT @p2) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+""",
+            //
+            """
+@p1='3'
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+""");
     }
 
     #endregion

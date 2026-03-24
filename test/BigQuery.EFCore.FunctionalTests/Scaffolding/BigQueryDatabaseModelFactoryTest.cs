@@ -170,7 +170,7 @@ CREATE TABLE PrimaryKeyTable (
     {
         var pk = dbModel.Tables.Single().PrimaryKey!;
 
-        Assert.Equal(Fixture.TestStore.Name, pk.Table!.Schema);
+        Assert.Equal(Fixture.TestStore.DatasetName, pk.Table!.Schema);
         Assert.Equal("PrimaryKeyTable", pk.Table.Name);
         Assert.StartsWith("PK_PrimaryKeyTable", pk.Name);
         Assert.Equal(["Id"], pk.Columns.Select(ic => ic.Name).ToList());

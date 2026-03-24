@@ -55,11 +55,11 @@ WHERE `p`.`HomeAddress` IS NOT NULL AND `p`.`HomeAddress`.`City` = 'Seattle'
 
         AssertSql(
             """
-@__city_0='Portland'
+@city='Portland'
 
 SELECT `p`.`Id`
 FROM `People` AS `p`
-WHERE `p`.`HomeAddress` IS NOT NULL AND `p`.`HomeAddress`.`City` = @__city_0
+WHERE `p`.`HomeAddress` IS NOT NULL AND `p`.`HomeAddress`.`City` = @city
 """);
     }
 

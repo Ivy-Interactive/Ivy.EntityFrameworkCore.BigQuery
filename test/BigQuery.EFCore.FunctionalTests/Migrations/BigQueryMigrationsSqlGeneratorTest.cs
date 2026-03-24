@@ -569,7 +569,17 @@ ALTER TABLE `People` RENAME TO `Person`;
 """);
     }
 
-    
+    public override void SqlOperation()
+    {
+        base.SqlOperation();
+
+        AssertSql(
+            """
+-- I <3 DDL
+
+""");
+    }
+
     public override void InsertDataOperation_all_args_spatial() => base.InsertDataOperation_all_args_spatial();
 
     
