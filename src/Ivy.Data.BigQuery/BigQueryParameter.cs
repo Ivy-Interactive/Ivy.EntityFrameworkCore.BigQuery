@@ -142,7 +142,16 @@ namespace Ivy.Data.BigQuery
 
         internal static BigQueryDbType? InferBigQueryDbType(DbType dbType) => dbType switch
         {
+            DbType.Int16 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.Int32 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
             DbType.Int64 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.UInt16 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.UInt32 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.UInt64 => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.Byte => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            DbType.SByte => Google.Cloud.BigQuery.V2.BigQueryDbType.Int64,
+            
+            DbType.Single => Google.Cloud.BigQuery.V2.BigQueryDbType.Float64,
             DbType.Double => Google.Cloud.BigQuery.V2.BigQueryDbType.Float64,
             DbType.Boolean => Google.Cloud.BigQuery.V2.BigQueryDbType.Bool,
             DbType.String => Google.Cloud.BigQuery.V2.BigQueryDbType.String,
@@ -156,6 +165,7 @@ namespace Ivy.Data.BigQuery
             DbType.Time => Google.Cloud.BigQuery.V2.BigQueryDbType.Time,
             DbType.Decimal => Google.Cloud.BigQuery.V2.BigQueryDbType.Numeric,
             DbType.VarNumeric => Google.Cloud.BigQuery.V2.BigQueryDbType.Numeric,
+            DbType.Currency => Google.Cloud.BigQuery.V2.BigQueryDbType.Numeric,
             DbType.Guid => Google.Cloud.BigQuery.V2.BigQueryDbType.String,
             DbType.Object => null,
             _ => null,
