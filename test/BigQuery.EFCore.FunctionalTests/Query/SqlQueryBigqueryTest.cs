@@ -59,6 +59,23 @@ SELECT * FROM `Customers` WHERE `ContactName` LIKE '%z%'
     protected override DbParameter CreateDbParameter(string name, object value)
     => new BigQueryParameter { ParameterName = name, Value = value };
 
+    #region Parameter type inference limitations
+
+    // EFCor expects parameters with same name/value but different Size to be treated as distinct.
+    // BigQuery's parameter system doesn't use Size for parameter differentiation.
+    [ConditionalTheory(Skip = "BigQuery does not differentiate parameters by Size metadata")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Multiple_occurrences_of_SqlQuery_with_db_parameter_adds_two_parameters(bool async)
+        => base.Multiple_occurrences_of_SqlQuery_with_db_parameter_adds_two_parameters(async);
+
+    // When uint? null is boxed and passed to SqlQueryRaw, the type information is lost.
+    [ConditionalTheory(Skip = "BigQuery requires typed parameters - boxed null loses type information")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task SqlQueryRaw_queryable_with_null_parameter(bool async)
+        => base.SqlQueryRaw_queryable_with_null_parameter(async);
+
+    #endregion
+
     #region Exception type mismatch (InvalidCastException instead of InvalidOperationException)
 
     [ConditionalTheory(Skip = "BigQuery throws InvalidCastException instead of InvalidOperationException for DBNull")]

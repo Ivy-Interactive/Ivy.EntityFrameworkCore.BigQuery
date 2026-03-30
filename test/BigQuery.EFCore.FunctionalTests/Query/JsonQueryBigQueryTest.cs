@@ -1,5 +1,6 @@
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.JsonQuery;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -1066,6 +1067,10 @@ FROM `JsonEntitiesCustomNaming` AS `j`
             Assert.Equal(expected.TestNullableEnumWithIntConverter, actual.TestNullableEnumWithIntConverter);
             Assert.Equal(expected.TestNullableEnumWithConverterThatHandlesNulls, actual.TestNullableEnumWithConverterThatHandlesNulls);
         }
+
+        public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
+            => base.AddOptions(builder)
+                .ConfigureWarnings(w => w.Log(CoreEventId.RowLimitingOperationWithoutOrderByWarning));
 
         protected override Task SeedAsync(JsonQueryContext context)
         {

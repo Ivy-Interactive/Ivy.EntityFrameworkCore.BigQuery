@@ -21,13 +21,12 @@ namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Northwind
 
             modelBuilder.Entity<Product>(b =>
             {
-                b.Property(p => p.UnitPrice).HasColumnType("BIGNUMERIC(57, 28)");
+                b.Property(p => p.UnitPrice).HasColumnType("NUMERIC");
             });
 
             modelBuilder.Entity<OrderDetail>(b =>
             {
-                b.Property(p => p.UnitPrice).HasColumnType("BIGNUMERIC(57, 28)");
-
+                b.Property(p => p.UnitPrice).HasColumnType("NUMERIC");
             });
 
             modelBuilder.Entity<Order>(b =>
@@ -40,10 +39,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.TestModels.Northwind
                 b.ToTable("Customers");
             });
 
+            // Override base NorthwindRelationalContext's SQL Server syntax with BigQuery backticks
+            modelBuilder.Entity<CustomerQuery>().ToSqlQuery(
+                "SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`");
 
-            //modelBuilder.Entity<CustomerQuery>().ToSqlQuery(
-            //    "SELECT * FROM `Customers`"
-            //);
+            modelBuilder.Entity<OrderQuery>().ToSqlQuery("SELECT * FROM `Orders`");
         }
     }
 }

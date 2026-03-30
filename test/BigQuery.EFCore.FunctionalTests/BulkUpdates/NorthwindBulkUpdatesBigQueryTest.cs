@@ -170,6 +170,11 @@ WHERE STARTS_WITH(`c`.`CustomerID`, 'F')
     public override Task Update_Where_Skip_Take_set_constant(bool async)
         => base.Update_Where_Skip_Take_set_constant(async);
 
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries in UPDATE/DELETE")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Update_Where_OrderBy_Skip_Take_Skip_Take_set_constant(bool async)
+        => base.Update_Where_OrderBy_Skip_Take_Skip_Take_set_constant(async);
+
     #endregion
 
     #region Unsupported: Non-deterministic First() in GroupBy

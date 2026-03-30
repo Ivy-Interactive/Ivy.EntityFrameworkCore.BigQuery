@@ -67,4 +67,10 @@ public class SpatialBigQueryTest(SpatialBigQueryFixture fixture) : SpatialTestBa
     public override void Can_roundtrip_Z_and_M()
     {
     }
+
+    // BigQuery doesn't support static geometry members like Point.Empty in queries    
+    [ConditionalFact(Skip = "BigQuery does not support static geometry members like Point.Empty in queries")]
+    public override void Translators_handle_static_members()
+    {
+    }
 }

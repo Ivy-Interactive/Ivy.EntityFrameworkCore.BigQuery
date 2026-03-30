@@ -255,6 +255,18 @@ public class JsonTypesBigQueryTest(NonSharedFixture fixture) : JsonTypesRelation
     [ConditionalFact(Skip = "BigQuery TimeOnly collection handling issue")]
     public override Task Can_read_write_collection_of_TimeOnly_JSON_values() => Task.CompletedTask;
 
+    // BQ serializes byte[] as base64 strings in JSON, not as arrays of byte values
+    [ConditionalFact(Skip = "BigQuery serializes byte[] as base64 string, not as JSON array of bytes")]
+    public override Task Can_read_write_binary_as_collection() => Task.CompletedTask;
+
+    // BQ serializes Guid as UUID strings even when converted to bytes via HasConversion<byte[]>()
+    [ConditionalTheory(Skip = "BigQuery preserves Guid as UUID string format in JSON, not base64 bytes")]
+    [InlineData("""{"Prop":["AAAAAAAAAAAAAAAAAAAAAA==","LyRE8D6OIEqL6JjHwaredQ==","/////////////////////w=="]}""")]
+#pragma warning disable xUnit1026 // Theory methods should use all of their parameters
+    public override Task Can_read_write_collection_of_Guid_converted_to_bytes_JSON_values(string expected)
+#pragma warning restore xUnit1026
+        => Task.CompletedTask;
+
     #endregion
 
     #region Geography - WKT format tests (working)

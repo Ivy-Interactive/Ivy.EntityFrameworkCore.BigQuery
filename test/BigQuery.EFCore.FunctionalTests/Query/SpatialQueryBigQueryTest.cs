@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.SpatialModel;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries.Utilities;
 using NetTopologySuite.IO;
 using Xunit.Abstractions;
 
@@ -147,7 +148,27 @@ FROM `PolygonEntity` AS `p`
     }
 
     public override Task Combine_aggregate(bool async)
-        => base.Combine_aggregate(async);
+        // BQ doesn't guarantee order within grouped results
+        => AssertQuery(
+            async,
+            ss => ss.Set<PointEntity>()
+                .Where(e => e.Point != null)
+                .GroupBy(e => e.Group)
+                .Select(g => new { Id = g.Key, Combined = GeometryCombiner.Combine(g.Select(e => e.Point)) }),
+            elementSorter: x => x.Id,
+            elementAsserter: (e, a) =>
+            {
+                Assert.Equal(e.Id, a.Id);
+
+                var eCollection = (GeometryCollection)e.Combined;
+                var aCollection = (GeometryCollection)a.Combined;
+
+                // Sort geometries by coordinates for deterministic comparison
+                var eSorted = eCollection.Geometries.OrderBy(g => g.Coordinate.X).ThenBy(g => g.Coordinate.Y).ToList();
+                var aSorted = aCollection.Geometries.OrderBy(g => g.Coordinate.X).ThenBy(g => g.Coordinate.Y).ToList();
+
+                Assert.Equal(eSorted, aSorted);
+            });
 
     public override Task EnvelopeCombine_aggregate(bool async)
         => base.EnvelopeCombine_aggregate(async);
