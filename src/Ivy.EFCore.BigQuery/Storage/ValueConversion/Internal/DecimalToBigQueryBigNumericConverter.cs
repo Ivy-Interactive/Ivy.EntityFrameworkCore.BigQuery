@@ -5,13 +5,13 @@ using System.Globalization;
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.ValueConversion.Internal;
 
 /// <summary>
-/// Converts decimal values to BigQueryNumeric for NUMERIC columns.
+/// Converts decimal values to BigQueryBigNumeric for BIGNUMERIC columns.
 /// </summary>
-public class DecimalToBigQueryNumericConverter : ValueConverter<decimal, BigQueryNumeric>
+public class DecimalToBigQueryBigNumericConverter : ValueConverter<decimal, BigQueryBigNumeric>
 {
-    public DecimalToBigQueryNumericConverter(ConverterMappingHints? mappingHints = null)
+    public DecimalToBigQueryBigNumericConverter(ConverterMappingHints? mappingHints = null)
         : base(
-              v => BigQueryNumeric.Parse(v.ToString(CultureInfo.InvariantCulture)),
+              v => BigQueryBigNumeric.Parse(v.ToString(CultureInfo.InvariantCulture)),
               v => v.ToDecimal(LossOfPrecisionHandling.Truncate),
               mappingHints
               )
