@@ -284,8 +284,15 @@ namespace Ivy.Data.BigQuery
                 {
                     throw new InvalidOperationException($"Cannot automatically determine BigQuery array type for parameter '{ParameterName}'. Set the BigQueryDbType explicitly (e.g., BigQueryDbType.Array with element type).");
                 }
-
-                throw new InvalidOperationException($"Cannot determine BigQueryDbType for parameter '{ParameterName}'. Set DbType or BigQueryDbType explicitly.");
+                
+                if (Value == null || Value == DBNull.Value)
+                {
+                    type = Google.Cloud.BigQuery.V2.BigQueryDbType.String;
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Cannot determine BigQueryDbType for parameter '{ParameterName}'. Set DbType or BigQueryDbType explicitly.");
+                }
             }
 
             var name = ParameterName[1..];

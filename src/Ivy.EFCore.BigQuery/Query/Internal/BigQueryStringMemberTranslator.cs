@@ -13,9 +13,6 @@ public class BigQueryStringMemberTranslator : IMemberTranslator
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
-    private static readonly MemberInfo StringLength
-        = typeof(string).GetProperty(nameof(string.Length))!;
-
     public BigQueryStringMemberTranslator(ISqlExpressionFactory sqlExpressionFactory)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
@@ -27,7 +24,7 @@ public class BigQueryStringMemberTranslator : IMemberTranslator
         Type returnType,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (member == StringLength && instance?.Type == typeof(string))
+        if (member.Name == nameof(string.Length) && member.DeclaringType == typeof(string) && instance is not null)
         {
             return _sqlExpressionFactory.Function(
                 "LENGTH",
