@@ -38,30 +38,18 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build ADO.NET Project
-        run: dotnet build src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore /p:Version=$VERSION
 
-      - name: Build ADO.NET NTS Project
-        run: dotnet build src/Ivy.Data.BigQuery.NTS/Ivy.Data.BigQuery.NTS.csproj --configuration Release --no-restore /p:Version=$VERSION
+      - name: Pack packages
+        run: |
+          dotnet pack src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+          dotnet pack src/Ivy.Data.BigQuery.NTS/Ivy.Data.BigQuery.NTS.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+          dotnet pack src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+          dotnet pack src/Ivy.EFCore.BigQuery.NTS/Ivy.EFCore.BigQuery.NTS.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
 
-      - name: Build EF Core Project
-        run: dotnet build src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-restore /p:Version=$VERSION
-
-      - name: Build EF Core NTS Project
-        run: dotnet build src/Ivy.EFCore.BigQuery.NTS/Ivy.EFCore.BigQuery.NTS.csproj --configuration Release --no-restore /p:Version=$VERSION
-
-      - name: Pack ADO.NET Project
-        run: dotnet pack src/Ivy.Data.BigQuery/Ivy.Data.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
-
-      - name: Pack ADO.NET NTS Project
-        run: dotnet pack src/Ivy.Data.BigQuery.NTS/Ivy.Data.BigQuery.NTS.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
-
-      - name: Pack EF Core Project
-        run: dotnet pack src/Ivy.EFCore.BigQuery/Ivy.EFCore.BigQuery.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
-
-      - name: Pack EF Core NTS Project
-        run: dotnet pack src/Ivy.EFCore.BigQuery.NTS/Ivy.EFCore.BigQuery.NTS.csproj --configuration Release --no-build --output ./artifacts /p:Version=$VERSION
+      - name: List packages
+        run: ls -la ./artifacts/
 
       - name: Publish to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_TOKEN }} --source ${{ env.NUGET_SOURCE }} --skip-duplicate
-
