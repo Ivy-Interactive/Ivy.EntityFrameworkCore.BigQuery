@@ -28,18 +28,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>none</IncludeAssets>
-			<ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-		</ProjectReference>
+		<ProjectReference Include="..\Ivy.Data.BigQuery\Ivy.Data.BigQuery.csproj" />
 	</ItemGroup>
-
-	<Target Name="IncludeReferencedProjectInPackage" DependsOnTargets="ResolveProjectReferences" BeforeTargets="_GetPackageFiles">
-		<ItemGroup>
-			<None Include="@(ReferenceCopyLocalPaths)" Pack="true" PackagePath="lib/$(TargetFramework)" Visible="false" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
-		</ItemGroup>
-	</Target>
 
 	<PropertyGroup>
 		<NoWarn>EF1001</NoWarn>
