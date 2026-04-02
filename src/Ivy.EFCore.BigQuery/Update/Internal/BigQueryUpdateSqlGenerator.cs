@@ -13,17 +13,17 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
 
         /// <summary>
         /// Determines if a type mapping requires literal values instead of parameters.
-        /// Needed for STRUCT, ARRAY&lt;STRUCT&gt;, and GEOGRAPHY types because the BQ SDK
-        /// doesn't support STRUCT parameters and GEOGRAPHY needs WKT conversion.
+        /// Needed for STRUCT, ARRAY types, and GEOGRAPHY types because the BQ SDK
+        /// doesn't support STRUCT parameters, array parameters with null elements,
+        /// and GEOGRAPHY needs WKT conversion.
         /// </summary>
         private static bool RequiresLiteralValue(RelationalTypeMapping? typeMapping)
         {
             if (typeMapping is BigQueryStructTypeMapping)
                 return true;
 
-            // ARRAY<STRUCT>
-            if (typeMapping is BigQueryArrayTypeMapping arrayMapping
-                && arrayMapping.ElementTypeMapping is BigQueryStructTypeMapping)
+            // All ARRAY types - BQ SDK doesn't support null elements in array parameters,
+            if (typeMapping is BigQueryArrayTypeMapping)
                 return true;
 
             // GEOGRAPHY types need literal WKT strings
@@ -437,7 +437,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
         {
             if (operations.Count > 0)
             {
-                var hasStructColumn = operations.Any(o => RequiresLiteralValue(o.TypeMapping));
+                // Check if any column requires ALL columns to use literals (STRUCT types)
+                // Arrays and Geography use literals only for themselves, not for all columns
+                var hasStructColumn = operations.Any(o => o.TypeMapping is BigQueryStructTypeMapping);
 
                 // Note: AppendValuesHeader already adds "VALUES ", so we just add "("
                 commandStringBuilder.Append("(");
@@ -450,7 +452,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Update.Internal
                         commandStringBuilder.Append(", ");
                     }
 
-                    // If ANY column is a STRUCT, ARRAY<STRUCT>, or GEOGRAPHY, use literals for ALL columns
+                    // Use literals for:
+                    // 1. All columns if any is a STRUCT (hasStructColumn)
+                    // 2. This specific column if it requires literals (arrays, geography)
                     if (hasStructColumn || RequiresLiteralValue(modification.TypeMapping))
                     {
                         if (modification.Value != null)
