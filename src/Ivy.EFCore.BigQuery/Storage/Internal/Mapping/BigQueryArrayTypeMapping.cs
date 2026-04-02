@@ -1,10 +1,7 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.EntityFrameworkCore.Utilities;
 using System.Collections;
-using System.Data;
 using System.Data.Common;
 using System.Text;
 
@@ -58,7 +55,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter? converter = null;
             if (typeof(TCollection) != typeof(TConcreteCollection))
             {
-                // Create converter for interface types (e.g., IList<T> to T[])
+                // Converter for interface types (e.g., IList<T> to T[])
                 converter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<TCollection, TConcreteCollection>(
                     v => ConvertToConcreteCollection(v),
                     v => ConvertToCollection(v));
@@ -71,33 +68,45 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
             JsonValueReaderWriter? jsonValueReaderWriter = null;
             if (elementMapping.JsonValueReaderWriter != null)
             {
-                Type collectionReaderWriterType;
-                Type elementTypeArgument;
-
-                if (typeof(TElement).IsValueType)
+                try
                 {
-                    var underlyingType = Nullable.GetUnderlyingType(typeof(TElement));
-                    if (underlyingType != null)
+                    Type collectionReaderWriterType;
+                    Type elementTypeArgument;
+
+                    if (typeof(TElement).IsValueType)
                     {
-                        collectionReaderWriterType = typeof(JsonCollectionOfNullableStructsReaderWriter<,>);
-                        elementTypeArgument = underlyingType;
+                        var underlyingType = Nullable.GetUnderlyingType(typeof(TElement));
+                        if (underlyingType != null)
+                        {
+                            collectionReaderWriterType = typeof(JsonCollectionOfNullableStructsReaderWriter<,>);
+                            elementTypeArgument = underlyingType;
+                        }
+                        else
+                        {
+                            collectionReaderWriterType = typeof(JsonCollectionOfStructsReaderWriter<,>);
+                            elementTypeArgument = typeof(TElement);
+                        }
                     }
                     else
                     {
-                        collectionReaderWriterType = typeof(JsonCollectionOfStructsReaderWriter<,>);
+                        collectionReaderWriterType = typeof(JsonCollectionOfReferencesReaderWriter<,>);
                         elementTypeArgument = typeof(TElement);
                     }
-                }
-                else
-                {
-                    collectionReaderWriterType = typeof(JsonCollectionOfReferencesReaderWriter<,>);
-                    elementTypeArgument = typeof(TElement);
-                }
 
-                var genericType = collectionReaderWriterType.MakeGenericType(typeof(TConcreteCollection), elementTypeArgument);
-                jsonValueReaderWriter = (JsonValueReaderWriter)Activator.CreateInstance(
-                    genericType,
-                    elementMapping.JsonValueReaderWriter)!;
+                    var genericType = collectionReaderWriterType.MakeGenericType(typeof(TConcreteCollection), elementTypeArgument);
+                    jsonValueReaderWriter = (JsonValueReaderWriter)Activator.CreateInstance(
+                        genericType,
+                        elementMapping.JsonValueReaderWriter)!;
+                }
+                catch (MissingMethodException)
+                {
+                    /* 
+                     * For enum arrays, the element mapping's JsonValueReaderWriter is for the underlying type
+                     * (e.g., long), not the enum type, so the JsonCollectionOfStructsReaderWriter constructor
+                     * fails. This is OK because enum arrays are serialized using the element mapping's value
+                     * converter, not the JSON reader/writer.
+                     */
+                }
             }
 
             return new RelationalTypeMappingParameters(
@@ -146,27 +155,63 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         {
             if (ReferenceEquals(left, right)) return true;
             if (left is null || right is null) return false;
-            
+
             var leftArray = left.ToArray();
             var rightArray = right.ToArray();
-            
+
             if (leftArray.Length != rightArray.Length) return false;
-            
-            for (var i = 0; i < leftArray.Length; i++)
+
+            // Use default equality when:
+            // 1. TElement is an enum (comparer might expect underlying type like long)
+            // 2. The element comparer's type doesn't match TElement (type conversion)
+            var useDefaultEquality = typeof(TElement).IsEnum || !IsComparerCompatible(elementComparer);
+
+            if (useDefaultEquality)
             {
-                if (!elementComparer.Equals(leftArray[i], rightArray[i]))
-                    return false;
+                for (var i = 0; i < leftArray.Length; i++)
+                {
+                    if (!EqualityComparer<TElement>.Default.Equals(leftArray[i], rightArray[i]))
+                        return false;
+                }
             }
-            
+            else
+            {
+                for (var i = 0; i < leftArray.Length; i++)
+                {
+                    if (!elementComparer.Equals(leftArray[i], rightArray[i]))
+                        return false;
+                }
+            }
+
             return true;
+        }
+
+        private static bool IsComparerCompatible(ValueComparer elementComparer)
+        {
+            var comparerType = elementComparer.Type;
+            return comparerType == typeof(TElement) ||
+                   typeof(TElement).IsAssignableFrom(comparerType) ||
+                   comparerType.IsAssignableFrom(typeof(TElement));
         }
 
         private static int GetHashCode(TConcreteCollection obj, ValueComparer elementComparer)
         {
             var hash = new HashCode();
-            foreach (var element in obj)
+            var useDefaultEquality = typeof(TElement).IsEnum || !IsComparerCompatible(elementComparer);
+
+            if (useDefaultEquality)
             {
-                hash.Add(elementComparer.GetHashCode(element));
+                foreach (var element in obj)
+                {
+                    hash.Add(EqualityComparer<TElement>.Default.GetHashCode(element!));
+                }
+            }
+            else
+            {
+                foreach (var element in obj)
+                {
+                    hash.Add(elementComparer.GetHashCode(element));
+                }
             }
             return hash.ToHashCode();
         }
