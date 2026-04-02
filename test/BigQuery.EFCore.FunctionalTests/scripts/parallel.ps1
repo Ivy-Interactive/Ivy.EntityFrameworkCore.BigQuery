@@ -216,7 +216,10 @@ function New-DatasetName {
 
     $slug = ($GroupName -replace "[^A-Za-z0-9]+", "_").ToLower().Trim("_")
     if ($slug.Length -gt 60) {
-        $slug = $slug.Substring(0, 60)
+        # Keep the END of the string (unique class names) rather than the beginning (common namespace prefix)
+        $slug = $slug.Substring($slug.Length - 60)
+        # Ensure it doesn't start with underscore after truncation
+        $slug = $slug.TrimStart("_")
     }
     return "test_$slug"
 }
