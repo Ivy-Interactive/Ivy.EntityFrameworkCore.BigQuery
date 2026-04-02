@@ -30,7 +30,8 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
         protected override string GenerateNonNullSqlLiteral(object value)
         {
             var bytes = (byte[])value;
-            return $"B'{Convert.ToHexString(bytes)}'";
+            // B'...' literal expects UTF-8 string, not hex.
+            return $"FROM_HEX('{Convert.ToHexString(bytes)}')";
         }
     }
 }
