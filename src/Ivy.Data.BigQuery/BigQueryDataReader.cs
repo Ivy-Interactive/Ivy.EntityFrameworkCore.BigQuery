@@ -512,9 +512,24 @@ namespace Ivy.Data.BigQuery
                     if (typeof(T) == typeof(string)) return (T)(object)bigNumericValue.ToString();
                 }
 
-                if (bqFieldType == BigQueryDbType.Bytes && value is byte[] bytesValue && typeof(T) == typeof(byte[]))
+                if (bqFieldType == BigQueryDbType.Bytes && typeof(T) == typeof(byte[]))
                 {
-                    return (T)(object)bytesValue;
+                    if (value is byte[] bytesValue)
+                    {
+                        return (T)(object)bytesValue;
+                    }
+                    // BigQuery returns BYTES as base64-encoded strings in query results
+                    if (value is string str)
+                    {
+                        try
+                        {
+                            return (T)(object)Convert.FromBase64String(str);
+                        }
+                        catch (FormatException)
+                        {                            
+                            return (T)(object)Convert.FromHexString(str);
+                        }
+                    }
                 }
 
                 // GEOGRAPHY - use plugin handler if available
@@ -549,7 +564,19 @@ namespace Ivy.Data.BigQuery
                         var sourceElement = sourceArray.GetValue(i);
                         if (sourceElement != null)
                         {
-                            var convertedElement = Convert.ChangeType(sourceElement, targetElementType, CultureInfo.InvariantCulture);
+                            object convertedElement;
+                            var underlyingType = Nullable.GetUnderlyingType(targetElementType);
+                            var conversionType = underlyingType ?? targetElementType;
+
+                            if (conversionType.IsEnum)
+                            {
+                                // Enum arrays need special handling - convert from underlying type
+                                convertedElement = Enum.ToObject(conversionType, sourceElement);
+                            }
+                            else
+                            {
+                                convertedElement = Convert.ChangeType(sourceElement, conversionType, CultureInfo.InvariantCulture);
+                            }
                             targetArray.SetValue(convertedElement, i);
                         }
                     }
@@ -563,11 +590,22 @@ namespace Ivy.Data.BigQuery
                     var listType = typeof(List<>).MakeGenericType(targetElementType);
                     var list = (IList)Activator.CreateInstance(listType)!;
 
+                    var underlyingType = Nullable.GetUnderlyingType(targetElementType);
+                    var conversionType = underlyingType ?? targetElementType;
+
                     foreach (var element in listSourceArray)
                     {
                         if (element != null)
                         {
-                            var convertedElement = Convert.ChangeType(element, targetElementType, CultureInfo.InvariantCulture);
+                            object convertedElement;
+                            if (conversionType.IsEnum)
+                            {
+                                convertedElement = Enum.ToObject(conversionType, element);
+                            }
+                            else
+                            {
+                                convertedElement = Convert.ChangeType(element, conversionType, CultureInfo.InvariantCulture);
+                            }
                             list.Add(convertedElement);
                         }
                         else

@@ -419,6 +419,29 @@ namespace Ivy.Data.BigQuery
                         apiValue = convertedList.ToArray();
                         type = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
                     }
+                    // Enum arrays - convert to long[] (BQ stores enums as INT64)
+                    else if (elementType.IsEnum)
+                    {
+                        var convertedList = new List<long>();
+                        foreach (var element in enumerable)
+                        {
+                            convertedList.Add(Convert.ToInt64(element));
+                        }
+                        apiValue = convertedList.ToArray();
+                        type = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
+                    }
+                    // Nullable enum arrays
+                    else if (underlyingType != null && underlyingType.IsEnum)
+                    {
+                        var convertedList = new List<long>();
+                        foreach (var element in enumerable)
+                        {
+                            if (element != null)
+                                convertedList.Add(Convert.ToInt64(element));
+                        }
+                        apiValue = convertedList.ToArray();
+                        type = Google.Cloud.BigQuery.V2.BigQueryDbType.Array;
+                    }
                     // Custom object lists
                     else if (!IsPrimitiveType(elementType))
                     {
@@ -470,6 +493,7 @@ namespace Ivy.Data.BigQuery
                 type = underlyingType;
 
             return type.IsPrimitive
+                   || type.IsEnum
                    || type == typeof(string)
                    || type == typeof(decimal)
                    || type == typeof(DateTime)
