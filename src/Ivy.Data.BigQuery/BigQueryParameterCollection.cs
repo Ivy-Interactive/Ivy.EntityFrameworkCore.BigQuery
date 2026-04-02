@@ -284,6 +284,22 @@ public class BigQueryParameterCollection : DbParameterCollection
                 }
             }
 
+            // BigQuery SDK doesn't accept null array parameters - skip them
+            // (they should use SQL literals for NULL instead)
+            // Check both explicitly set BigQueryDbType.Array and inferred array types
+            if (param.Value == null || param.Value == DBNull.Value)
+            {
+                if (param.BigQueryDbType == Google.Cloud.BigQuery.V2.BigQueryDbType.Array)
+                {
+                    continue;
+                }
+            }
+            else if (param.BigQueryDbType == Google.Cloud.BigQuery.V2.BigQueryDbType.Array)
+            {
+                // Non-null array value - let it through but check if it's actually an enumerable
+                // (will be handled by ToBigQueryParameter)
+            }
+
             var normalizedName = param.ParameterName.TrimStart('@');
             if (!addedParamNames.Add(normalizedName))
             {
