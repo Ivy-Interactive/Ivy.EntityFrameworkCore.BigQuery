@@ -1,7 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.Data;
-using System.Data.Common;
-using System.Globalization;
 using AdoNet.Specification.Tests;
 
 namespace Ivy.Data.BigQuery.Conformance.Tests;

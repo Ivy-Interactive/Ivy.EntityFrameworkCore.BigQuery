@@ -1,5 +1,4 @@
 using Ivy.Data.BigQuery;
-using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Infrastructure.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Query.Internal;
 using Ivy.EntityFrameworkCore.BigQuery.NetTopologySuite.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;

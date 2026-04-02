@@ -1,4 +1,3 @@
-using Ivy.EntityFrameworkCore.BigQuery.Extensions;
 using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;

@@ -1,5 +1,4 @@
 ﻿using Google.Cloud.BigQuery.V2;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Ivy.Data.BigQuery;
 

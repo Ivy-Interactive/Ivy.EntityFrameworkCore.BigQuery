@@ -13,7 +13,6 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using NetTopologySuite.Geometries;
 using System.Diagnostics;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Scaffolding;

@@ -1,7 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using System.Buffers.Text;
 using Ivy.EntityFrameworkCore.BigQuery.Infrastructure;
 using Ivy.EntityFrameworkCore.BigQuery.Infrastructure.Internal;
 

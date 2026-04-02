@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 {

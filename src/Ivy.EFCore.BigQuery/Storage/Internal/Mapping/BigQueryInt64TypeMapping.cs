@@ -1,12 +1,7 @@
 ﻿using Ivy.Data.BigQuery;
 using Microsoft.EntityFrameworkCore.Storage;
-using System;
-using System.Collections.Generic;
 using System.Data.Common;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
 {

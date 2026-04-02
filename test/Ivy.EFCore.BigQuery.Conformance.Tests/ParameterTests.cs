@@ -1,5 +1,4 @@
 ﻿using AdoNet.Specification.Tests;
-using Xunit;
 
 namespace Ivy.Data.BigQuery.Conformance.Tests;
 

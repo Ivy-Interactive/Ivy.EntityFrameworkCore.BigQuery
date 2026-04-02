@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.ModelBuilding;
 

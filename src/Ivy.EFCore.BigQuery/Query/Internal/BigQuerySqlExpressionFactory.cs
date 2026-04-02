@@ -3,7 +3,6 @@ using Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal;

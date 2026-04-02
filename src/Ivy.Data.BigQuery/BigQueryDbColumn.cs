@@ -1,5 +1,4 @@
-﻿using Google.Cloud.BigQuery.V2;
-using System.Data.Common;
+﻿using System.Data.Common;
 
 namespace Ivy.Data.BigQuery;
 

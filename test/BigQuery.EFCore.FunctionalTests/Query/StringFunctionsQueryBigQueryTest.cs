@@ -1,9 +1,5 @@
 
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
-using System.Linq;
-using Xunit;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query
 {

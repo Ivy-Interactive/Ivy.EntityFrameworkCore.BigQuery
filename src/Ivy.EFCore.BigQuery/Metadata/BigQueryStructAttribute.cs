@@ -1,5 +1,3 @@
-using System;
-
 namespace Ivy.EntityFrameworkCore.BigQuery.Metadata;
 
 /// <summary>

@@ -1,6 +1,5 @@
 using Ivy.Data.BigQuery.NetTopologySuite.Internal;
 using NetTopologySuite;
-using NetTopologySuite.Geometries;
 
 namespace Ivy.Data.BigQuery;
 
