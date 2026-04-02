@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Ivy.EntityFrameworkCore.BigQuery.Query.Expressions.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
-using System;
 using System.Linq.Expressions;
 
 namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
@@ -223,6 +223,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
             return extensionExpression switch
             {
+                BigQueryDeleteExpression deleteExpression => VisitBigQueryDelete(deleteExpression),
                 BigQueryUnnestExpression unnestExpression => VisitBigQueryUnnest(unnestExpression),
                 BigQueryJsonUnnestExpression jsonUnnestExpression => VisitBigQueryJsonUnnest(jsonUnnestExpression),
                 BigQueryJsonElementAccessExpression jsonElementAccess => VisitBigQueryJsonElementAccess(jsonElementAccess),
@@ -876,8 +877,61 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 RelationalStrings.ExecuteOperationWithUnsupportedOperatorInSqlGeneration(nameof(EntityFrameworkQueryableExtensions.ExecuteUpdate)));
         }
 
+        /// <inheritdoc />
+        protected override void GenerateRootCommand(Expression queryExpression)
+        {
+            switch (queryExpression)
+            {
+                case BigQueryDeleteExpression bigQueryDeleteExpression:
+                    GenerateTagsHeaderComment(bigQueryDeleteExpression.Tags);
+                    VisitBigQueryDelete(bigQueryDeleteExpression);
+                    break;
+
+                default:
+                    base.GenerateRootCommand(queryExpression);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Generates SQL for a BigQuery DELETE statement with optional USING clause.
+        /// </summary>
+        protected virtual Expression VisitBigQueryDelete(BigQueryDeleteExpression deleteExpression)
+        {
+            Sql.Append("DELETE FROM ");
+            Visit(deleteExpression.Table);
+
+            if (deleteExpression.FromItems.Count > 0)
+            {
+                Sql.AppendLine().Append("USING ");
+                for (var i = 0; i < deleteExpression.FromItems.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        Sql.Append(", ");
+                    }
+                    Visit(deleteExpression.FromItems[i]);
+                }
+            }
+
+            if (deleteExpression.Predicate != null)
+            {
+                Sql.AppendLine().Append("WHERE ");
+                Visit(deleteExpression.Predicate);
+            }
+            else
+            {
+                // BQ always requires WHERE clause
+                Sql.AppendLine().Append("WHERE true");
+            }
+
+            return deleteExpression;
+        }
+
         protected override Expression VisitDelete(DeleteExpression deleteExpression)
         {
+            // This method handles simple DELETE expressions that weren't converted to BigQueryDeleteExpression.
+            // Complex DELETE expressions with joins are handled by VisitBigQueryDelete via BigQueryDeleteExpression.
             var selectExpression = deleteExpression.SelectExpression;
 
             if (selectExpression is
