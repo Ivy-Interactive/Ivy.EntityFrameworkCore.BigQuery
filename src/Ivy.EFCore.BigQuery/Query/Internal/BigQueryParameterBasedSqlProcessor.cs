@@ -23,7 +23,11 @@ public class BigQueryParameterBasedSqlProcessor : RelationalParameterBasedSqlPro
         // Transform correlated JOINs - handles CrossJoinExpression with correlated inner SELECTs
         queryExpression = _correlatedJoinPostprocessor.Visit(queryExpression);
 
-        return base.Process(queryExpression, parametersDecorator);
+        queryExpression = base.Process(queryExpression, parametersDecorator);
+
+        queryExpression = new BigQueryDeleteConvertingExpressionVisitor().Process(queryExpression);
+
+        return queryExpression;
     }
 
     /// <inheritdoc />
