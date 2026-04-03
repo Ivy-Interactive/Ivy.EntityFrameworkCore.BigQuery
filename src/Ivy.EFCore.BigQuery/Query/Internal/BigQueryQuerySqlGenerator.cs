@@ -76,6 +76,27 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             return base.VisitColumn(columnExpression);
         }
 
+        /// <summary>
+        /// Override to generate typed NULL literals for BigQuery.
+        /// BQ requires NULL values to have explicit types in UNION ALL queries
+        /// to ensure type compatibility across all branches.
+        /// </summary>
+        protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
+        {
+            // For NULL values with a type mapping, generate CAST(NULL AS <type>)
+            // This ensures type compatibility in UNION ALL queries
+            if (sqlConstantExpression.Value == null && sqlConstantExpression.TypeMapping?.StoreType != null)
+            {
+                var storeType = sqlConstantExpression.TypeMapping.StoreType;
+                Sql.Append("CAST(NULL AS ");
+                Sql.Append(storeType);
+                Sql.Append(")");
+                return sqlConstantExpression;
+            }
+
+            return base.VisitSqlConstant(sqlConstantExpression);
+        }
+
         private static bool IsScalarType(Type type)
         {
             var unwrapped = Nullable.GetUnderlyingType(type) ?? type;
@@ -380,7 +401,9 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         protected virtual Expression VisitBigQueryArrayIndex(BigQueryArrayIndexExpression arrayIndexExpression)
         {
             Visit(arrayIndexExpression.Array);
-            Sql.Append("[OFFSET(");
+            // Use SAFE_OFFSET instead of OFFSET to return NULL for out-of-bounds access
+            // rather than throwing an error (consistent with EF Core behavior on other databases)
+            Sql.Append("[SAFE_OFFSET(");
             Visit(arrayIndexExpression.Index);
             Sql.Append(")]");
 
@@ -990,6 +1013,30 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                     UnionExpression => "UNION",
                     _ => throw new InvalidOperationException($"Unknown set operation type: {operation.GetType().Name}")
                 };
+        }
+
+        /// <summary>
+        /// BigQuery strictly requires parentheses when different set operations are mixed in the same query.
+        /// Override to always wrap operands containing set operations in parentheses.
+        /// </summary>
+        protected override void GenerateSetOperationOperand(SetOperationBase setOperation, SelectExpression operand)
+        {
+            // Check if operand contains any set operation (which would need parentheses in BigQuery)
+            var hasNestedSetOperation = operand.Tables.Any(t => t is SetOperationBase);
+
+            if (hasNestedSetOperation)
+            {
+                Sql.AppendLine("(");
+                using (Sql.Indent())
+                {
+                    Visit(operand);
+                }
+                Sql.AppendLine().Append(")");
+            }
+            else
+            {
+                Visit(operand);
+            }
         }
 
         /// <summary>
