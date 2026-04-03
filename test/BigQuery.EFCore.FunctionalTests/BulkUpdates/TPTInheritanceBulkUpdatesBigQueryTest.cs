@@ -21,12 +21,12 @@ public class TPTInheritanceBulkUpdatesBigQueryTest(
 
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET in DELETE")]
     [MemberData(nameof(IsAsyncData))]
-    public override Task Delete_where_hierarchy_subquery(bool async)
+    public override Task Delete_where_hierarchy_subquery(bool _)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = "BigQuery does not support correlated subqueries with LIMIT/OFFSET in UPDATE")]
     [MemberData(nameof(IsAsyncData))]
-    public override Task Update_where_hierarchy_subquery(bool async)
+    public override Task Update_where_hierarchy_subquery(bool _)
         => Task.CompletedTask;
 
     #endregion

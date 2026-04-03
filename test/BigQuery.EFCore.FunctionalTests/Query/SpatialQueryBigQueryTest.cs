@@ -424,7 +424,7 @@ FROM `PointEntity` AS `p`
 
         AssertSql(
             """
-SELECT `m`.`Id`, ST_DUMP(`m`.`MultiLineString`)[OFFSET(0)] AS `Geometry0`
+SELECT `m`.`Id`, ST_DUMP(`m`.`MultiLineString`)[SAFE_OFFSET(0)] AS `Geometry0`
 FROM `MultiLineStringEntity` AS `m`
 """);
     }

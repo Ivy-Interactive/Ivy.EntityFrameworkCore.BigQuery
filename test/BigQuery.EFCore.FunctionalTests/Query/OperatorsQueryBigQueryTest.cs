@@ -14,6 +14,15 @@ public class OperatorsQueryBigQueryTest(NonSharedFixture fixture) : OperatorsQue
     protected void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 
+    #region Skipped: BigQuery does not support auto-generated keys
+
+    [ConditionalTheory(Skip = "BigQuery does not support auto-generated keys - test creates entities without explicit Id")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Concat_and_json_scalar(bool _)
+        => Task.CompletedTask;
+
+    #endregion
+
     protected override async Task Seed(OperatorsContext ctx)
     {
         ctx.Set<OperatorEntityString>().AddRange(ExpectedData.OperatorEntitiesString);

@@ -232,11 +232,19 @@ This generates SQL like `JOIN ... ON NOT EXISTS (...)` which BigQuery rejects.
 
 ### Correlated subqueries in WHERE clauses
 
-Some patterns may not be automatically transformed:
+Scalar subqueries in WHERE clauses that reference outer tables are not supported:
 
 ```csharp
-// May not work
-customers.Where(c => c.Orders.Any(o => o.Total > 1000))
+// NOT SUPPORTED - scalar subquery compared to value in WHERE
+employees.Where(e =>
+    employees.Where(e2 => e2.EmployeeID != e.ReportsTo)
+             .Select(e2 => e2.EmployeeID)
+             .FirstOrDefault() == 0)
+
+// NOT SUPPORTED - subquery equality comparison
+orders.Where(o =>
+    orders.Where(o2 => o2.CustomerID == o.CustomerID)
+          .FirstOrDefault().OrderID == someValue)
 ```
 
 **Workaround:** Use explicit joins:
@@ -248,6 +256,20 @@ join o in orders on c.CustomerID equals o.CustomerID into customerOrders
 where customerOrders.Any(o => o.Total > 1000)
 select c
 ```
+
+### ALL operator with correlated predicates
+
+The LINQ `All()` operator translates to `NOT EXISTS (SELECT ... WHERE NOT condition)`, which BigQuery doesn't support when the condition references outer tables:
+
+```csharp
+// NOT SUPPORTED - All with correlated predicate
+customers.Where(c => c.Orders.All(o => o.Total < 1000))
+
+// Translates to:
+// WHERE NOT EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerID = c.CustomerID AND NOT (o.Total < 1000))
+```
+
+**Workaround:** Use `!Any()` with the negated condition, or rewrite with explicit joins.
 
 ## Troubleshooting
 

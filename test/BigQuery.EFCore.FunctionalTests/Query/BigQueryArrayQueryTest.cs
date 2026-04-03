@@ -17,7 +17,7 @@ public class BigQueryArrayQueryTest(
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(0)] = 1
+WHERE `a`.`IntArray`[SAFE_OFFSET(0)] = 1
 """);
     }
 
@@ -31,7 +31,7 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@index)] = 1
+WHERE `a`.`IntArray`[SAFE_OFFSET(@index)] = 1
 """);
     }
 
@@ -43,7 +43,7 @@ WHERE `a`.`IntArray`[OFFSET(@index)] = 1
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`StringArray`[OFFSET(0)] = 'apple'
+WHERE `a`.`StringArray`[SAFE_OFFSET(0)] = 'apple'
 """);
     }
 
@@ -53,7 +53,7 @@ WHERE `a`.`StringArray`[OFFSET(0)] = 'apple'
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`IntArray`[OFFSET(0)] AS `FirstInt`, `a`.`StringArray`[OFFSET(1)] AS `SecondString`
+SELECT `a`.`Id`, `a`.`IntArray`[SAFE_OFFSET(0)] AS `FirstInt`, `a`.`StringArray`[SAFE_OFFSET(1)] AS `SecondString`
 FROM `ArrayEntities` AS `a`
 """);
     }
@@ -70,7 +70,7 @@ FROM `ArrayEntities` AS `a`
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(0)] = 1
+WHERE `a`.`IntArray`[SAFE_OFFSET(0)] = 1
 """);
     }
 
@@ -84,7 +84,7 @@ WHERE `a`.`IntArray`[OFFSET(0)] = 1
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@index)] = 2
+WHERE `a`.`IntArray`[SAFE_OFFSET(@index)] = 2
 """);
     }
 
@@ -94,7 +94,7 @@ WHERE `a`.`IntArray`[OFFSET(@index)] = 2
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`StringArray`[OFFSET(1)] AS `Second`
+SELECT `a`.`Id`, `a`.`StringArray`[SAFE_OFFSET(1)] AS `Second`
 FROM `ArrayEntities` AS `a`
 """);
     }
@@ -243,7 +243,7 @@ SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Length`, (
     SELECT `i`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
-    LIMIT 1) AS `First`, `a`.`IntArray`[OFFSET(1)] AS `Second`, (
+    LIMIT 1) AS `First`, `a`.`IntArray`[SAFE_OFFSET(1)] AS `Second`, (
     SELECT `s`
     FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
     ORDER BY `offset`
@@ -278,7 +278,7 @@ WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND (
 
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(@p)] = 2
+WHERE `a`.`IntArray`[SAFE_OFFSET(@p)] = 2
 """);
     }
 
@@ -353,7 +353,7 @@ ORDER BY (
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`IntArray`[OFFSET(1)] IS NULL
+WHERE `a`.`IntArray`[SAFE_OFFSET(1)] IS NULL
 """);
     }
 
@@ -365,7 +365,7 @@ WHERE `a`.`IntArray`[OFFSET(1)] IS NULL
             """
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
-WHERE `a`.`StringArray`[OFFSET(1)] IS NULL
+WHERE `a`.`StringArray`[SAFE_OFFSET(1)] IS NULL
 """);
     }
 

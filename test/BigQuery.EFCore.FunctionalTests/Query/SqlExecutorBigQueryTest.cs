@@ -116,7 +116,7 @@ public class SqlExecutorBigQueryTest : SqlExecutorTestBase<NorthwindQueryBigQuer
     [ConditionalTheory(Skip = "BigQuery table functions have limited support for generated parameters")]
     [InlineData(false)]
     [InlineData(true)]
-    public override Task Executes_stored_procedure_with_generated_parameter(bool async)
+    public override Task Executes_stored_procedure_with_generated_parameter(bool _)
         => Task.CompletedTask;
 
     [ConditionalTheory]

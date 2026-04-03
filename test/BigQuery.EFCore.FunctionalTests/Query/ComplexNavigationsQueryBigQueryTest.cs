@@ -32,4 +32,23 @@ public class ComplexNavigationsQueryBigQueryTest : ComplexNavigationsQueryRelati
     public override Task Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(bool async)
         => Assert.ThrowsAsync<EqualException>(
             async () => await base.Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(async));
+
+    [ConditionalTheory(Skip = "Non-deterministic query - ORDER BY only on parent table, child order undefined. SQL Server returns 'L2 02' first, BigQuery returns 'L2 10' first.")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task SelectMany_subquery_with_custom_projection(bool _)
+        => Task.CompletedTask;
+
+    #region Unsupported: Correlated subquery with LIMIT/OFFSET
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subquery with LIMIT/OFFSET pattern")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Single_select_many_in_projection_with_take(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subquery with LIMIT/OFFSET pattern")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Multiple_select_many_in_projection(bool _)
+        => Task.CompletedTask;
+
+    #endregion
 }
