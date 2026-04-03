@@ -129,6 +129,22 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         }
                         return base.VisitSqlBinary(binary);
                     }
+                // BigQuery's / operator always returns FLOAT64, but C# integer division
+                // truncates to integer. Use DIV() for integer operands to preserve semantics
+                // and avoid type mismatches with bitwise operators.
+                case ExpressionType.Divide:
+                    {
+                        if (IsIntegerType(binary.Type))
+                        {
+                            Sql.Append("DIV(");
+                            Visit(binary.Left);
+                            Sql.Append(", ");
+                            Visit(binary.Right);
+                            Sql.Append(")");
+                            return binary;
+                        }
+                        return base.VisitSqlBinary(binary);
+                    }
                 case ExpressionType.Modulo:
                     {
                         Sql.Append("MOD(");
@@ -215,6 +231,14 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         private static bool IsNullConstant(SqlExpression expression)
         {
             return expression is SqlConstantExpression { Value: null };
+        }
+
+        private static bool IsIntegerType(Type type)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            return type == typeof(int) || type == typeof(long) || type == typeof(short)
+                || type == typeof(byte) || type == typeof(sbyte)
+                || type == typeof(uint) || type == typeof(ulong) || type == typeof(ushort);
         }
 
         /// <summary>
