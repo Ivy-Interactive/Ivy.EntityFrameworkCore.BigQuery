@@ -23,29 +23,18 @@ public class BigQuerySqlNullabilityProcessor : SqlNullabilityProcessor
             var visitedArray = Visit(unnestExpression.Array, allowOptimizedExpansion: true, out _);
             return unnestExpression.Update((SqlExpression)visitedArray);
         }
-        
-        if (node is PredicateJoinExpressionBase join)
+
+        // Handle constant join predicates (e.g., ON TRUE from OUTER APPLY -> LEFT JOIN conversion).
+        // The base class throws for non-binary join predicates, so we intercept this case.
+        // For standard binary join predicates, delegate to the base class which uses OptimizeComparison
+        // (returns simple `a = b` without null-matching expansion).
+        if (node is PredicateJoinExpressionBase join && join.JoinPredicate is SqlConstantExpression)
         {
             var newTable = VisitAndConvert(join.Table, nameof(VisitExtension));
-            var newPredicate = ProcessJoinPredicate(join.JoinPredicate);
-            return join.Update(newTable, newPredicate);
+            return join.Update(newTable, join.JoinPredicate);
         }
 
         return base.VisitExtension(node);
-    }
-
-    /// <summary>
-    /// Processes a join predicate for nullability, handling SqlConstantExpression which the base class doesn't support.
-    /// </summary>
-    private SqlExpression ProcessJoinPredicate(SqlExpression predicate)
-    {
-        // e.g., ON TRUE from OUTER APPLY -> LEFT JOIN conversion
-        if (predicate is SqlConstantExpression)
-        {
-            return predicate;
-        }
-
-        return (SqlExpression)Visit(predicate, allowOptimizedExpansion: true, out _);
     }
 
     /// <inheritdoc />
