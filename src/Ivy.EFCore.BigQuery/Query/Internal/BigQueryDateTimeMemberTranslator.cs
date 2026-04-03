@@ -95,6 +95,9 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
             nameof(DateTime.Minute) => Extract(instance, "MINUTE", returnType),
             nameof(DateTime.Second) => Extract(instance, "SECOND", returnType),
             nameof(DateTime.Millisecond) => ExtractMillisecond(instance, returnType),
+            nameof(DateTime.Microsecond) => ExtractMicrosecond(instance, returnType),
+            // BigQuery TIMESTAMP has microsecond precision, so Nanosecond is always 0
+            nameof(DateTime.Nanosecond) => _sqlExpressionFactory.Constant(0),
             nameof(DateTime.DayOfYear) => Extract(instance, "DAYOFYEAR", returnType),
             nameof(DateTime.DayOfWeek) => ExtractDayOfWeek(instance, returnType),
 
@@ -235,12 +238,25 @@ public class BigQueryDateTimeMemberTranslator : IMemberTranslator
 
     private SqlExpression ExtractMillisecond(SqlExpression instance, Type returnType)
     {
-        // EXTRACT(MILLISECOND FROM x)
+        // EXTRACT(MILLISECOND FROM x) MOD 1000 returns 0-999 (millisecond component)
         var int64Mapping = _typeMappingSource.FindMapping(typeof(long));
         var milliseconds = new BigQueryExtractExpression("MILLISECOND", instance, typeof(long), int64Mapping);
 
         return _sqlExpressionFactory.Convert(
             _sqlExpressionFactory.Modulo(milliseconds, _sqlExpressionFactory.Constant(1000L)),
+            returnType);
+    }
+
+    private SqlExpression ExtractMicrosecond(SqlExpression instance, Type returnType)
+    {
+        // EXTRACT(MICROSECOND FROM x) returns 0-999999 (total microseconds in the second)
+        // Microsecond property should return 0-999 (microsecond component without milliseconds)
+        // Formula: EXTRACT(MICROSECOND FROM x) MOD 1000
+        var int64Mapping = _typeMappingSource.FindMapping(typeof(long));
+        var microseconds = new BigQueryExtractExpression("MICROSECOND", instance, typeof(long), int64Mapping);
+
+        return _sqlExpressionFactory.Convert(
+            _sqlExpressionFactory.Modulo(microseconds, _sqlExpressionFactory.Constant(1000L)),
             returnType);
     }
 
