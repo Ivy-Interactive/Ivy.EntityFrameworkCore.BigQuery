@@ -51,4 +51,47 @@ public class ComplexNavigationsQueryBigQueryTest : ComplexNavigationsQueryRelati
         => Task.CompletedTask;
 
     #endregion
+
+    #region Unsupported: Nested correlated subqueries
+
+    [ConditionalTheory(Skip = "BigQuery does not support nested correlated subqueries across 3+ levels")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Member_pushdown_with_collection_navigation_in_the_middle(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support nested correlated subqueries across 3+ levels")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Member_pushdown_chain_3_levels_deep(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support nested correlated subqueries across 3+ levels")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Multiple_collection_FirstOrDefault_followed_by_member_access_in_projection(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support nested correlated subqueries across 3+ levels")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Member_pushdown_with_multiple_collections(bool _)
+        => Task.CompletedTask;
+
+    #endregion
+
+    #region Unsupported: Subquery in JOIN predicate
+
+    [ConditionalTheory(Skip = "BigQuery does not support subqueries in JOIN predicates")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Select_join_with_key_selector_being_a_subquery(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support subqueries in JOIN predicates")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Let_let_contains_from_outer_let(bool _)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = "BigQuery does not support subqueries in JOIN predicates")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Query_source_materialization_bug_4547(bool _)
+        => Task.CompletedTask;
+
+    #endregion
 }

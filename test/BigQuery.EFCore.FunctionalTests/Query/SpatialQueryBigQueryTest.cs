@@ -98,7 +98,7 @@ FROM `PointEntity` AS `p`
         AssertSql(
             """
 SELECT `p`.`Id`, CASE
-    WHEN `p`.`Point` IS NULL THEN NULL
+    WHEN `p`.`Point` IS NULL THEN CAST(NULL AS BYTES)
     ELSE ST_ASBINARY(`p`.`Point`)
 END AS `Binary`
 FROM `PointEntity` AS `p`
@@ -299,7 +299,7 @@ FROM `PolygonEntity` AS `p`
 @point='POINT (1 1)' (DbType = Object)
 
 SELECT `p`.`Id`, CASE
-    WHEN `p`.`Polygon` IS NULL THEN NULL
+    WHEN `p`.`Polygon` IS NULL THEN CAST(NULL AS BOOL)
     ELSE ST_DISJOINT(`p`.`Polygon`, @point)
 END AS `Disjoint`
 FROM `PolygonEntity` AS `p`
