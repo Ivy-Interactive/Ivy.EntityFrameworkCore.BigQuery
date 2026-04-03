@@ -211,8 +211,10 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
+                    // null pattern never matches
                     null => _sqlExpressionFactory.Constant(false),
-                    "" => _sqlExpressionFactory.Constant(true),
+                    // Empty pattern matches all non-null strings
+                    "" => _sqlExpressionFactory.IsNotNull(instance),
                     _ => _sqlExpressionFactory.Function(
                         "STARTS_WITH",
                         [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
@@ -222,8 +224,9 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constant patterns (parameters, columns), wrap with null checks
-            // This allows the nullability processor to optimize when the parameter is null
+            // For non-constant patterns (parameters, columns), we need to handle null pattern explicitly.
+            // A null pattern should return FALSE (not NULL), matching .NET string.StartsWith semantics.
+            // Use: pattern IS NOT NULL AND STARTS_WITH(instance, pattern)
             return _sqlExpressionFactory.AndAlso(
                 _sqlExpressionFactory.IsNotNull(pattern),
                 _sqlExpressionFactory.Function(
@@ -246,8 +249,10 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
+                    // null pattern never matches
                     null => _sqlExpressionFactory.Constant(false),
-                    "" => _sqlExpressionFactory.Constant(true),
+                    // Empty pattern matches all non-null strings
+                    "" => _sqlExpressionFactory.IsNotNull(instance),
                     _ => _sqlExpressionFactory.Function(
                         "ENDS_WITH",
                         [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
@@ -257,8 +262,9 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constant patterns (parameters, columns), wrap with null checks
-            // This allows the nullability processor to optimize when the parameter is null
+            // For non-constant patterns (parameters, columns), we need to handle null pattern explicitly.
+            // A null pattern should return FALSE (not NULL), matching .NET string.EndsWith semantics.
+            // Use: pattern IS NOT NULL AND ENDS_WITH(instance, pattern)
             return _sqlExpressionFactory.AndAlso(
                 _sqlExpressionFactory.IsNotNull(pattern),
                 _sqlExpressionFactory.Function(
@@ -281,8 +287,10 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
             {
                 return patternValue switch
                 {
+                    // null pattern never matches
                     null => _sqlExpressionFactory.Constant(false),
-                    "" => _sqlExpressionFactory.Constant(true),
+                    // Empty pattern matches all non-null strings
+                    "" => _sqlExpressionFactory.IsNotNull(instance),
                     _ => _sqlExpressionFactory.GreaterThan(
                         _sqlExpressionFactory.Function(
                             "STRPOS",
@@ -294,8 +302,9 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                 };
             }
 
-            // For non-constant patterns (parameters, columns), wrap with null checks
-            // This allows the nullability processor to optimize when the parameter is null
+            // For non-constant patterns (parameters, columns), we need to handle null pattern explicitly.
+            // A null pattern should return FALSE (not NULL), matching .NET string.Contains semantics.
+            // Use: pattern IS NOT NULL AND STRPOS(instance, pattern) > 0
             return _sqlExpressionFactory.AndAlso(
                 _sqlExpressionFactory.IsNotNull(pattern),
                 _sqlExpressionFactory.GreaterThan(
