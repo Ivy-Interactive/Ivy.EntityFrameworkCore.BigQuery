@@ -215,26 +215,34 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                     null => _sqlExpressionFactory.Constant(false),
                     // Empty pattern matches all non-null strings
                     "" => _sqlExpressionFactory.IsNotNull(instance),
-                    _ => _sqlExpressionFactory.Function(
-                        "STARTS_WITH",
-                        [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
-                        nullable: true,
-                        argumentsPropagateNullability: [true, false],
-                        typeof(bool))
+                    // Wrap with IsNotNull(instance) so the expression is non-nullable.
+                    // Without this, NOT(STARTS_WITH(NULL, 'x')) → NULL instead of TRUE,
+                    // because SqlNullabilityProcessor doesn't add null compensation for
+                    // SqlFunctionExpression the way it does for LikeExpression.
+                    _ => _sqlExpressionFactory.AndAlso(
+                        _sqlExpressionFactory.IsNotNull(instance),
+                        _sqlExpressionFactory.Function(
+                            "STARTS_WITH",
+                            [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
+                            nullable: true,
+                            argumentsPropagateNullability: [true, false],
+                            typeof(bool)))
                 };
             }
 
-            // For non-constant patterns (parameters, columns), we need to handle null pattern explicitly.
-            // A null pattern should return FALSE (not NULL), matching .NET string.StartsWith semantics.
-            // Use: pattern IS NOT NULL AND STARTS_WITH(instance, pattern)
+            // For non-constant patterns (parameters, columns), we need to handle null explicitly.
+            // Both instance and pattern must be non-null for the function to return a meaningful result.
+            // Use: instance IS NOT NULL AND pattern IS NOT NULL AND STARTS_WITH(instance, pattern)
             return _sqlExpressionFactory.AndAlso(
-                _sqlExpressionFactory.IsNotNull(pattern),
-                _sqlExpressionFactory.Function(
-                    "STARTS_WITH",
-                    [instance, pattern],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true],
-                    typeof(bool)));
+                _sqlExpressionFactory.IsNotNull(instance),
+                _sqlExpressionFactory.AndAlso(
+                    _sqlExpressionFactory.IsNotNull(pattern),
+                    _sqlExpressionFactory.Function(
+                        "STARTS_WITH",
+                        [instance, pattern],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true],
+                        typeof(bool))));
         }
 
         if (method == EndsWith)
@@ -253,26 +261,30 @@ public class BigQueryStringMethodTranslator : IMethodCallTranslator
                     null => _sqlExpressionFactory.Constant(false),
                     // Empty pattern matches all non-null strings
                     "" => _sqlExpressionFactory.IsNotNull(instance),
-                    _ => _sqlExpressionFactory.Function(
-                        "ENDS_WITH",
-                        [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
-                        nullable: true,
-                        argumentsPropagateNullability: [true, false],
-                        typeof(bool))
+                    _ => _sqlExpressionFactory.AndAlso(
+                        _sqlExpressionFactory.IsNotNull(instance),
+                        _sqlExpressionFactory.Function(
+                            "ENDS_WITH",
+                            [instance, _sqlExpressionFactory.Constant(patternValue, stringTypeMapping)],
+                            nullable: true,
+                            argumentsPropagateNullability: [true, false],
+                            typeof(bool)))
                 };
             }
 
-            // For non-constant patterns (parameters, columns), we need to handle null pattern explicitly.
-            // A null pattern should return FALSE (not NULL), matching .NET string.EndsWith semantics.
-            // Use: pattern IS NOT NULL AND ENDS_WITH(instance, pattern)
+            // For non-constant patterns (parameters, columns), we need to handle null explicitly.
+            // Both instance and pattern must be non-null for the function to return a meaningful result.
+            // Use: instance IS NOT NULL AND pattern IS NOT NULL AND ENDS_WITH(instance, pattern)
             return _sqlExpressionFactory.AndAlso(
-                _sqlExpressionFactory.IsNotNull(pattern),
-                _sqlExpressionFactory.Function(
-                    "ENDS_WITH",
-                    [instance, pattern],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true],
-                    typeof(bool)));
+                _sqlExpressionFactory.IsNotNull(instance),
+                _sqlExpressionFactory.AndAlso(
+                    _sqlExpressionFactory.IsNotNull(pattern),
+                    _sqlExpressionFactory.Function(
+                        "ENDS_WITH",
+                        [instance, pattern],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true],
+                        typeof(bool))));
         }
 
         if (method == Contains)
