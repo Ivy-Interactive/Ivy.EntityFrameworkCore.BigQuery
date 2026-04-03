@@ -110,6 +110,18 @@ public class BigQueryGroupByAggregatePostprocessor : ExpressionVisitor
             }
         }
 
+        // Also wrap non-grouped columns in HAVING clause
+        // BQ requires all columns in HAVING to be grouped or aggregated
+        if (newHaving != null)
+        {
+            var wrappedHaving = WrapNonGroupedColumns(newHaving, groupByColumns, baseTables);
+            if (wrappedHaving != newHaving)
+            {
+                newHaving = wrappedHaving;
+                havingChanged = true;
+            }
+        }
+
         if (tablesChanged || projectionsChanged || predicateChanged || havingChanged)
         {
             return select.Update(

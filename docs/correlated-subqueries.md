@@ -201,7 +201,9 @@ The provider cannot properly handle the NULL semantics when `DefaultIfEmpty()` p
 
 ### Deeply nested correlated subqueries
 
-Queries where an inner subquery references a table from multiple levels up:
+Queries where an inner subquery references a table from multiple levels up, or where
+the correlated subquery postprocessor creates a LEFT JOIN that still contains nested
+scalar subqueries referencing sibling tables:
 
 ```csharp
 // NOT SUPPORTED - inner subquery references 'c' from two levels up
@@ -215,20 +217,59 @@ customers.Select(c => new {
 
 // NOT SUPPORTED - chained navigation with FirstOrDefault
 customers.Select(c => c.Orders.FirstOrDefault().OrderDetails.FirstOrDefault())
+
+// NOT SUPPORTED - member pushdown through 3+ navigation levels
+// e.g. Level1 -> OneToOne_Required_FK1 -> OneToMany_Required2 -> Level4
+// The provider can de-correlate single-level scalar subqueries but not
+// nested ones where the inner subquery still references a sibling table.
+context.LevelOne.Select(l1 =>
+    l1.OneToOne_Required_FK1
+      .OneToMany_Optional2
+      .Select(l3 => l3.OneToMany_Required3
+                      .OrderBy(l4 => l4.Id)
+                      .FirstOrDefault().Name)
+      .FirstOrDefault())
+
+// NOT SUPPORTED - multiple collection navigations with FirstOrDefault chaining
+// Generates nested scalar subqueries that BigQuery cannot de-correlate
+context.LevelOne.Where(l1 => l1.Id < 2)
+    .Select(l1 => new {
+        l1.Id,
+        Pushdown = l1.OneToMany_Optional1
+            .Where(l2 => l2.Name == "L2 02")
+            .FirstOrDefault()
+            .OneToMany_Optional2
+            .OrderBy(l3 => l3.Id)
+            .FirstOrDefault().Name
+    })
 ```
 
-### EXISTS/IN subqueries in JOIN predicates
+### Subqueries in JOIN predicates
 
-BigQuery doesn't support EXISTS or IN subqueries inside JOIN ON clauses:
+BigQuery doesn't support subqueries (scalar, EXISTS, or IN) inside JOIN ON clauses:
 
 ```csharp
 // NOT SUPPORTED - EXISTS in JOIN predicate
 from g in gears
 join l in locustLeaders on !locustLeaders.Any(x => x.ThreatLevel == g.ThreatLevel)
 select g
+
+// NOT SUPPORTED - scalar subquery in JOIN key
+from l1 in context.LevelOne
+join l2 in context.LevelTwo
+    on l1.Id equals context.LevelTwo.OrderBy(x => x.Id).First().Id
+select new { l1, l2 }
+
+// NOT SUPPORTED - IN subquery in JOIN predicate
+// e.g. let-let-contains pattern where EF Core generates:
+//   LEFT JOIN ... ON col IN (SELECT ... WHERE outer.Id = inner.ForeignKey)
+from l1 in context.LevelOne
+let children = l1.OneToMany_Required1
+let grandChildren = children.SelectMany(l2 => l2.OneToMany_Required2)
+select new { l1, grandChildren }
 ```
 
-This generates SQL like `JOIN ... ON NOT EXISTS (...)` which BigQuery rejects.
+These generate SQL like `JOIN ... ON col = (SELECT ...)` or `JOIN ... ON col IN (SELECT ...)` which BigQuery rejects with *"Unsupported subquery with table in join predicate"*.
 
 ### Correlated subqueries in WHERE clauses
 
