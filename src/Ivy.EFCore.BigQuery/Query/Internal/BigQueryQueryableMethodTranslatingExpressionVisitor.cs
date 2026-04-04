@@ -41,6 +41,33 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
         protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
             => new BigQueryQueryableMethodTranslatingExpressionVisitor(this);
 
+    /// <summary>
+    /// Override TranslateTake to avoid LEAST() in LIMIT when combining multiple Take() calls.
+    /// BigQuery's LIMIT clause only accepts integer literals or parameters, not expressions.
+    /// When a limit already exists, we use subquery pushdown instead of LEAST(oldLimit, newLimit).
+    /// </summary>
+    protected override ShapedQueryExpression? TranslateTake(ShapedQueryExpression source, Expression count)
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        if (selectExpression.Limit != null)
+        {
+            // The base class would combine them with LEAST(),
+            // but BigQuery doesn't support expressions in LIMIT. Use subquery pushdown instead.
+            var translation = TranslateExpression(count);
+            if (translation == null)
+            {
+                return null;
+            }
+
+            // Public ApplyLimit pushes the current query into a subquery, then sets the new limit
+            selectExpression.ApplyLimit(translation);
+            return source;
+        }
+
+        return base.TranslateTake(source, count);
+    }
+
     /// <inheritdoc/>
     protected override ShapedQueryExpression? TranslatePrimitiveCollection(
         SqlExpression sqlExpression,

@@ -561,8 +561,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             if (selectExpression.Limit != null)
             {
                 Sql.AppendLine().Append("LIMIT ");
-                var limitExpression = SimplifyLimitExpression(selectExpression.Limit);
-                Visit(limitExpression);
+                Visit(selectExpression.Limit);
             }
             else if (selectExpression.Offset != null)
             {
@@ -576,36 +575,6 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 Sql.Append(" OFFSET ");
                 Visit(selectExpression.Offset);
             }
-        }
-
-        /// <summary>
-        /// Simplifies a LIMIT expression for BigQuery which only accepts literals or parameters.
-        ///
-        /// EFCore 10 optimizes combined Take/First operations using LEAST(param, const) instead of
-        /// nested subqueries. BQ's LIMIT clause doesn't support expressions
-        /// </summary>
-        private static SqlExpression SimplifyLimitExpression(SqlExpression expression)
-        {
-            if (expression is SqlFunctionExpression { Name: "LEAST" } leastFunction
-                && leastFunction.Arguments is { Count: 2 })
-            {
-                var arg0 = leastFunction.Arguments[0];
-                var arg1 = leastFunction.Arguments[1];
-
-                //Take(n).First() generates LEAST(@p, 1)
-                if (arg1 is SqlConstantExpression)
-                {
-                    return arg1;
-                }
-                if (arg0 is SqlConstantExpression)
-                {
-                    return arg0;
-                }
-
-                return arg0;
-            }
-
-            return expression;
         }
 
         protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
