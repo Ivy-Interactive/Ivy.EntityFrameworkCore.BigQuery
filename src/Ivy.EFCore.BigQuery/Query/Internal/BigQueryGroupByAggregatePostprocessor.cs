@@ -122,7 +122,30 @@ public class BigQueryGroupByAggregatePostprocessor : ExpressionVisitor
             }
         }
 
-        if (tablesChanged || projectionsChanged || predicateChanged || havingChanged)
+        // Also wrap non-grouped columns in ORDER BY clause
+        // BQ requires all columns in ORDER BY to be grouped or aggregated
+        var newOrderings = new List<OrderingExpression>();
+        var orderingsChanged = false;
+
+        foreach (var ordering in select.Orderings)
+        {
+            var wrappedExpression = WrapNonGroupedColumns(
+                ordering.Expression,
+                groupByColumns,
+                baseTables);
+
+            if (wrappedExpression != ordering.Expression)
+            {
+                newOrderings.Add(new OrderingExpression(wrappedExpression, ordering.IsAscending));
+                orderingsChanged = true;
+            }
+            else
+            {
+                newOrderings.Add(ordering);
+            }
+        }
+
+        if (tablesChanged || projectionsChanged || predicateChanged || havingChanged || orderingsChanged)
         {
             return select.Update(
                 processedTables,
@@ -130,7 +153,7 @@ public class BigQueryGroupByAggregatePostprocessor : ExpressionVisitor
                 select.GroupBy,
                 newHaving,
                 projectionsChanged ? newProjections : select.Projection,
-                select.Orderings,
+                orderingsChanged ? newOrderings : select.Orderings,
                 select.Offset,
                 select.Limit);
         }
