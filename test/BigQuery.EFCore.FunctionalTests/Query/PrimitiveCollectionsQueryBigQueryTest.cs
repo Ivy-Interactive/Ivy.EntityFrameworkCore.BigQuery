@@ -142,6 +142,14 @@ public class PrimitiveCollectionsQueryBigQueryTest : PrimitiveCollectionsQueryRe
     public override Task Project_collection_of_datetimes_filtered()
         => Task.CompletedTask;
 
+    [ConditionalFact(Skip = "BigQuery UNNEST in LEFT JOIN subquery cannot reference outer table")]
+    public override Task Project_collection_of_nullable_ints_with_paging3()
+        => Task.CompletedTask;
+
+    [ConditionalFact(Skip = "BigQuery UNNEST in LEFT JOIN subquery cannot reference outer table")]
+    public override Task Project_collection_of_ints_with_distinct()
+        => Task.CompletedTask;
+
     #endregion
 
     #region Skipped: Duplicate offset alias in multiple UNNEST

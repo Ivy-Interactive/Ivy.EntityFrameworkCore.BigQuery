@@ -11,5 +11,21 @@ public class ValueConvertersEndToEndBigQueryTest(ValueConvertersEndToEndBigQuery
     {
         protected override ITestStoreFactory TestStoreFactory
             => BigQueryTestStoreFactory.Instance;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+        {
+            base.OnModelCreating(modelBuilder, context);
+
+            modelBuilder.Entity<ConvertingEntity>(
+                b =>
+                {
+                    // BigQuery TIMESTAMP stores values in UTC, so the original timezone offset is lost on round-trip.
+                    // These properties convert string → DateTimeOffset (provider type → TIMESTAMP), losing the offset.
+                    b.Ignore(e => e.StringToDateTimeOffset);
+                    b.Ignore(e => e.StringToNullableDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToDateTimeOffset);
+                    b.Ignore(e => e.NullableStringToNullableDateTimeOffset);
+                });
+        }
     }
 }
