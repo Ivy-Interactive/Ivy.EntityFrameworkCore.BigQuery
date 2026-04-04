@@ -39,6 +39,9 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
     // we need to remap outer references from o0.ContactName to c.ContactName
     private Dictionary<(string tableAlias, string columnName), ColumnExpression> _correlatedProjectionRemappings = new();
 
+    // Predicates extracted from flattened UNNEST subqueries that need to be merged into the outer WHERE
+    private List<SqlExpression> _extractedUnnestPredicates = new();
+
     public BigQueryApplyPostprocessor(
         ISqlExpressionFactory sqlExpressionFactory,
         IRelationalTypeMappingSource typeMappingSource)
@@ -112,6 +115,14 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         var newPredicate = select.Predicate != null ? (SqlExpression?)Visit(select.Predicate) : null;
         if (newPredicate != null && remapper != null)
             newPredicate = (SqlExpression)remapper.Visit(newPredicate);
+
+        // Merge predicates extracted from flattened UNNEST subqueries
+        foreach (var extractedPredicate in _extractedUnnestPredicates)
+        {
+            var pred = remapper != null ? (SqlExpression)remapper.Visit(extractedPredicate) : extractedPredicate;
+            newPredicate = newPredicate == null ? pred : _sqlExpressionFactory.AndAlso(newPredicate, pred);
+        }
+        _extractedUnnestPredicates.Clear();
 
         var newHaving = select.Having != null ? (SqlExpression?)Visit(select.Having) : null;
         if (newHaving != null && remapper != null)
@@ -317,6 +328,14 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
             return crossApply;
         }
 
+        // Check for simple correlated UNNEST pattern:
+        // CROSS APPLY (SELECT cols FROM UNNEST(outer.Array) AS alias WHERE ...)
+        // BigQuery supports CROSS JOIN UNNEST(outer.Array) directly, so we can flatten.
+        if (TryFlattenCorrelatedUnnest(innerSelect, out var flattenedTable))
+        {
+            return flattenedTable!;
+        }
+
         // Identify correlated projections - these need special handling
         var correlatedProjections = new List<(ProjectionExpression projection, ColumnExpression outerColumn)>();
         var nonCorrelatedProjections = new List<ProjectionExpression>();
@@ -397,6 +416,56 @@ public class BigQueryApplyPostprocessor : ExpressionVisitor
         }
 
         return new InnerJoinExpression(result.TransformedSelect, result.JoinPredicate, prunable: false);
+    }
+
+    /// <summary>
+    /// Detects a simple correlated UNNEST pattern inside a subquery and flattens it.
+    /// CROSS/OUTER APPLY (SELECT cols FROM UNNEST(outer.col) WHERE ...) can be rewritten as
+    /// CROSS JOIN UNNEST(outer.col) with the WHERE merged into the outer SELECT.
+    /// Only applies when the subquery has no DISTINCT, GROUP BY, HAVING, LIMIT, or OFFSET.
+    /// </summary>
+    private bool TryFlattenCorrelatedUnnest(SelectExpression innerSelect, out TableExpressionBase? result)
+    {
+        result = null;
+
+        // Must be a simple subquery wrapping a single UNNEST table
+        if (innerSelect.Tables.Count != 1
+            || innerSelect.Tables[0] is not BigQueryUnnestExpression unnest
+            || !ContainsOuterReference(unnest.Array))
+        {
+            return false;
+        }
+
+        // Can only flatten simple cases - no DISTINCT, GROUP BY, HAVING, LIMIT, OFFSET
+        if (innerSelect.IsDistinct
+            || innerSelect.GroupBy.Count > 0
+            || innerSelect.Having != null
+            || innerSelect.Limit != null
+            || innerSelect.Offset != null
+            || innerSelect.Orderings.Count > 0)
+        {
+            return false;
+        }
+
+        var subqueryAlias = innerSelect.Alias!;
+
+        // Remap column references: outer SELECT refs to subqueryAlias.X → UNNEST alias columns
+        foreach (var projection in innerSelect.Projection)
+        {
+            if (projection.Expression is ColumnExpression col)
+            {
+                _correlatedProjectionRemappings[(subqueryAlias, projection.Alias)] = col;
+            }
+        }
+
+        // Store predicate for merging into the outer SELECT's WHERE
+        if (innerSelect.Predicate != null)
+        {
+            _extractedUnnestPredicates.Add(innerSelect.Predicate);
+        }
+
+        result = new CrossJoinExpression(unnest);
+        return true;
     }
 
     private ApplyTransformResult? ExtractCorrelatedPredicates(SelectExpression innerSelect)
