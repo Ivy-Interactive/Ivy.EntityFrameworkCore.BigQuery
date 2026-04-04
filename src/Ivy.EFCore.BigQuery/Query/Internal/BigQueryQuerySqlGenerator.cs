@@ -116,6 +116,24 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
             switch (binary.OperatorType)
             {
+                // BigQuery doesn't support = / != for ARRAY types.
+                // Rewrite to compare via TO_JSON_STRING().
+                case ExpressionType.Equal:
+                case ExpressionType.NotEqual:
+                    {
+                        if (IsArrayExpression(binary.Left) || IsArrayExpression(binary.Right))
+                        {
+                            Sql.Append("TO_JSON_STRING(");
+                            Visit(binary.Left);
+                            Sql.Append(")");
+                            Sql.Append(binary.OperatorType == ExpressionType.Equal ? " = " : " <> ");
+                            Sql.Append("TO_JSON_STRING(");
+                            Visit(binary.Right);
+                            Sql.Append(")");
+                            return binary;
+                        }
+                        return base.VisitSqlBinary(binary);
+                    }
                 case ExpressionType.Add:
                     {
                         if (binary.Type == typeof(string)
@@ -245,6 +263,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         /// Checks if an expression will evaluate to NULL at runtime.
         /// This includes direct NULL constants and bitwise operations with NULL operands.
         /// </summary>
+        private static bool IsArrayExpression(SqlExpression expression)
+            => expression.TypeMapping?.StoreType is string storeType
+               && storeType.StartsWith("ARRAY<", StringComparison.OrdinalIgnoreCase);
+
         private static bool WillEvaluateToNull(SqlExpression expression)
         {
             // Direct NULL constant
