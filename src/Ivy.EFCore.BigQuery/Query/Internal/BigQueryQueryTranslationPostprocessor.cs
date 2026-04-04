@@ -13,6 +13,7 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
     private readonly BigQueryCorrelatedSubqueryPostprocessor _correlatedSubqueryPostprocessor;
     private readonly BigQueryApplyPostprocessor _applyPostprocessor;
     private readonly BigQueryGroupByAggregatePostprocessor _groupByAggregatePostprocessor;
+    private readonly BigQueryColumnAliasPostprocessor _columnAliasPostprocessor;
 
     public BigQueryQueryTranslationPostprocessor(
         QueryTranslationPostprocessorDependencies dependencies,
@@ -31,6 +32,8 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
 
         _groupByAggregatePostprocessor = new BigQueryGroupByAggregatePostprocessor(
             relationalDependencies.SqlExpressionFactory);
+
+        _columnAliasPostprocessor = new BigQueryColumnAliasPostprocessor();
     }
 
     public override Expression Process(Expression query)
@@ -46,6 +49,9 @@ public class BigQueryQueryTranslationPostprocessor : RelationalQueryTranslationP
 
         // Wrap non-grouped columns from joined subqueries with ANY_VALUE()
         result = _groupByAggregatePostprocessor.Visit(result);
+
+        // Rename projection aliases that conflict with table aliases in the same subquery
+        result = _columnAliasPostprocessor.Visit(result);
 
         return result;
     }
