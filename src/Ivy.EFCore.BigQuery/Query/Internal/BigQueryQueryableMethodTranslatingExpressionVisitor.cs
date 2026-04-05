@@ -42,30 +42,50 @@ public class BigQueryQueryableMethodTranslatingExpressionVisitor : RelationalQue
             => new BigQueryQueryableMethodTranslatingExpressionVisitor(this);
 
     /// <summary>
-    /// Override TranslateTake to avoid LEAST() in LIMIT when combining multiple Take() calls.
-    /// BigQuery's LIMIT clause only accepts integer literals or parameters, not expressions.
-    /// When a limit already exists, we use subquery pushdown instead of LEAST(oldLimit, newLimit).
+    /// BigQuery's LIMIT clause only accepts integer literals or parameters, not expressions like LEAST().
+    /// The base class combines multiple limits using LEAST() via a private ApplyLimit helper that is called
+    /// from TranslateTake, TranslateFirstOrDefault, TranslateSingleOrDefault, and TranslateLastOrDefault.
+    /// We pre-emptively push down into a subquery when an existing limit is present, so the base class
+    /// sees no existing limit and sets the new one directly without LEAST.
     /// </summary>
-    protected override ShapedQueryExpression? TranslateTake(ShapedQueryExpression source, Expression count)
+    private void EnsureNoExistingLimit(ShapedQueryExpression source)
     {
         var selectExpression = (SelectExpression)source.QueryExpression;
-
         if (selectExpression.Limit != null)
         {
-            // The base class would combine them with LEAST(),
-            // but BigQuery doesn't support expressions in LIMIT. Use subquery pushdown instead.
-            var translation = TranslateExpression(count);
-            if (translation == null)
-            {
-                return null;
-            }
-
-            // Public ApplyLimit pushes the current query into a subquery, then sets the new limit
-            selectExpression.ApplyLimit(translation);
-            return source;
+            selectExpression.PushdownIntoSubquery();
         }
+    }
 
+    /// <inheritdoc />
+    protected override ShapedQueryExpression? TranslateTake(ShapedQueryExpression source, Expression count)
+    {
+        EnsureNoExistingLimit(source);
         return base.TranslateTake(source, count);
+    }
+
+    /// <inheritdoc />
+    protected override ShapedQueryExpression? TranslateFirstOrDefault(
+        ShapedQueryExpression source, LambdaExpression? predicate, Type returnType, bool returnDefault)
+    {
+        EnsureNoExistingLimit(source);
+        return base.TranslateFirstOrDefault(source, predicate, returnType, returnDefault);
+    }
+
+    /// <inheritdoc />
+    protected override ShapedQueryExpression? TranslateSingleOrDefault(
+        ShapedQueryExpression source, LambdaExpression? predicate, Type returnType, bool returnDefault)
+    {
+        EnsureNoExistingLimit(source);
+        return base.TranslateSingleOrDefault(source, predicate, returnType, returnDefault);
+    }
+
+    /// <inheritdoc />
+    protected override ShapedQueryExpression? TranslateLastOrDefault(
+        ShapedQueryExpression source, LambdaExpression? predicate, Type returnType, bool returnDefault)
+    {
+        EnsureNoExistingLimit(source);
+        return base.TranslateLastOrDefault(source, predicate, returnType, returnDefault);
     }
 
     /// <inheritdoc/>

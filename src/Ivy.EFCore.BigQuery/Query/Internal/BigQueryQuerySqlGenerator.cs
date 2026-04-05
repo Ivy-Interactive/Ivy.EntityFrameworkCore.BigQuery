@@ -16,6 +16,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         // Columns from JSON UNNEST tables need JSON_VALUE extraction
         private readonly HashSet<string> _jsonUnnestAliases = new();
 
+        // When true, VisitSqlConstant emits plain NULL instead of CAST(NULL AS type)
+        // because UPDATE SET clauses inherit the column type automatically.
+        private bool _isInsideUpdateSetClause;
+
         public BigQueryQuerySqlGenerator(
         QuerySqlGeneratorDependencies dependencies,
         IRelationalTypeMappingSource typeMappingSource)
@@ -80,12 +84,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         /// Override to generate typed NULL literals for BigQuery.
         /// BQ requires NULL values to have explicit types in UNION ALL queries
         /// to ensure type compatibility across all branches.
+        /// In UPDATE SET clauses, plain NULL is used instead since the column type is inherited.
         /// </summary>
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
         {
             // For NULL values with a type mapping, generate CAST(NULL AS <type>)
-            // This ensures type compatibility in UNION ALL queries
-            if (sqlConstantExpression.Value == null && sqlConstantExpression.TypeMapping?.StoreType != null)
+            // This ensures type compatibility in UNION ALL queries.
+            // Skip in UPDATE SET clauses where the column already defines the type.
+            if (sqlConstantExpression.Value == null
+                && sqlConstantExpression.TypeMapping?.StoreType != null
+                && !_isInsideUpdateSetClause)
             {
                 var storeType = sqlConstantExpression.TypeMapping.StoreType;
                 Sql.Append("CAST(NULL AS ");
@@ -833,15 +841,18 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                     Having: null,
                     Projection: [],
                     Orderings: [],
-                    Offset: null
+                    Offset: null,
+                    Limit: null
                 })
             {
                 Sql.Append("UPDATE ");
                 Visit(updateExpression.Table);
                 Sql.AppendLine();
+
+                _isInsideUpdateSetClause = true;
                 Sql.Append("SET ");
                 Sql.Append(
-                $"{_sqlGenerationHelper.DelimitIdentifier(updateExpression.ColumnValueSetters[0].Column.Name)} = ");
+                    $"{_sqlGenerationHelper.DelimitIdentifier(updateExpression.ColumnValueSetters[0].Column.Name)} = ");
                 Visit(updateExpression.ColumnValueSetters[0].Value);
                 using (Sql.Indent())
                 {
@@ -852,47 +863,56 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                         Visit(columnValueSetter.Value);
                     }
                 }
+                _isInsideUpdateSetClause = false;
 
                 var predicate = selectExpression.Predicate;
+                var firstTable = true;
+
                 if (selectExpression.Tables.Count > 1)
                 {
                     Sql.AppendLine().Append("FROM ");
 
-                    var tablesToJoin = selectExpression.Tables
-                        .Where(t => (t as JoinExpressionBase)?.Table.Alias != updateExpression.Table.Alias && t.Alias != updateExpression.Table.Alias)
-                        .ToList();
-
-                    for (var i = 0; i < tablesToJoin.Count; i++)
+                    for (var i = 0; i < selectExpression.Tables.Count; i++)
                     {
-                        var tableToJoin = tablesToJoin[i];
-                        if (i > 0)
+                        var table = selectExpression.Tables[i];
+                        var joinExpression = table as JoinExpressionBase;
+
+                        // Skip the target table, but lift its predicate if it's a join
+                        if (updateExpression.Table.Alias == (joinExpression?.Table.Alias ?? table.Alias))
                         {
-                            Sql.AppendLine(", ");
+                            LiftPredicate(table);
+                            continue;
                         }
-                        // For JoinExpressionBase, visit only the inner table, not the join itself
-                        // The join predicate is handled separately below
-                        if (tableToJoin is JoinExpressionBase joinExpression)
+
+                        // BigQuery UPDATE FROM doesn't support JOIN syntax.
+                        // Lift all join predicates to WHERE and unwrap to the inner table.
+                        LiftPredicate(table);
+                        table = joinExpression?.Table ?? table;
+
+                        if (firstTable)
                         {
-                            Visit(joinExpression.Table);
+                            firstTable = false;
                         }
                         else
                         {
-                            Visit(tableToJoin);
+                            Sql.AppendLine(",");
                         }
-                    }
 
-                    foreach (var table in selectExpression.Tables)
-                    {
-                        if (table is PredicateJoinExpressionBase predicateJoinExpression)
+                        Visit(table);
+
+                        void LiftPredicate(TableExpressionBase joinTable)
                         {
-                            predicate = predicate == null
-                                ? predicateJoinExpression.JoinPredicate
-                                : new SqlBinaryExpression(
-                                    ExpressionType.AndAlso,
-                                    predicate,
-                                    predicateJoinExpression.JoinPredicate,
-                                    typeof(bool),
-                                    predicate.TypeMapping);
+                            if (joinTable is PredicateJoinExpressionBase predicateJoinExpression)
+                            {
+                                predicate = predicate == null
+                                    ? predicateJoinExpression.JoinPredicate
+                                    : new SqlBinaryExpression(
+                                        ExpressionType.AndAlso,
+                                        predicateJoinExpression.JoinPredicate,
+                                        predicate,
+                                        typeof(bool),
+                                        predicate.TypeMapping);
+                            }
                         }
                     }
                 }
@@ -904,7 +924,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
                 }
                 else
                 {
-                    // WHERE is always required
+                    // WHERE is always required in BigQuery
                     Sql.AppendLine().Append("WHERE true");
                 }
 
