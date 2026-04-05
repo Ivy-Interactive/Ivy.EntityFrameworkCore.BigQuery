@@ -16,6 +16,10 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         // Columns from JSON UNNEST tables need JSON_VALUE extraction
         private readonly HashSet<string> _jsonUnnestAliases = new();
 
+        // Track regular UNNEST table aliases so VisitColumn can distinguish
+        // direct UNNEST references from subquery columns that happen to be named "value"/"offset"
+        private readonly HashSet<string> _unnestAliases = new();
+
         // When true, VisitSqlConstant emits plain NULL instead of CAST(NULL AS type)
         // because UPDATE SET clauses inherit the column type automatically.
         private bool _isInsideUpdateSetClause;
@@ -34,15 +38,16 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             // In BQ, UNNEST values and WITH OFFSET columns are accessed directly
             // without table.column qualification
 
-            // 1. UNNEST value column: emit as table alias only
-            if (columnExpression.Name == "value")
+            // 1. UNNEST value column: emit as table alias only (e.g., `i` for UNNEST(arr) AS i)
+            // Only apply when the table is actually an UNNEST, not a subquery wrapping one
+            if (columnExpression.Name == "value" && _unnestAliases.Contains(columnExpression.TableAlias))
             {
                 Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.TableAlias));
                 return columnExpression;
             }
 
             // 2. UNNEST WITH OFFSET column: emit as column name only
-            if (columnExpression.Name == "offset")
+            if (columnExpression.Name == "offset" && _unnestAliases.Contains(columnExpression.TableAlias))
             {
                 Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnExpression.Name));
                 return columnExpression;
@@ -78,6 +83,55 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
             }
 
             return base.VisitColumn(columnExpression);
+        }
+
+        /// <summary>
+        /// Pre-register UNNEST aliases before the SELECT is generated, because
+        /// the projection (which calls VisitColumn) is emitted before the FROM clause
+        /// (which calls VisitBigQueryUnnest).
+        /// </summary>
+        protected override Expression VisitSelect(SelectExpression selectExpression)
+        {
+            foreach (var table in selectExpression.Tables)
+            {
+                PreRegisterUnnestAliases(table);
+            }
+
+            return base.VisitSelect(selectExpression);
+        }
+
+        private void PreRegisterUnnestAliases(TableExpressionBase table)
+        {
+            switch (table)
+            {
+                case BigQueryUnnestExpression { Alias: { Length: > 0 } alias }:
+                    _unnestAliases.Add(alias);
+                    break;
+                case JoinExpressionBase join:
+                    PreRegisterUnnestAliases(join.Table);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// For UNNEST value columns, VisitColumn renders just the table alias (e.g., `i`)
+        /// instead of the logical column name ("value"). The base VisitProjection skips
+        /// the AS clause when column.Name == projection.Alias, but since we changed the
+        /// rendered name, we must force the alias so subqueries can reference it correctly.
+        /// </summary>
+        protected override Expression VisitProjection(ProjectionExpression projectionExpression)
+        {
+            if (projectionExpression.Expression is ColumnExpression { Name: "value" } column
+                && _unnestAliases.Contains(column.TableAlias)
+                && projectionExpression.Alias != string.Empty)
+            {
+                Visit(projectionExpression.Expression);
+                Sql.Append(AliasSeparator)
+                    .Append(_sqlGenerationHelper.DelimitIdentifier(projectionExpression.Alias));
+                return projectionExpression;
+            }
+
+            return base.VisitProjection(projectionExpression);
         }
 
         /// <summary>
@@ -369,6 +423,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
 
             if (!string.IsNullOrEmpty(unnestExpression.Alias))
             {
+                _unnestAliases.Add(unnestExpression.Alias);
                 Sql.Append(AliasSeparator);
                 Sql.Append(_sqlGenerationHelper.DelimitIdentifier(unnestExpression.Alias));
             }
