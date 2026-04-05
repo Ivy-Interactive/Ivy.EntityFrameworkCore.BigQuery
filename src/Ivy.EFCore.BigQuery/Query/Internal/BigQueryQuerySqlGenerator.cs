@@ -1058,8 +1058,11 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Query.Internal
         {
             // Check if operand contains any set operation (which would need parentheses in BigQuery)
             var hasNestedSetOperation = operand.Tables.Any(t => t is SetOperationBase);
+            // ValuesExpression with multiple rows generates internal UNION ALL (SELECT @p1 UNION ALL SELECT @p2),
+            // which conflicts with the outer set operation if not parenthesized
+            var hasMultiRowValues = operand.Tables.Any(t => t is ValuesExpression ve && ve.RowValues is { Count: > 1 });
 
-            if (hasNestedSetOperation)
+            if (hasNestedSetOperation || hasMultiRowValues)
             {
                 Sql.AppendLine("(");
                 using (Sql.Indent())
