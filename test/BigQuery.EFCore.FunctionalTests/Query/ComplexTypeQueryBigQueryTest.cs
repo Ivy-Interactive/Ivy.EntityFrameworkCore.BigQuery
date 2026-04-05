@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
 
+#pragma warning disable xUnit1026 // Unused parameters in skipped test overrides
+
 namespace Ivy.EntityFrameworkCore.BigQuery.Query;
 
 public class ComplexTypeQueryBigQueryTest : ComplexTypeQueryRelationalTestBase<ComplexTypeQueryBigQueryTest.ComplexTypeQueryBigQueryFixture>

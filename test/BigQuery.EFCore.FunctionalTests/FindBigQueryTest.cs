@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+#pragma warning disable xUnit1026 // Unused parameters in skipped test overrides
+
 namespace Ivy.EntityFrameworkCore.BigQuery;
 
 public abstract class FindBigQueryTest(FindBigQueryTest.FindBigQueryFixture fixture)
