@@ -1,3 +1,4 @@
+using Ivy.Data.BigQuery;
 using Ivy.EntityFrameworkCore.BigQuery.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
@@ -19,10 +20,56 @@ public class TPTInheritanceBulkUpdatesBigQueryFixture : TPTInheritanceBulkUpdate
     protected override ITestStoreFactory TestStoreFactory
         => BigQueryTestStoreFactory.Instance;
 
-    // BQ doesn't support transactions
+    private bool _needsReseed;
+
+    // BQ doesn't support transactions- reseed data between tests
     public override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
     {
-        // BQ doesn't support transactions
+        if (_needsReseed)
+        {
+            ReseedAnimals(facade);
+        }
+        _needsReseed = true;
+    }
+
+    private void ReseedAnimals(DatabaseFacade facade)
+    {
+        var connection = facade.GetDbConnection() as BigQueryConnection;
+        if (connection == null) return;
+
+        var builder = new BigQueryConnectionStringBuilder(connection.ConnectionString);
+        var dataset = builder.DefaultDatasetId;
+        if (string.IsNullOrEmpty(dataset)) return;
+
+        var wasOpen = connection.State == System.Data.ConnectionState.Open;
+        if (!wasOpen) connection.Open();
+
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandTimeout = 300;
+            // Reset
+            cmd.CommandText = $@"
+                UPDATE `{dataset}`.`Animals` AS a
+                SET `Name` = CASE a.`Id`
+                    WHEN 1 THEN 'Great spotted kiwi'
+                    WHEN 2 THEN 'Bald eagle'
+                    ELSE a.`Name`
+                END
+                WHERE a.`Name` != CASE a.`Id`
+                    WHEN 1 THEN 'Great spotted kiwi'
+                    WHEN 2 THEN 'Bald eagle'
+                    ELSE a.`Name`
+                END";
+            cmd.ExecuteNonQuery();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            if (!wasOpen) connection.Close();
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)

@@ -175,7 +175,7 @@ WHERE ARRAY_LENGTH(`a`.`StringArray`) >= 3
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) = 1
@@ -191,7 +191,7 @@ WHERE (
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE COALESCE((
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1), 0) = 1
@@ -205,7 +205,7 @@ WHERE COALESCE((
         AssertSql(
             """
 SELECT `a`.`Id`, (
-    SELECT `s`
+    SELECT `s` AS `value`
     FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) AS `First`
@@ -222,7 +222,7 @@ FROM `ArrayEntities` AS `a`
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntList`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) = 1
@@ -240,11 +240,11 @@ WHERE (
         AssertSql(
             """
 SELECT `a`.`Id`, ARRAY_LENGTH(`a`.`IntArray`) AS `Length`, (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) AS `First`, `a`.`IntArray`[SAFE_OFFSET(1)] AS `Second`, (
-    SELECT `s`
+    SELECT `s` AS `value`
     FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) AS `StringFirst`
@@ -261,7 +261,7 @@ FROM `ArrayEntities` AS `a`
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE ARRAY_LENGTH(`a`.`IntArray`) > 2 AND (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) < 5
@@ -291,7 +291,7 @@ WHERE `a`.`IntArray`[SAFE_OFFSET(@p)] = 2
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3 AND (
-    SELECT `s`
+    SELECT `s` AS `value`
     FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1) = 'apple'
@@ -323,7 +323,7 @@ ORDER BY ARRAY_LENGTH(`a`.`IntArray`), `a`.`Id`
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 ORDER BY (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
     ORDER BY `offset`
     LIMIT 1), `a`.`Id`
@@ -395,7 +395,7 @@ WHERE ARRAY_LENGTH(`a`.`IntArray`) = 3
 
         AssertSql(
             """
-SELECT `i`
+SELECT `i` AS `value`
 FROM `ArrayEntities` AS `a`
 CROSS JOIN UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 """);
@@ -458,7 +458,7 @@ WHERE `a`.`IntArray` = @arr
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE 1 IN (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 )
 """);
@@ -475,7 +475,7 @@ WHERE 1 IN (
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE @p IN (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 )
 """);
@@ -490,7 +490,7 @@ WHERE @p IN (
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE `a`.`Id` IN (
-    SELECT `i`
+    SELECT `i` AS `value`
     FROM UNNEST(`a`.`IntArray`) AS `i` WITH OFFSET AS `offset`
 )
 """);
@@ -505,7 +505,7 @@ WHERE `a`.`Id` IN (
 SELECT `a`.`Id`, `a`.`BoolArray`, `a`.`ByteArray`, `a`.`ContainerId`, `a`.`DoubleArray`, `a`.`DoubleList`, `a`.`IntArray`, `a`.`IntList`, `a`.`LongArray`, `a`.`Name`, `a`.`Score`, `a`.`StringArray`, `a`.`StringList`
 FROM `ArrayEntities` AS `a`
 WHERE 'apple' IN (
-    SELECT `s`
+    SELECT `s` AS `value`
     FROM UNNEST(`a`.`StringArray`) AS `s` WITH OFFSET AS `offset`
 )
 """);

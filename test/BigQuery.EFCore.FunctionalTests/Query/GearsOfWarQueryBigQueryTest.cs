@@ -162,5 +162,10 @@ FROM `Missions` AS `m`
     public override Task DateTimeOffset_Contains_Less_than_Greater_than(bool async)
         => base.DateTimeOffset_Contains_Less_than_Greater_than(async);
 
+    [ConditionalTheory(Skip = "BigQuery TIME type loses microsecond precision (4562014 → 4562010)")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Non_string_concat_uses_appropriate_type_mapping(bool async)
+        => base.Non_string_concat_uses_appropriate_type_mapping(async);
+
     #endregion
 }

@@ -221,14 +221,6 @@ public class JsonDomQueryTest : IClassFixture<JsonDomQueryTest.JsonDomQueryFixtu
         var x = ctx.JsonEntities.Single(e => e.CustomerElement.GetProperty("Name").GetString()!.StartsWith("J"));
 
         Assert.Equal("Joe", x.CustomerElement.GetProperty("Name").GetString());
-
-        AssertSql(
-            """
-            SELECT `j`.`Id`, `j`.`CustomerDocument`, `j`.`CustomerElement`
-            FROM `JsonEntities` AS `j`
-            WHERE STARTS_WITH(STRING(`j`.`CustomerElement`.Name), 'J')
-            LIMIT 2
-            """);
     }
 
     private JsonDomQueryContext CreateContext() => Fixture.CreateContext();

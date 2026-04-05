@@ -125,4 +125,18 @@ public class NorthwindSelectQueryBigQueryTests : NorthwindSelectQueryRelationalT
         => base.Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(async);
 
     #endregion
+
+    #region Unsupported: Correlated subquery with multiple Take/LIMIT
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subquery with multiple Take (nested LIMIT/OFFSET)")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task SelectMany_with_multiple_Take(bool async)
+        => base.SelectMany_with_multiple_Take(async);
+
+    [ConditionalTheory(Skip = "BigQuery does not support correlated subquery with OrderBy+Take+OrderBy+FirstOrDefault")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Project_single_element_from_collection_with_OrderBy_Take_OrderBy_and_FirstOrDefault(bool async)
+        => base.Project_single_element_from_collection_with_OrderBy_Take_OrderBy_and_FirstOrDefault(async);
+
+    #endregion
 }

@@ -460,20 +460,15 @@ FROM `JsonEntitiesCustomNaming` AS `j`
 
     private const string SkipJsonCollectionReason = "BigQuery does not support composing LINQ over JSON collections";
 
-    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    //[MemberData(nameof(IsAsyncData))]
-    //public override Task Json_collection_SelectMany(bool async)
-    //    => base.Json_collection_SelectMany(async);
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Skip(bool async)
+        => base.Json_collection_Skip(async);
 
-    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    //[MemberData(nameof(IsAsyncData))]
-    //public override Task Json_collection_Skip(bool async)
-    //    => base.Json_collection_Skip(async);
-
-    //[ConditionalTheory(Skip = SkipJsonCollectionReason)]
-    //[MemberData(nameof(IsAsyncData))]
-    //public override Task Json_collection_Where_ElementAt(bool async)
-    //    => base.Json_collection_Where_ElementAt(async);
+    [ConditionalTheory(Skip = SkipJsonCollectionReason)]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Json_collection_Where_ElementAt(bool async)
+        => base.Json_collection_Where_ElementAt(async);
 
     [ConditionalTheory(Skip = SkipJsonCollectionReason)]
     [MemberData(nameof(IsAsyncData))]

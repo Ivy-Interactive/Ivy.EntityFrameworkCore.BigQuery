@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit.Abstractions;
@@ -21,7 +22,29 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     protected override void ClearLog()
         => Fixture.TestSqlLoggerFactory.Clear();
 
-    #region Unsupported: Non-deterministic ordering without ORDER BY
+    #region BigQuery string collation differs from .NET culture-sensitive ordering
+
+    // TODO: Setting a default collation of 'und:cs' on the model/provider would make BigQuery use
+    // Unicode CLDR sorting (accented chars near base chars), matching .NET's culture-sensitive ordering.
+
+    // BigQuery sorts strings by Unicode code points (ordinal), while .NET in-memory LINQ uses
+    // culture-sensitive comparison (Comparer<string>.Default). Northwind has 14 accented ContactNames
+    // (e.g. "Frédérique", "José", "Lúcia") that sort differently, causing Skip/Take to select
+    // different subsets.
+
+    [ConditionalTheory(Skip = "BigQuery string ordering differs from .NET culture-sensitive comparison")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_with_take(bool async)
+        => base.Include_with_take(async);
+
+    [ConditionalTheory(Skip = "BigQuery string ordering differs from .NET culture-sensitive comparison")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_with_skip(bool async)
+        => base.Include_with_skip(async);
+
+    #endregion
+
+    #region Non-deterministic ordering (ORDER BY on constant or missing)
 
     [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
     [MemberData(nameof(IsAsyncData))]
@@ -38,22 +61,12 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
     public override Task Include_collection_skip_take_no_order_by(bool async)
         => base.Include_collection_skip_take_no_order_by(async);
 
-    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Include_with_take(bool async)
-        => base.Include_with_take(async);
-
-    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
-    [MemberData(nameof(IsAsyncData))]
-    public override Task Include_with_skip(bool async)
-        => base.Include_with_skip(async);
-
-    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [ConditionalTheory(Skip = "ORDER BY on empty list.Contains() is constant - non-deterministic with Skip")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_empty_list_contains(bool async)
         => base.Include_collection_OrderBy_empty_list_contains(async);
 
-    [ConditionalTheory(Skip = "BigQuery does not guarantee row order without ORDER BY")]
+    [ConditionalTheory(Skip = "ORDER BY on empty list.Contains() is constant - non-deterministic with Skip")]
     [MemberData(nameof(IsAsyncData))]
     public override Task Include_collection_OrderBy_empty_list_does_not_contains(bool async)
         => base.Include_collection_OrderBy_empty_list_does_not_contains(async);
@@ -79,7 +92,7 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
 
     #endregion
 
-    #region Unsupported: Boolean expression alias conflicts with column names
+    #region Boolean expression alias conflicts in ORDER BY
 
     // BigQuery SQL generation creates boolean expressions with aliases that conflict
     // with existing column names, causing "Cannot access field X on a value with type BOOL"
@@ -106,8 +119,16 @@ public class NorthwindIncludeQueryBigQueryTest : NorthwindIncludeQueryRelational
 
     #endregion
 
+    #region Last() - Include adds orderings that satisfy Last()'s ordering requirement
 
-    #region Result count differences
+    [ConditionalTheory(Skip = "Include adds implicit orderings that satisfy Last()'s ordering check")]
+    [MemberData(nameof(IsAsyncData))]
+    public override Task Include_collection_with_last_no_orderby(bool async)
+        => base.Include_collection_with_last_no_orderby(async);
+
+    #endregion
+
+    #region Filtered include produces different result count
 
     [ConditionalTheory(Skip = "BigQuery filtered include produces different row count")]
     [MemberData(nameof(IsAsyncData))]
