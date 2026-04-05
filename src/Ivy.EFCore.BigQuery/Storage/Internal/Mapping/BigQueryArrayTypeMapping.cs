@@ -33,7 +33,7 @@ namespace Ivy.EntityFrameworkCore.BigQuery.Storage.Internal.Mapping
     /// Type mapping for BigQuery arrays.
     /// </summary>
     public class BigQueryArrayTypeMapping<TCollection, TConcreteCollection, TElement> : BigQueryArrayTypeMapping
-        where TConcreteCollection : class, IEnumerable<TElement>
+        where TConcreteCollection : IEnumerable<TElement>
     {
         public static BigQueryArrayTypeMapping<TCollection, TConcreteCollection, TElement> Default { get; }
             = new();
