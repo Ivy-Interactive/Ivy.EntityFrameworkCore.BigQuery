@@ -146,7 +146,6 @@ namespace Ivy.Data.BigQuery
             }
 
             var client = GetClientAndCheckState();
-            LogCommand();
             var queryOptions = CreateQueryOptions();
             var bqParameters = Parameters.ToBigQueryParameters(CommandText);
 
@@ -229,7 +228,6 @@ namespace Ivy.Data.BigQuery
             cancellationToken.ThrowIfCancellationRequested();
 
             var client = GetClientAndCheckState();
-            LogCommand();
             var queryOptions = CreateQueryOptions();
             var bqParameters = Parameters.ToBigQueryParameters(CommandText);
 
@@ -410,25 +408,6 @@ namespace Ivy.Data.BigQuery
             }
 
             return options;
-        }
-
-        [Conditional("DEBUG")]
-        private void LogCommand()
-        {
-            Debug.WriteLine("--- Executing BigQuery Command ---");
-            Debug.WriteLine($"CommandText: {CommandText}");
-            if (Parameters.Count > 0)
-            {
-                Debug.WriteLine("Parameters:");
-                foreach (BigQueryParameter p in Parameters)
-                {
-                    string? valueStr = p.Value == null ? "NULL" : p.Value == DBNull.Value ? "DBNull" : p.Value.ToString();
-                    string typeStr = p.BigQueryDbType.HasValue ? p.BigQueryDbType.Value.ToString() : p.DbType.ToString() ?? "Unknown";
-                    Debug.WriteLine($"  {p.ParameterName} ({typeStr}) = {valueStr}");
-                }
-            }
-
-            Debug.WriteLine("----------------------------------");
         }
 
         protected override void Dispose(bool disposing)
