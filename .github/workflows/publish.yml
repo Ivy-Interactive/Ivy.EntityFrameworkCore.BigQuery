@@ -51,5 +51,16 @@ jobs:
       - name: List packages
         run: ls -la ./artifacts/
 
+      - name: Sign NuGet packages
+        uses: sslcom/esigner-codesign@develop
+        with:
+          command: batch_sign
+          username: ${{ secrets.SSL_COM_USERNAME }}
+          password: ${{ secrets.SSL_COM_PASSWORD }}
+          credential_id: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.SSL_COM_TOTP_SECRET }}
+          dir_path: ./artifacts
+          output_path: ./artifacts
+
       - name: Publish to NuGet
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_TOKEN }} --source ${{ env.NUGET_SOURCE }} --skip-duplicate
